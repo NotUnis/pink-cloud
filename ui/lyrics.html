@@ -26,6 +26,11 @@
   .ch.now { color: var(--lyric-now); text-shadow: 0 0 10px color-mix(in srgb, var(--g2) 95%, transparent); animation: wave 2.2s ease-in-out infinite, hop .35s var(--spring); animation-delay: calc(var(--k) * -70ms), 0s; }
   @keyframes hop { 40% { scale: 1.25; } }
   .line.old .ch { color: inherit; }
+  .status { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 8px 16px; border-radius: 18px; font-size: 13px; font-weight: 600;
+    color: var(--text); background: color-mix(in srgb, var(--g1-soft) 50%, rgba(255, 255, 255, .85)); box-shadow: 0 8px 22px color-mix(in srgb, var(--shade) 30%, transparent);
+    animation: statusIn 3.6s var(--smooth) forwards; }
+  :root[data-theme="dark"] .status { background: color-mix(in srgb, var(--g1-soft) 50%, rgba(20, 14, 30, .9)); }
+  @keyframes statusIn { 0% { opacity: 0; transform: translate(-50%, 12px); } 10%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
   /* each line arrives with its own little twist */
   @keyframes popLine {
     0% { opacity: 0; transform: rotate(var(--r)) scale(.4) translateY(30px); filter: blur(14px); }
@@ -93,12 +98,13 @@
     .replace(/\s+-\s+.*$/, "")
     .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   let wantTitle = "", wantArtist = "";
+  let skipIds = new Set();                // versions you marked as wrong for this song
   function pick(results, duration, want) {
     // the title has to match (a loose search also returns other songs of the same length)
     // (the database also has junk test entries with a single line; skip anything that short)
     const enough = text => (text || "").split(/\r?\n/).filter(l => l.replace(/\[[^\]]*\]/g, "").trim()).length >= 5;
     const usable = (results || []).filter(r => {
-      if (!r || !(enough(r.syncedLyrics) || enough(r.plainLyrics))) return false;
+      if (!r || skipIds.has(r.id) || !(enough(r.syncedLyrics) || enough(r.plainLyrics))) return false;
       if (!enough(r.syncedLyrics)) r.syncedLyrics = null;
       if (r._exact) return true;            // the direct lookup by title, artist and length
       const t = norm(r.trackName);
@@ -111,7 +117,9 @@
     const score = r => {
       let s = duration && r.duration ? Math.abs(r.duration - duration) : 5;
       if (wantArtist && norm(r.artistName).includes(wantArtist)) s -= 3;
-      if (duration && r.duration && s > 15) s += 1000;
+      // Without an artist name (some players only give the title) the length is the only
+      // way to tell songs with the same title apart, so it has to match closely.
+      if (duration && r.duration && s > (wantArtist ? 15 : 3)) s += 1000;
       if (want !== "latin" && scriptOf(r.syncedLyrics || r.plainLyrics) !== want) s += 500;
       if (!r.syncedLyrics) s += 200;
       return s;
@@ -127,6 +135,7 @@
     const bare = title.replace(/\s*[\(\[]?\s*(feat\.?|ft\.?|with)\s.*$/i, "").trim();
     wantTitle = norm(bare);
     wantArtist = norm(artist);
+    skipIds = new Set((store.get("pc-lyrics-skip", {})[s.title + "|" + s.artist]) || []);
     const dur = s.duration ? Math.round(s.duration / 1000) : 0;
     const want = scriptOf(s.title + " " + s.artist);
     const q = encodeURIComponent;
@@ -182,6 +191,22 @@
     return out.sort((a, b) => a.t - b.t);
   }
 
+  // What the lyrics are doing, for the player's menu: searching, synced, plain, none or busy.
+  function setStatus(k, state, hit) {
+    store.set("pc-lyrics-status", { key: k, state, id: hit ? hit.id : null, name: hit ? `${hit.artistName} - ${hit.trackName}` : "" });
+    if ((state === "none" || state === "busy") && enabled && song && song.playing) note(state === "none" ? "No lyrics found for this song" : "The lyrics service is busy, trying again soon…");
+  }
+
+  // a small message near the bottom of the screen
+  let noteEl = null;
+  function note(text) {
+    noteEl?.remove();
+    noteEl = Object.assign(document.createElement("div"), { className: "status", textContent: text });
+    document.body.appendChild(noteEl);
+    const el = noteEl;
+    setTimeout(() => el.remove(), 3600);
+  }
+
   let retry = null;
   async function load(s, again) {
     const k = s.title + "|" + s.artist;
@@ -190,17 +215,26 @@
     key = k; lines = []; shownIdx = -2; clearLines();
     let hit = cache.get(k);
     if (hit === undefined) {
+      setStatus(k, "searching");
       try { hit = await find(s); cache.set(k, hit); }
       catch {
         // no internet or the lyrics service is busy: try again in a bit
-        if (key === k) retry = setTimeout(() => song && load(song, true), 20000);
+        if (key === k) { setStatus(k, "busy"); retry = setTimeout(() => song && load(song, true), 20000); }
         return;
       }
     }
     if (key !== k) return;               // the song changed while we were looking
     lines = !hit ? [] : hit.syncedLyrics ? parse(hit.syncedLyrics) : spread(hit.plainLyrics, s.duration);
+    setStatus(k, !hit ? "none" : hit.syncedLyrics ? "synced" : "plain", hit);
     update();
   }
+
+  // "Wrong lyrics? Try another version" in the player's menu: look again without that version
+  addEventListener("storage", e => {
+    if (e.key !== "pc-lyrics-retry" || !song) return;
+    cache.delete(song.title + "|" + song.artist);
+    load(song, true);
+  });
 
   // ---------- following the song ----------
   // Apps report the position now and then; count on from there while it plays.

@@ -212,6 +212,29 @@
   bell.onclick = () => { unseen = 0; showBadge(); invoke("toggle_popup", { name: "notes" }); };
   addEventListener("storage", e => { if (e.key === "pc-dnd") showBadge(); });
 
+  // ---------- updates: is there a newer Pink Cloud on GitHub? ----------
+  // Shortly after starting, then every 6 hours. "Later" hides that version's pop-up.
+  const newer = (a, b) => {
+    const x = a.split(".").map(Number), y = b.split(".").map(Number);
+    for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+    return false;
+  };
+  async function checkUpdate() {
+    try {
+      const [mine, latest] = await Promise.all([
+        invoke("app_version"),
+        fetch("https://raw.githubusercontent.com/NotUnis/pink-cloud/main/version.json?t=" + Date.now()).then(r => r.json()),
+      ]);
+      store.set("pc-update", newer(latest.version, mine) ? latest : null);
+      if (newer(latest.version, mine) && store.get("pc-update-later", "") !== latest.version) {
+        invoke("announce_update", { version: latest.version, notes: latest.notes || "" });
+      }
+    } catch {}
+  }
+  setTimeout(checkUpdate, 20000);
+  setInterval(checkUpdate, 6 * 3600 * 1000);
+  addEventListener("storage", e => { if (e.key === "pc-update-check") checkUpdate(); });
+
   // the opt-in "hide Windows' own pop-ups" keeps working for apps that notify after a restart
   if (store.get("pc-hide-banners", false)) invoke("set_hide_banners", { on: true });
 
@@ -560,6 +583,27 @@
     popupMenu([
       { text: lyricsOn ? "Hide lyrics" : "Show lyrics", icon: "ph-microphone-stage", action: () => store.set("pc-lyrics", !lyricsOn) },
       lyricsOn ? null : undefined,
+      // what the lyrics are doing for this song, and a way out of a wrong match
+      ...(lyricsOn ? (() => {
+        const st = store.get("pc-lyrics-status", {});
+        const k = lastNP ? lastNP.title + "|" + lastNP.artist : "";
+        if (st.key !== k) return [];
+        const say = { searching: "Looking for lyrics…", synced: "Lyrics: " + st.name, plain: "Lyrics (not timed): " + st.name, none: "No lyrics found for this song", busy: "Lyrics service busy, retrying soon" }[st.state];
+        const items = say ? [{ text: say, icon: st.state === "none" || st.state === "busy" ? "ph-info" : "ph-check-circle", action: () => {} }] : [];
+        if (st.id) items.push({ text: "Wrong lyrics? Try another version", icon: "ph-shuffle", action: () => {
+          const skip = store.get("pc-lyrics-skip", {});
+          skip[k] = [...(skip[k] || []), st.id];
+          store.set("pc-lyrics-skip", skip);
+          store.set("pc-lyrics-retry", Date.now());
+        } });
+        if (st.state === "none" && (store.get("pc-lyrics-skip", {})[k] || []).length) items.push({ text: "Go back to the first version", icon: "ph-arrow-counter-clockwise", action: () => {
+          const skip = store.get("pc-lyrics-skip", {});
+          delete skip[k];
+          store.set("pc-lyrics-skip", skip);
+          store.set("pc-lyrics-retry", Date.now());
+        } });
+        return items;
+      })() : []),
       lyricsOn ? { text: "Lyrics 0.5 s earlier" + label, icon: "ph-rewind", action: () => nudge(500) } : undefined,
       lyricsOn ? { text: "Lyrics 0.5 s later" + label, icon: "ph-fast-forward", action: () => nudge(-500) } : undefined,
       lyricsOn && off ? { text: "Reset lyrics timing", icon: "ph-arrow-counter-clockwise", action: () => store.set("pc-lyrics-offset", 0) } : undefined,
@@ -615,8 +659,9 @@
     const W = vis.width, H = vis.height, dpr = devicePixelRatio;
     ctx.clearRect(0, 0, W, H);
     const dark = document.documentElement.dataset.theme === "dark";
-    const maxH = mode === "big" ? H * .92 : 54 * dpr;
-    const alpha = mode === "big" ? .6 : .38;
+    // huge: almost the whole room above the taskbar; big: the size it always had; subtle: inside the bar
+    const maxH = mode === "huge" ? H * .95 : mode === "big" ? 162 * dpr : 54 * dpr;
+    const alpha = mode === "huge" ? .62 : mode === "big" ? .6 : .38;
 
     const n = BANDS * 2, slot = W / n, bw = Math.max(2, slot * .62);
     const grad = ctx.createLinearGradient(0, H, 0, H - maxH);
@@ -646,7 +691,7 @@
       ctx.restore();
     }
     // wavy line over the bar tops
-    if (mode === "big") {
+    if (mode === "big" || mode === "huge") {
       ctx.save();
       ctx.globalAlpha = alpha * .8;
       ctx.strokeStyle = dark ? "rgba(255,230,240,.8)" : "rgba(255,255,255,.95)";

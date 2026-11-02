@@ -36,6 +36,15 @@
     opacity: 0; transition: opacity .15s, background .15s; background: var(--hi); }
   .toast:hover .x { opacity: 1; }
   .x:hover { background: var(--g3); color: #fff; }
+  /* the update pop-up stays until you choose, and has buttons */
+  .toast.update { cursor: default; border: 1px solid color-mix(in srgb, var(--g2) 60%, transparent); }
+  .toast.update .icon { border-radius: 12px; }
+  .acts { display: flex; gap: 8px; margin-top: 10px; }
+  .acts button { height: 32px; padding: 0 14px; border-radius: 16px; font: inherit; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--hi); color: var(--text);
+    transition: transform .2s var(--spring), filter .15s; }
+  .acts button:hover { transform: scale(1.05); }
+  .acts .go { background: linear-gradient(120deg, var(--g1), var(--g2)); border: 0; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .acts .go:disabled { filter: saturate(.5); cursor: progress; }
 </style>
 </head>
 <body>
@@ -89,6 +98,34 @@
     setTimeout(reportHits, 650);
     reportHits();
   }
+
+  // ---------- a newer Pink Cloud is out ----------
+  listen("update-available", ({ payload: u }) => {
+    if (document.querySelector(".toast.update")) return;
+    const t = document.createElement("div");
+    t.className = "toast update";
+    t.innerHTML = `<img class="icon" alt=""><div class="txt"><div class="app">Pink Cloud</div><div class="title"></div><div class="body"></div>
+      <div class="acts"><button class="go">Update now</button><button class="later">Later</button></div></div>`;
+    t.querySelector(".title").textContent = `Pink Cloud ${u.version} is here ✨`;
+    t.querySelector(".body").textContent = u.notes || "A new version with fixes and new things.";
+    invoke("app_exe").then(iconFor).then(src => { if (src) t.querySelector(".icon").src = src; });
+    t.querySelector(".later").onclick = e => { e.stopPropagation(); store.set("pc-update-later", u.version); dismiss(t); };
+    t.querySelector(".go").onclick = async e => {
+      e.stopPropagation();
+      const b = t.querySelector(".go");
+      b.disabled = true; b.textContent = "Downloading…";
+      t.querySelector(".later").remove();
+      try {
+        await invoke("install_update");   // Pink Cloud closes, installs and comes back
+      } catch (err) {
+        b.disabled = false; b.textContent = "Try again";
+        t.querySelector(".body").textContent = String(err);
+      }
+    };
+    stack.appendChild(t);
+    setTimeout(reportHits, 650);
+    reportHits();
+  });
 
   listen("notes-new", ({ payload }) => {
     // pop-ups can be switched off, or held back by Do not disturb (they still go to the panel)

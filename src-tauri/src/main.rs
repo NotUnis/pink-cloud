@@ -21,7 +21,7 @@ const BAR_HEIGHT: f64 = 56.0;
 const GAP: f64 = 10.0;
 /// Extra see-through room above the taskbar where the music visualizer can rise into.
 /// Clicks there go straight through to whatever is underneath.
-const VIS_HEIGHT: f64 = 120.0;
+const VIS_HEIGHT: f64 = 340.0;
 const POPUPS: [&str; 5] = ["start", "quick", "calendar", "tray", "notes"];
 
 #[derive(Default)]
@@ -482,6 +482,52 @@ fn idle_watcher(app: AppHandle) {
     }
 }
 
+// ---------- updates ----------
+
+/// A newer version is on GitHub: tell the pop-ups and Settings.
+#[tauri::command]
+fn announce_update(app: AppHandle, version: String, notes: String) {
+    let _ = app.emit_to("toast", "update-available", serde_json::json!({ "version": version, "notes": notes }));
+}
+
+/// Downloads the new installer, then (once Pink Cloud has closed) installs it quietly and
+/// starts Pink Cloud again. Only ever downloads from Pink Cloud's own GitHub page.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const URL: &str = "https://github.com/NotUnis/pink-cloud/raw/main/download/Pink-Cloud-Setup.exe";
+    let temp = std::env::temp_dir();
+    let setup = temp.join("PinkCloud-Update.exe");
+    let ok = std::process::Command::new("curl.exe")
+        .args(["-L", "--fail", "-s", "-o"])
+        .arg(&setup)
+        .arg(URL)
+        .creation_flags(0x0800_0000)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !ok || std::fs::metadata(&setup).map(|m| m.len() < 1_000_000).unwrap_or(true) {
+        return Err("Couldn't download the update. Check your internet and try again.".into());
+    }
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let script = temp.join("PinkCloud-Update.cmd");
+    let body = format!(
+        "@echo off\r\n:wait\r\ntasklist /FI \"IMAGENAME eq pink-cloud.exe\" | find /I \"pink-cloud.exe\" >nul && (timeout /t 1 /nobreak >nul & goto wait)\r\ntimeout /t 1 /nobreak >nul\r\n\"{}\" /S\r\nstart \"\" \"{}\"\r\n",
+        setup.display(),
+        exe.display()
+    );
+    std::fs::write(&script, body).map_err(|e| e.to_string())?;
+    std::process::Command::new("cmd")
+        .arg("/c")
+        .arg(&script)
+        .creation_flags(0x0800_0000 | 0x0000_0008) // no window, detached
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    cleanup(&app);
+    app.exit(0);
+    Ok(())
+}
+
 #[tauri::command]
 async fn sys_usage() -> shell::Usage {
     shell::usage()
@@ -787,10 +833,21 @@ fn app_exe() -> String {
     std::env::current_exe().map(|p| p.to_string_lossy().to_lowercase()).unwrap_or_default()
 }
 
+/// A Pink Cloud window, built again from its settings if it was ever closed for good.
+fn window_or_rebuild(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
+    if let Some(w) = app.get_webview_window(label) {
+        return Some(w);
+    }
+    let conf = app.config().app.windows.iter().find(|w| w.label == label)?.clone();
+    let w = tauri::WebviewWindowBuilder::from_config(app, &conf).ok()?.build().ok()?;
+    shell::round_corners(hwnd(&w));
+    Some(w)
+}
+
 /// Brings up Pink Cloud Files, optionally at a folder.
 #[tauri::command]
 fn open_files(app: AppHandle, path: Option<String>) {
-    let Some(win) = app.get_webview_window("files") else { return };
+    let Some(win) = window_or_rebuild(&app, "files") else { return };
     if win.is_minimized().unwrap_or(false) {
         let _ = win.unminimize();
     }
@@ -802,7 +859,7 @@ fn open_files(app: AppHandle, path: Option<String>) {
 /// Brings up Pink Cloud Settings, optionally on a page.
 #[tauri::command]
 fn open_settings(app: AppHandle, page: Option<String>) {
-    let Some(win) = app.get_webview_window("settings") else { return };
+    let Some(win) = window_or_rebuild(&app, "settings") else { return };
     if win.is_minimized().unwrap_or(false) {
         let _ = win.unminimize();
     }
@@ -1058,6 +1115,8 @@ fn main() {
             hide_idle,
             set_idle_minutes,
             sys_usage,
+            announce_update,
+            install_update,
             tray_icons,
             tray_click,
             tray_enabled,
@@ -1176,6 +1235,14 @@ fn main() {
                 shell::no_activate(hwnd(&ly));
             }
             Ok(())
+        })
+        // Closing a Pink Cloud window the Windows way (Alt+F4, "Close window" on the taskbar)
+        // only hides it, so it can always be opened again. Quitting Pink Cloud still works.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .build(tauri::generate_context!())
         .expect("Pink Cloud failed to start")

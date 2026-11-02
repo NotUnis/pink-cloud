@@ -160,7 +160,7 @@
   const PAGES = [
     ["home", "Home", "ph-house-line"],
     ["look", "Look and feel", "ph-paint-brush"],
-    ["taskbar", "Taskbar", "ph-dock"],
+    ["taskbar", "Taskbar", "ph-app-window"],
     ["widgets", "Widgets", "ph-squares-four"],
     ["notifications", "Notifications", "ph-bell"],
     ["idle", "Idle screen", "ph-cloud-moon"],
@@ -310,7 +310,7 @@
       m.append(row("ph-circle-half", "Light or dark", "Follow Windows, or always light or dark (Cosmos is always dark)",
         choice([["auto", "Follow Windows"], ["light", "Light"], ["dark", "Dark"]], prefs.theme(), setTheme)));
       m.append(row("ph-waveform", "Music visualizer", "Bars behind the taskbar that move with what's playing",
-        choice([["big", "Big"], ["subtle", "Subtle"], ["off", "Off"]], prefs.vis(), v => store.set("pc-vis", v))));
+        choice([["huge", "Huge"], ["big", "Big"], ["subtle", "Subtle"], ["off", "Off"]], prefs.vis(), v => store.set("pc-vis", v))));
       m.append(row("ph-microphone-stage", "Lyrics", "Synced lyrics on screen while a song plays",
         toggle(prefs.lyrics(), on => store.set("pc-lyrics", on))));
       m.append(row("ph-arrows-out-cardinal", "Lyrics position", "Where the lines pop up",
@@ -518,6 +518,23 @@
       }
       add("Pink Cloud", "version " + v);
       m.append(grid);
+
+      // updates come from Pink Cloud's GitHub page
+      m.append(h("h2", "", "Updates"));
+      const upd = store.get("pc-update", null);
+      if (upd) {
+        const go = h("button", "btn primary", "Update now");
+        go.onclick = async () => {
+          go.disabled = true; go.textContent = "Downloading…";
+          try { await invoke("install_update"); } catch (e) { go.disabled = false; go.textContent = "Try again"; alert(String(e)); }
+        };
+        m.append(row("ph-sparkle", `Pink Cloud ${upd.version} is out`, (upd.notes || "") + " Pink Cloud closes, updates and opens again by itself.", go));
+      } else {
+        const check = h("button", "btn", "Check now");
+        check.onclick = () => { check.textContent = "Checking…"; store.set("pc-update-check", Date.now()); setTimeout(() => show("about"), 4000); };
+        m.append(row("ph-check-circle", "You're up to date", "Pink Cloud checks for new versions by itself every few hours", check));
+      }
+      m.append(linkRow("ph-github-logo", "Pink Cloud on GitHub", "github.com/NotUnis/pink-cloud", () => invoke("launch", { path: "https://github.com/NotUnis/pink-cloud" })));
       m.append(h("h2", "", "Pink Cloud"));
       const quit = h("button", "btn danger", "Close Pink Cloud");
       quit.onclick = () => invoke("quit");
@@ -575,7 +592,7 @@
   closeBtn.onclick = () => closeAppWindow(win, appWindow);
   appWindow.onResized(async () => { maxBtn.innerHTML = `<i class="ph ${(await appWindow.isMaximized()) ? "ph-copy-simple" : "ph-square"}"></i>`; });
   listen("settings-open", ({ payload }) => { openAppWindow(win); if (payload) show(payload); });
-  addEventListener("storage", e => { if (["pc-theme", "pc-vis", "pc-lyrics", "pc-np", "pc-pins"].includes(e.key) && !q.value) show(page); });
+  addEventListener("storage", e => { if (["pc-theme", "pc-vis", "pc-lyrics", "pc-np", "pc-pins", "pc-update"].includes(e.key) && !q.value) show(page); });
 
   iconFor("C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe").then(u => { if (u) appIcon.src = u; });
   invoke("user_name").then(n => { uname.textContent = n; avatar.textContent = (n[0] || "?").toUpperCase(); });

@@ -59,7 +59,7 @@
     <div class="qt" id="dark"><div class="ctl"><i class="ph ph-moon-stars"></i></div><span id="darkLbl">Dark mode</span></div>
     <div class="qt" id="lyricsTile" title="Synced lyrics on screen"><div class="ctl"><i class="ph ph-microphone-stage"></i></div><span>Lyrics</span></div>
     <div class="qt" id="npTile" title="Now Playing on the taskbar"><div class="ctl"><i class="ph ph-music-notes"></i></div><span>Player</span></div>
-    <div class="qt" id="visTile" title="Music visualizer: click to switch between big, subtle and off"><div class="ctl"><i class="ph ph-waveform" id="visIc"></i></div><span id="visLbl">Visualizer</span></div>
+    <div class="qt" id="visTile" title="Music visualizer: click to switch between big, huge, subtle and off"><div class="ctl"><i class="ph ph-waveform" id="visIc"></i></div><span id="visLbl">Visualizer</span></div>
   </div>
   <div class="srow stagger"><i class="ph ph-speaker-high" id="volIc"></i><div class="range" id="vol"><div class="fill"></div><div class="knob"></div></div><span class="val" id="volVal"></span></div>
   <div class="dots" id="dots" title="Color theme"></div>
@@ -103,8 +103,8 @@
   showMusicTiles();
 
   // music visualizer: big -> subtle -> off
-  const VIS_NEXT = { big: "subtle", subtle: "off", off: "big" };
-  const VIS_LABEL = { big: "Visualizer: big", subtle: "Visualizer: subtle", off: "Visualizer: off" };
+  const VIS_NEXT = { big: "huge", huge: "subtle", subtle: "off", off: "big" };
+  const VIS_LABEL = { huge: "Visualizer: huge", big: "Visualizer: big", subtle: "Visualizer: subtle", off: "Visualizer: off" };
   function showVis() {
     const m = store.get("pc-vis", "big");
     visTile.classList.toggle("on", m !== "off");
