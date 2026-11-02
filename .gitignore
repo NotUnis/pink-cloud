@@ -1,0 +1,9 @@
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+# local build setting (points at a folder on this PC)
+src-tauri/.cargo/
+# design mockups and the local dev launcher, not part of the app
+glass-desktop.html
+pink-cloud-mockup.html
+Start Pink Cloud.cmd

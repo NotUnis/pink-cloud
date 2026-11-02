@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Notification Panel</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .popup { --ox: 86%; --oy: 105%; display: flex; flex-direction: column; padding: 16px 14px 12px; }
+  .head { display: flex; align-items: center; gap: 8px; padding: 0 4px 12px; }
+  .head h3 { flex: 1; font-size: 16px; font-weight: 600; }
+  .head .ctl { padding: 5px 10px; font-size: 12px; background: var(--hi); border: 1px solid var(--border); }
+  .dnd { display: flex; align-items: center; gap: 6px; }
+  .dnd.on { background: var(--ice-strong) !important; color: var(--on-ice); border-color: var(--ice-strong) !important; }
+  .list { flex: 1; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+  .list::-webkit-scrollbar { width: 6px; }
+  .list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .app { display: flex; align-items: center; gap: 8px; margin: 10px 4px 6px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+  .app img { width: 18px; height: 18px; }
+  .note { position: relative; display: flex; gap: 10px; padding: 11px 12px; margin-bottom: 6px; border-radius: 14px; cursor: pointer;
+    background: var(--hi); border: 1px solid var(--border); transition: transform .3s var(--spring), background .15s; }
+  .note:hover { transform: translateX(-3px); background: var(--panel-hover); }
+  .note .t { flex: 1; min-width: 0; }
+  .note b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 22px; }
+  .note p { color: var(--text-2); font-size: 12px; margin-top: 2px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+  .note small { position: absolute; top: 11px; right: 12px; font-size: 11px; color: var(--text-2); transition: opacity .15s; }
+  .note .x { position: absolute; top: 7px; right: 8px; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; opacity: 0; transition: opacity .15s, background .15s; }
+  .note:hover .x { opacity: 1; }
+  .note:hover small { opacity: 0; }
+  .note .x:hover { background: var(--g3); color: #fff; }
+  .note .pic { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+  .note.gone { animation: swipe .35s var(--ease) forwards; }
+  @keyframes swipe { to { opacity: 0; transform: translateX(80px); height: 0; padding: 0; margin: 0; } }
+  .empty { flex: 1; display: grid; place-items: center; text-align: center; color: var(--text-2); }
+  .empty i { font-size: 56px; display: block; margin-bottom: 8px; color: var(--pink-deep); animation: float 3s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-8px); } }
+</style>
+</head>
+<body>
+<div class="popup">
+  <div class="head">
+    <h3>Notifications</h3>
+    <div class="ctl dnd" id="dnd" title="Do not disturb: no pop-ups, notifications still land here"><i class="ph ph-moon"></i><span>Quiet</span></div>
+    <div class="ctl" id="clear" title="Clear all"><i class="ph ph-broom"></i></div>
+  </div>
+  <div class="list stagger" id="list"></div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  const names = new Map();
+  const nameOf = app => { if (!names.has(app)) names.set(app, invoke("app_name", { app }).catch(() => app)); return names.get(app); };
+  const appPath = app => "shell:AppsFolder\\" + app;
+  let notes = [];
+
+  // what you've dismissed here is only hidden in Pink Cloud (Windows keeps its own list)
+  const dismissed = () => new Set(store.get("pc-notes-dismissed", []));
+  const clearedAt = () => store.get("pc-notes-cleared", 0);
+  function dismiss(ids) {
+    const d = [...dismissed(), ...ids].slice(-500);
+    store.set("pc-notes-dismissed", d);
+  }
+
+  function ago(ms) {
+    const m = Math.round((Date.now() - ms) / 60000);
+    if (m < 1) return "now";
+    if (m < 60) return m + " min";
+    if (m < 1440) return Math.round(m / 60) + " h";
+    return Math.round(m / 1440) + " d";
+  }
+
+  function render() {
+    const d = dismissed(), since = clearedAt();
+    const shown = notes.filter(n => !d.has(n.id) && n.time > since);
+    list.innerHTML = "";
+    if (!shown.length) {
+      list.innerHTML = `<div class="empty"><div><i class="ph-fill ph-cloud"></i>You're all caught up</div></div>`;
+      list.style.display = "grid";
+      return;
+    }
+    list.style.display = "";
+    // grouped by app, newest app first
+    const groups = new Map();
+    shown.forEach(n => { if (!groups.has(n.app)) groups.set(n.app, []); groups.get(n.app).push(n); });
+    for (const [app, items] of groups) {
+      const head = Object.assign(document.createElement("div"), { className: "app" });
+      head.innerHTML = `<img alt=""><span></span>`;
+      nameOf(app).then(n => head.querySelector("span").textContent = n);
+      iconFor(appPath(app)).then(u => { if (u) head.querySelector("img").src = u; });
+      list.appendChild(head);
+      items.forEach(n => {
+        const el = Object.assign(document.createElement("div"), { className: "note" });
+        el.innerHTML = `<div class="t"><b></b><p></p></div><small></small><div class="x" title="Dismiss"><i class="ph ph-x"></i></div>`;
+        el.querySelector("b").textContent = n.title;
+        el.querySelector("p").textContent = n.body;
+        el.querySelector("small").textContent = ago(n.time);
+        if (n.image) el.insertBefore(Object.assign(document.createElement("img"), { className: "pic", alt: "", src: window.__TAURI__.core.convertFileSrc(n.image) }), el.querySelector(".t"));
+        el.onclick = () => { invoke("launch", { path: appPath(app) }); invoke("popup_blurred", { name: "notes" }); };
+        el.querySelector(".x").onclick = e => { e.stopPropagation(); dismiss([n.id]); el.classList.add("gone"); setTimeout(render, 360); };
+        list.appendChild(el);
+      });
+    }
+    stagger(document);
+  }
+
+  async function load() {
+    notes = await invoke("notes_recent").catch(() => []);
+    render();
+  }
+  clear.onclick = () => {
+    list.querySelectorAll(".note").forEach((el, i) => setTimeout(() => el.classList.add("gone"), i * 40));
+    setTimeout(() => { store.set("pc-notes-cleared", Date.now()); store.set("pc-notes-dismissed", []); render(); }, 400);
+  };
+  const showDnd = () => dnd.classList.toggle("on", store.get("pc-dnd", false));
+  dnd.onclick = () => { store.set("pc-dnd", !store.get("pc-dnd", false)); showDnd(); };
+  showDnd();
+
+  listen("notes-new", ({ payload }) => { notes = [...payload.reverse(), ...notes]; render(); });
+  setupPopup("notes", () => { showDnd(); load(); store.set("pc-notes-seen", Date.now()); });
+  load();
+</script>
+</body>
+</html>

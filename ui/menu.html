@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Menu</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .popup { --ox: 8%; --oy: 0%; padding: 6px; border-radius: 12px; }
+  .popup.up { --oy: 100%; }
+  .popup.open { animation-duration: .35s; }
+  .item { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 12px; font-size: 13px; border-radius: 8px; outline: none; }
+  .item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item i { flex-shrink: 0; font-size: 18px; width: 18px; color: var(--text-2); transition: transform .3s var(--spring), color .15s; }
+  .item:hover, .item.focus { background: var(--ice); }
+  .item:hover i, .item.focus i { color: var(--ice-strong); transform: scale(1.15) rotate(-6deg); }
+  .item.danger { color: #c2456b; }
+  .item.danger i { color: #c2456b; }
+  .item.danger:hover, .item.danger.focus { background: rgba(231, 120, 155, .18); }
+  .item.danger:hover i, .item.danger.focus i { color: #c2456b; }
+  :root[data-theme="dark"] .item.danger, :root[data-theme="dark"] .item.danger i { color: #f2a0b9; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 4px 8px; }
+  .popup.open .item, .popup.open hr { animation: slideIn .35s var(--smooth) backwards; animation-delay: calc(var(--i) * 30ms + 40ms); }
+</style>
+</head>
+<body>
+<div class="popup" id="panel"></div>
+
+<script src="shared.js"></script>
+<script>
+  let rows = [], focusIdx = -1;
+  const pick = id => invoke("menu_pick", { id });
+
+  listen("menu-items", ({ payload }) => {
+    panel.innerHTML = "";
+    rows = [];
+    focusIdx = -1;
+    payload.items.forEach((it, i) => {
+      let el;
+      if (it.sep) el = document.createElement("hr");
+      else {
+        el = document.createElement("div");
+        el.className = "item ctl" + (it.danger ? " danger" : "");
+        el.innerHTML = `<i class="ph ${it.icon || "ph-dot"}"></i><span></span>`;
+        el.querySelector("span").textContent = it.text;
+        el.onclick = () => pick(it.id);
+        el.onmouseenter = () => setFocus(rows.indexOf(el));
+        el._id = it.id;
+        rows.push(el);
+      }
+      el.style.setProperty("--i", i);
+      panel.appendChild(el);
+    });
+    panel.classList.toggle("up", payload.up);
+    panel.classList.remove("open"); void panel.offsetWidth; panel.classList.add("open");
+  });
+
+  function setFocus(i) {
+    rows.forEach((r, j) => r.classList.toggle("focus", j === i));
+    focusIdx = i;
+  }
+  addEventListener("keydown", e => {
+    if (e.key === "Escape") pick(null);
+    else if (e.key === "ArrowDown") setFocus((focusIdx + 1) % rows.length);
+    else if (e.key === "ArrowUp") setFocus((focusIdx - 1 + rows.length) % rows.length);
+    else if (e.key === "Enter" && rows[focusIdx]) pick(rows[focusIdx]._id);
+  });
+  window.__TAURI__.window.getCurrentWindow().onFocusChanged(({ payload: focused }) => { if (!focused) pick(null); });
+</script>
+</body>
+</html>

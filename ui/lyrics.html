@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Lyrics</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Synced lyrics that pop up in random spots all over the screen. The window covers the
+     whole screen but clicks go straight through it. */
+  body { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; transition: opacity .5s; }
+  body.hidden { opacity: 0; }
+  /* a line is one or more rows: long lines are split between words into balanced rows */
+  .line { position: absolute; padding: 6px 14px; text-align: center; line-height: 1.15;
+    font-weight: 800; letter-spacing: -.3px; transform-origin: 50% 50%; will-change: transform, opacity, filter; }
+  .row { display: block; white-space: nowrap; padding-bottom: .12em; }
+  .line.cur {
+    filter: drop-shadow(0 2px 2px rgba(40, 20, 50, .85)) drop-shadow(0 0 16px color-mix(in srgb, var(--g1) 80%, transparent)) drop-shadow(0 0 30px color-mix(in srgb, var(--g2) 50%, transparent));
+    animation: popLine .65s var(--spring) both; }
+  /* every letter rides a gentle wave, and lights up when it's sung: pink-white once sung,
+     ice blue right where the singing is, soft white still to come */
+  .ch { display: inline-block; white-space: pre; color: rgba(255, 255, 255, .62);
+    animation: wave 2.2s ease-in-out infinite; animation-delay: calc(var(--k) * -70ms);
+    transition: color .25s, text-shadow .25s; }
+  @keyframes wave { 0%, 100% { transform: translateY(.07em); } 50% { transform: translateY(-.1em); } }
+  .ch.sung { color: var(--lyric-sung); }
+  .ch.now { color: var(--lyric-now); text-shadow: 0 0 10px color-mix(in srgb, var(--g2) 95%, transparent); animation: wave 2.2s ease-in-out infinite, hop .35s var(--spring); animation-delay: calc(var(--k) * -70ms), 0s; }
+  @keyframes hop { 40% { scale: 1.25; } }
+  .line.old .ch { color: inherit; }
+  /* each line arrives with its own little twist */
+  @keyframes popLine {
+    0% { opacity: 0; transform: rotate(var(--r)) scale(.4) translateY(30px); filter: blur(14px); }
+    60% { opacity: 1; filter: blur(0) drop-shadow(0 0 16px color-mix(in srgb, var(--g1) 80%, transparent)); }
+    100% { transform: rotate(var(--r)) scale(1); }
+  }
+  .line.old { color: rgba(255, 255, 255, .8); filter: drop-shadow(0 1px 2px rgba(40, 20, 50, .8)); animation: driftAway 1.6s var(--smooth) forwards; }
+  @keyframes driftAway {
+    from { opacity: .85; transform: rotate(var(--r)) scale(1); }
+    to { opacity: 0; transform: rotate(calc(var(--r) * -1)) translateY(-60px) scale(.8); filter: blur(10px); }
+  }
+</style>
+</head>
+<body class="hidden">
+
+<script src="shared.js"></script>
+<script>
+  const win = window.__TAURI__.window.getCurrentWindow();
+  let song = null;          // latest Now Playing
+  let lines = [];           // [{ t: ms, text }]
+  let key = "";             // which song the lines belong to
+  let shownIdx = -2;
+  let curEl = null, lastSpot = null;
+  const cache = new Map();
+  let enabled = store.get("pc-lyrics", true);
+
+  // ---------- which writing system a text uses ----------
+  const SCRIPTS = {
+    japanese: /[぀-ヿ]/g, chinese: /[一-鿿]/g, korean: /[가-힯]/g, cyrillic: /[Ѐ-ӿ]/g,
+    arabic: /[؀-ۿ]/g, hebrew: /[֐-׿]/g, thai: /[฀-๿]/g, greek: /[Ͱ-Ͽ]/g, devanagari: /[ऀ-ॿ]/g,
+  };
+  function scriptOf(text) {
+    let best = "latin", most = 0;
+    for (const [name, re] of Object.entries(SCRIPTS)) {
+      const n = (text.match(re) || []).length;
+      if (n > most) { most = n; best = name; }
+    }
+    // kanji alone could be Chinese or Japanese; any kana means Japanese
+    return best === "chinese" && /[぀-ヿ]/.test(text) ? "japanese" : best;
+  }
+
+  // ---------- finding the lyrics ----------
+  const clean = s => s
+    .replace(/\s*[\(\[][^\)\]]*(official|video|audio|lyric|visuali[sz]er|remaster|hd|4k|mv|live)[^\)\]]*[\)\]]/gi, "")
+    .replace(/\s*[·|]\s.*$/, "")            // "Song · Site name"
+    .replace(/\s*-\s*$/, "")
+    .replace(/\s*-\s*topic$/i, "")
+    .trim();
+
+  // A 404 just means "not found"; anything else (no internet, server busy) is thrown so the
+  // song gets tried again later instead of being remembered as having no lyrics.
+  async function lrclib(params) {
+    const r = await fetch("https://lrclib.net/api/" + params);
+    if (r.ok) return r.json();
+    if (r.status === 404) return null;
+    throw new Error("lyrics service unavailable");
+  }
+
+  // Best lyrics for the song: right length, written the way the song is (a Japanese title
+  // gets Japanese lyrics, not a romanized or translated version), synced if possible.
+  // titles compared without extras like "(feat. ...)", "[Remastered]" or "- Live"
+  const norm = s => (s || "").toLowerCase()
+    .replace(/\s*[\(\[][^\)\]]*[\)\]]/g, "")
+    .replace(/\s+(feat\.?|ft\.?)\s.*$/, "")
+    .replace(/\s+-\s+.*$/, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  let wantTitle = "", wantArtist = "";
+  function pick(results, duration, want) {
+    // the title has to match (a loose search also returns other songs of the same length)
+    // (the database also has junk test entries with a single line; skip anything that short)
+    const enough = text => (text || "").split(/\r?\n/).filter(l => l.replace(/\[[^\]]*\]/g, "").trim()).length >= 5;
+    const usable = (results || []).filter(r => {
+      if (!r || !(enough(r.syncedLyrics) || enough(r.plainLyrics))) return false;
+      if (!enough(r.syncedLyrics)) r.syncedLyrics = null;
+      if (r._exact) return true;            // the direct lookup by title, artist and length
+      const t = norm(r.trackName);
+      if (!wantTitle || !t) return false;
+      if (t === wantTitle) return true;
+      // a slightly different title is fine when the artist matches too
+      const a = norm(r.artistName);
+      return !!wantArtist && (a.includes(wantArtist) || wantArtist.includes(a)) && (t.includes(wantTitle) || wantTitle.includes(t));
+    });
+    const score = r => {
+      let s = duration && r.duration ? Math.abs(r.duration - duration) : 5;
+      if (wantArtist && norm(r.artistName).includes(wantArtist)) s -= 3;
+      if (duration && r.duration && s > 15) s += 1000;
+      if (want !== "latin" && scriptOf(r.syncedLyrics || r.plainLyrics) !== want) s += 500;
+      if (!r.syncedLyrics) s += 200;
+      return s;
+    };
+    usable.sort((a, b) => score(a) - score(b));
+    return usable.length && score(usable[0]) < 1000 ? usable[0] : null;
+  }
+
+  async function find(s) {
+    let title = clean(s.title), artist = s.artist.replace(/\s*-\s*topic$/i, "").trim();
+    // "Artist - Song" titles (YouTube and the like) when the app gives no artist
+    if (!artist && title.includes(" - ")) [artist, title] = title.split(" - ").map(x => x.trim());
+    const bare = title.replace(/\s*[\(\[]?\s*(feat\.?|ft\.?|with)\s.*$/i, "").trim();
+    wantTitle = norm(bare);
+    wantArtist = norm(artist);
+    const dur = s.duration ? Math.round(s.duration / 1000) : 0;
+    const want = scriptOf(s.title + " " + s.artist);
+    const q = encodeURIComponent;
+    // ask in more and more relaxed ways until something fits
+    const tries = [];
+    if (artist) {
+      tries.push(`get?track_name=${q(title)}&artist_name=${q(artist)}` + (dur ? `&duration=${dur}` : ""));
+      tries.push(`search?track_name=${q(title)}&artist_name=${q(artist)}`);
+      if (bare !== title) tries.push(`search?track_name=${q(bare)}&artist_name=${q(artist)}`);
+      tries.push(`search?q=${q(artist + " " + bare)}`);
+    }
+    // (searching by title alone tends to overload the service, so the general search goes first)
+    tries.push(`search?q=${q(bare)}`);
+    tries.push(`search?track_name=${q(bare)}`);
+    const candidates = [];
+    let failed = 0;
+    for (const t of tries) {
+      // one busy answer shouldn't stop the other ways of asking
+      let r = null;
+      try { r = await lrclib(t); } catch { failed++; continue; }
+      if (Array.isArray(r)) candidates.push(...r); else if (r) candidates.push({ ...r, _exact: true });
+      const hit = pick(candidates, dur, want);
+      if (hit && hit.syncedLyrics) return hit;
+    }
+    const hit = pick(candidates, dur, want);
+    // nothing found and the service never answered properly: try the whole thing later
+    if (!hit && failed === tries.length) throw new Error("lyrics service unavailable");
+    return hit;
+  }
+
+  // Lyrics without timings: spread the lines evenly over the song, roughly from the first
+  // verse to the end. Not exact, but better than nothing.
+  function spread(plain, durationMs) {
+    const text = plain.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const len = durationMs || 200000, from = len * .08, to = len * .95;
+    return text.map((l, i) => ({ t: Math.round(from + (to - from) * i / text.length), text: l }));
+  }
+
+  // Some lyric files put a translation under each line with the same time stamp:
+  // keep only the first (original) line for each moment.
+  function parse(lrc) {
+    const out = [], seen = new Set();
+    for (const raw of lrc.split(/\r?\n/)) {
+      const stamps = [...raw.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+      const text = raw.replace(/\[[^\]]*\]/g, "").trim();
+      for (const m of stamps) {
+        const t = Math.round((parseInt(m[1]) * 60 + parseFloat(m[2])) * 1000);
+        if (seen.has(t)) continue;
+        seen.add(t);
+        out.push({ t, text });
+      }
+    }
+    return out.sort((a, b) => a.t - b.t);
+  }
+
+  let retry = null;
+  async function load(s, again) {
+    const k = s.title + "|" + s.artist;
+    if (k === key && !again) return;
+    clearTimeout(retry);
+    key = k; lines = []; shownIdx = -2; clearLines();
+    let hit = cache.get(k);
+    if (hit === undefined) {
+      try { hit = await find(s); cache.set(k, hit); }
+      catch {
+        // no internet or the lyrics service is busy: try again in a bit
+        if (key === k) retry = setTimeout(() => song && load(song, true), 20000);
+        return;
+      }
+    }
+    if (key !== k) return;               // the song changed while we were looking
+    lines = !hit ? [] : hit.syncedLyrics ? parse(hit.syncedLyrics) : spread(hit.plainLyrics, s.duration);
+    update();
+  }
+
+  // ---------- following the song ----------
+  // Apps report the position now and then; count on from there while it plays.
+  // Some apps never report a position at all: then count from when the song showed up.
+  let heardAt = Date.now(), pausedFor = 0, pausedAt = 0;
+  // plus your own nudge (right-click the player: lyrics earlier / later)
+  let nudge = store.get("pc-lyrics-offset", 0);
+  addEventListener("storage", e => { if (e.key === "pc-lyrics-offset") nudge = store.get("pc-lyrics-offset", 0); });
+  function now() {
+    if (!song) return 0;
+    if (!song.stamp && !song.position) {
+      return Date.now() - heardAt - pausedFor - (pausedAt ? Date.now() - pausedAt : 0) + 150 + nudge;
+    }
+    const since = song.stamp ? Date.now() - song.stamp : 0;
+    return song.position + (song.playing ? Math.max(0, since) : 0) + 150 + nudge;   // a hair early reads better
+  }
+
+  // ---------- where lines appear ----------
+  // "edges": along the top and bottom of the screen, out of the way of what you're doing
+  // "bottom": one steady spot centred just above the taskbar
+  // "anywhere": all over the screen
+  let place = store.get("pc-lyrics-place", "edges");
+  addEventListener("storage", e => { if (e.key === "pc-lyrics-place") place = store.get("pc-lyrics-place", "edges"); });
+
+  function spot() {
+    const W = innerWidth, H = innerHeight;
+    if (place === "bottom") return { x: null, y: H * .86 };
+    const pickPoint = place === "edges"
+      ? () => ({ x: W * (.03 + Math.random() * .62), y: Math.random() < .5 ? H * (.03 + Math.random() * .1) : H * (.78 + Math.random() * .1) })
+      : () => ({ x: W * (.08 + Math.random() * .5), y: H * (.1 + Math.random() * .72) });
+    // somewhere new each line, not right next to the last one
+    let best = null, bestDist = -1;
+    for (let i = 0; i < 8; i++) {
+      const p = pickPoint();
+      const d = lastSpot ? Math.hypot(p.x - lastSpot.x, p.y - lastSpot.y) : 1e9;
+      if (d > bestDist) { best = p; bestDist = d; }
+      if (d > Math.min(W, H) * .35) break;
+    }
+    lastSpot = best;
+    return best;
+  }
+
+  // Splits a line between words into as few rows as fit (at most 3), about equally long.
+  function splitRows(text, size) {
+    const fits = Math.max(12, Math.floor(innerWidth * .55 / (size * .55)));   // characters per row
+    // Japanese, Chinese and Korean characters are about twice as wide as letters
+    const width = [...text].reduce((n, c) => n + (/[ᄀ-ᇿ⺀-꓏가-힯豈-﫿＀-￯]/.test(c) ? 1.8 : 1), 0);
+    const count = Math.min(3, Math.ceil(width / fits));
+    if (count <= 1) return [text];
+    // languages without spaces (Japanese, Chinese, ...): split into equal pieces of characters
+    if (!/\s/.test(text.trim())) {
+      const chars = [...text], per = Math.ceil(chars.length / count);
+      return Array.from({ length: count }, (_, i) => chars.slice(i * per, (i + 1) * per).join("")).filter(Boolean);
+    }
+    const words = text.split(/\s+/), target = text.length / count, rows = [];
+    let row = "";
+    for (const w of words) {
+      const next = row ? row + " " + w : w;
+      // start a new row once this one is long enough (and keep the last row for the rest)
+      if (row && next.length > target && rows.length < count - 1 && Math.abs(next.length - target) > Math.abs(row.length - target)) {
+        rows.push(row);
+        row = w;
+      } else row = next;
+    }
+    rows.push(row);
+    return rows;
+  }
+
+  function clearLines() {
+    document.querySelectorAll(".line").forEach(l => l.remove());
+    curEl = null;
+  }
+
+  function showLine(text) {
+    if (curEl) {
+      const old = curEl;
+      old.classList.remove("cur");
+      old.classList.add("old");
+      setTimeout(() => old.remove(), 1700);
+    }
+    curEl = null;
+    if (!text) return;
+    const el = document.createElement("div");
+    el.className = "line cur" + (text === "♪" ? " note" : "");
+    // smaller and calmer unless you chose "anywhere"
+    let size = place === "anywhere" ? 30 + Math.random() * 26 : place === "bottom" ? 34 : 24 + Math.random() * 14;
+    el.style.setProperty("--r", place === "bottom" ? "0deg" : ((Math.random() - .5) * (place === "edges" ? 6 : 12)).toFixed(1) + "deg");
+    document.body.appendChild(el);
+    // long lines become 2 or 3 rows; if even that doesn't fit, the text gets smaller
+    // each row is made of letters, so they can wave and light up one by one
+    const build = rows => rows.map(r => {
+      const row = Object.assign(document.createElement("span"), { className: "row" });
+      [...r].forEach(c => row.appendChild(Object.assign(document.createElement("span"), { className: "ch", textContent: c })));
+      return row;
+    });
+    for (let tries = 0; tries < 6; tries++) {
+      el.style.fontSize = size.toFixed(0) + "px";
+      el.replaceChildren(...build(splitRows(text, size)));
+      if (el.offsetWidth <= innerWidth * .8) break;
+      size *= .85;
+    }
+    // all letters in singing order (row after row); the wave runs through them in that order
+    el._chars = [...el.querySelectorAll(".ch")];
+    el._chars.forEach((c, k) => c.style.setProperty("--k", k));
+    el._lit = 0;
+    const p = spot();
+    // keep the whole line on screen ("above the taskbar" lines are centred)
+    const x = p.x === null ? (innerWidth - el.offsetWidth) / 2 : Math.min(p.x, innerWidth - el.offsetWidth - 20);
+    el.style.left = Math.max(10, x) + "px";
+    el.style.top = Math.min(p.y, innerHeight - el.offsetHeight - 10) + "px";
+    curEl = el;
+  }
+
+  function update() {
+    const show = enabled && song && song.playing && lines.length > 0;
+    document.body.classList.toggle("hidden", !show);
+    if (!show) return;
+    const t = now();
+    let i = -1;
+    while (i + 1 < lines.length && lines[i + 1].t <= t) i++;
+    if (i !== shownIdx) {
+      shownIdx = i;
+      showLine(i < 0 ? "" : lines[i].text || "♪");
+    }
+    // karaoke: letters light up one by one as the line is sung (only the changes are touched)
+    if (curEl && i >= 0 && curEl._chars) {
+      const start = lines[i].t, gap = (lines[i + 1] ? lines[i + 1].t : start + 6000) - start;
+      // A line is sung at roughly 14 letters a second, not stretched over a pause that may
+      // follow it, but it never takes longer than the time until the next line.
+      const sing = Math.min(gap * .95, Math.max(700, curEl._chars.length * 70 + 250));
+      const p = Math.min(1, Math.max(0, (t - start) / sing));
+      const chars = curEl._chars, lit = Math.round(p * chars.length);
+      if (lit !== curEl._lit) {
+        for (let k = Math.min(lit, curEl._lit); k < Math.max(lit, curEl._lit); k++) chars[k].classList.toggle("sung", k < lit);
+        if (chars[curEl._lit - 1]) chars[curEl._lit - 1].classList.remove("now");
+        if (chars[lit - 1] && lit < chars.length) chars[lit - 1].classList.add("now");
+        curEl._lit = lit;
+      }
+    }
+  }
+  (function loop() { update(); requestAnimationFrame(loop); })();
+
+  function applyEnabled() {
+    enabled = store.get("pc-lyrics", true);
+    if (enabled) win.show(); else { win.hide(); clearLines(); shownIdx = -2; }
+  }
+  addEventListener("storage", e => { if (e.key === "pc-lyrics") applyEnabled(); });
+  applyEnabled();
+
+  listen("now-playing", ({ payload }) => {
+    const before = song;
+    song = payload;
+    if (!song) { key = ""; lines = []; clearLines(); return; }
+    // keep the fallback clock in step with pauses and song changes
+    if (!before || before.title !== song.title || before.artist !== song.artist) { heardAt = Date.now(); pausedFor = 0; pausedAt = song.playing ? 0 : Date.now(); }
+    else if (before.playing && !song.playing) pausedAt = Date.now();
+    else if (!before.playing && song.playing && pausedAt) { pausedFor += Date.now() - pausedAt; pausedAt = 0; }
+    load(song);
+  });
+  invoke("now_playing").then(s => { song = s; if (s) load(s); });
+</script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Idle Screen</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Shown when you step away: a dreamy pink sky with a big clock, your song, and the
+     visualizer. Any key or mouse movement makes it melt away. */
+  html, body { cursor: none; }
+  body { opacity: 0; transition: opacity 1.2s var(--smooth); overflow: hidden;
+    background: var(--sky); color: #fff; }
+  body.on { opacity: 1; }
+  body.leaving { opacity: 0; transition-duration: .45s; }
+
+  /* drifting clouds */
+  .cloud { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0)); filter: blur(4px); pointer-events: none; }
+  :root[data-theme="dark"] .cloud { background: radial-gradient(closest-side, color-mix(in srgb, var(--g1) 22%, transparent), transparent); }
+  /* Cosmos: the clouds become glowing nebula wisps, and shooting stars streak by */
+  :root[data-palette="cosmos"] .cloud { background: radial-gradient(closest-side, color-mix(in srgb, var(--g1) 30%, transparent), color-mix(in srgb, var(--g2) 8%, transparent) 60%, transparent); filter: blur(18px); }
+  .shoot { position: absolute; width: 180px; height: 2px; border-radius: 2px; pointer-events: none;
+    background: linear-gradient(90deg, rgba(255,255,255,0), #fff 70%, var(--g2)); box-shadow: 0 0 10px var(--g2);
+    transform: rotate(-28deg); animation: shoot 1.4s var(--ease) forwards; }
+  @keyframes shoot { from { opacity: 0; translate: 0 0; } 15% { opacity: 1; } to { opacity: 0; translate: -520px 280px; } }
+  @keyframes driftA { from { transform: translateX(-30vw); } to { transform: translateX(130vw); } }
+  .c1 { width: 640px; height: 220px; top: 8%; animation: driftA 95s linear infinite; }
+  .c2 { width: 820px; height: 280px; top: 52%; animation: driftA 130s linear infinite -60s; }
+  .c3 { width: 520px; height: 180px; top: 30%; animation: driftA 80s linear infinite -30s; opacity: .7; }
+  .c4 { width: 700px; height: 240px; top: 72%; animation: driftA 110s linear infinite -85s; opacity: .8; }
+  /* twinkling sparkles */
+  .spark { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; animation: twinkle 3s ease-in-out infinite; }
+  @keyframes twinkle { 50% { opacity: .15; transform: scale(.4); } }
+
+  .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    text-shadow: 0 4px 24px rgba(120, 60, 120, .35); }
+  .time { font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; font-size: 190px; font-weight: 600; letter-spacing: -6px; line-height: 1; font-variant-numeric: tabular-nums;
+    animation: breathe 6s ease-in-out infinite; }
+  .time .colon { animation: blink 2s steps(1) infinite; display: inline-block; transform: translateY(-10px); }
+  @keyframes blink { 50% { opacity: .25; } }
+  @keyframes breathe { 50% { transform: scale(1.015); } }
+  .date { font-size: 26px; font-weight: 500; opacity: .95; }
+
+  .song { margin-top: 44px; display: flex; align-items: center; gap: 18px; padding: 14px 22px 14px 14px; border-radius: 26px;
+    background: rgba(255, 255, 255, .22); border: 1px solid rgba(255, 255, 255, .45); backdrop-filter: blur(18px); text-shadow: none;
+    box-shadow: 0 18px 50px rgba(120, 60, 140, .25); opacity: 0; transform: translateY(20px); transition: opacity .8s, transform .8s var(--spring); }
+  .song.on { opacity: 1; transform: none; }
+  .song img { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; animation: spin 12s linear infinite; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
+  .song.paused img { animation-play-state: paused; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .song b { display: block; font-size: 20px; font-weight: 600; max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .song span { display: block; font-size: 15px; opacity: .85; margin-top: 2px; }
+  .chip { margin-top: 22px; padding: 8px 16px; border-radius: 18px; background: rgba(255, 255, 255, .22); border: 1px solid rgba(255, 255, 255, .4); font-size: 14px; text-shadow: none; opacity: 0; transition: opacity .6s; }
+  .chip.on { opacity: 1; }
+  .hint { position: absolute; bottom: 34px; left: 0; right: 0; text-align: center; font-size: 13px; opacity: .7; animation: float 4s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-6px); } }
+  #vis { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 34vh; pointer-events: none; }
+</style>
+</head>
+<body>
+  <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div><div class="cloud c4"></div>
+  <canvas id="vis"></canvas>
+  <div class="center">
+    <div class="time" id="time"></div>
+    <div class="date" id="date"></div>
+    <div class="song" id="song"><img id="art" alt=""><div><b id="title"></b><span id="artist"></span></div></div>
+    <div class="chip" id="chip"></div>
+  </div>
+  <div class="hint">Move the mouse or press a key to come back</div>
+
+<script src="shared.js"></script>
+<script>
+  // sparkles scattered over the sky (a whole starfield in Cosmos)
+  for (let i = 0; i < (currentPalette() === "cosmos" ? 140 : 40); i++) {
+    const s = Object.assign(document.createElement("div"), { className: "spark" });
+    Object.assign(s.style, { left: Math.random() * 100 + "vw", top: Math.random() * 70 + "vh", animationDelay: -Math.random() * 3 + "s", animationDuration: 2 + Math.random() * 3 + "s" });
+    document.body.insertBefore(s, document.body.firstChild);
+  }
+
+  // Cosmos: a shooting star every few seconds
+  setInterval(() => {
+    if (currentPalette() !== "cosmos" || !document.body.classList.contains("on") || Math.random() < .4) return;
+    const s = Object.assign(document.createElement("div"), { className: "shoot" });
+    Object.assign(s.style, { left: 30 + Math.random() * 70 + "vw", top: Math.random() * 40 + "vh" });
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 1500);
+  }, 2500);
+
+  const pad = n => String(n).padStart(2, "0");
+  function tick() {
+    const d = new Date();
+    time.innerHTML = `${pad(d.getHours())}<span class="colon">:</span>${pad(d.getMinutes())}`;
+    date.textContent = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  }
+  tick(); setInterval(tick, 1000);
+
+  // ---------- song ----------
+  function showSong(s) {
+    song.classList.toggle("on", !!s);
+    if (!s) return;
+    song.classList.toggle("paused", !s.playing);
+    title.textContent = s.title;
+    artist.textContent = s.artist || "";
+    if (s.art) { art.src = s.art; art.style.display = ""; } else if (!art.src) art.style.display = "none";
+  }
+  listen("now-playing", ({ payload }) => showSong(payload));
+
+  // notifications that came in while you were away
+  let missed = 0;
+  listen("notes-new", ({ payload }) => {
+    if (!document.body.classList.contains("on")) return;
+    missed += payload.length;
+    chip.textContent = `${missed} new notification${missed === 1 ? "" : "s"}`;
+    chip.classList.add("on");
+  });
+
+  // ---------- visualizer: soft mirrored waves along the bottom ----------
+  const ctx = vis.getContext("2d");
+  let target = new Float32Array(48), level = new Float32Array(48);
+  listen("audio", ({ payload }) => { for (let i = 0; i < 48; i++) target[i] = (payload[i] || 0) / 255; });
+  function draw() {
+    const dpr = devicePixelRatio, W = vis.width = vis.clientWidth * dpr, H = vis.height = vis.clientHeight * dpr;
+    ctx.clearRect(0, 0, W, H);
+    for (let i = 0; i < 48; i++) level[i] += (target[i] - level[i]) * .3;
+    const n = 96, slot = W / n, bw = slot * .6;
+    const g = ctx.createLinearGradient(0, H, 0, 0);
+    g.addColorStop(0, "rgba(255,255,255,.75)"); g.addColorStop(.5, (themeColors.g2 || "#ffffff") + "66"); g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    for (let k = 0; k < n; k++) {
+      const band = k < 48 ? 47 - k : k - 48, h = Math.pow(level[band], 1.3) * H * .95;
+      if (h > 1) { ctx.beginPath(); ctx.roundRect(k * slot + (slot - bw) / 2, H - h, bw, h + bw, bw / 2); ctx.fill(); }
+    }
+    if (document.body.classList.contains("on")) requestAnimationFrame(draw);
+  }
+
+  // ---------- coming and going ----------
+  let shownAt = 0, start = null;
+  listen("idle-show", () => {
+    missed = 0; chip.classList.remove("on");
+    invoke("now_playing").then(showSong);
+    document.body.classList.remove("leaving");
+    requestAnimationFrame(() => document.body.classList.add("on"));
+    shownAt = Date.now(); start = null;
+    requestAnimationFrame(draw);
+  });
+  function leave() {
+    if (!document.body.classList.contains("on") || Date.now() - shownAt < 800) return;
+    document.body.classList.add("leaving");
+    setTimeout(() => { document.body.classList.remove("on", "leaving"); invoke("hide_idle"); }, 450);
+  }
+  addEventListener("mousemove", e => {
+    // a real movement, not the tiny jitter some mice make
+    if (!start) { start = [e.screenX, e.screenY]; return; }
+    if (Math.hypot(e.screenX - start[0], e.screenY - start[1]) > 12) leave();
+  });
+  addEventListener("mousedown", leave);
+  addEventListener("keydown", leave);
+  addEventListener("wheel", leave);
+</script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Quick Settings</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .popup { --ox: 80%; --oy: 105%; padding: 18px; display: flex; flex-direction: column; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .qt { display: flex; flex-direction: column; gap: 6px; font-size: 12px; text-align: center; min-width: 0; }
+  .qt > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qt .ctl { height: 50px; display: grid; place-items: center; font-size: 20px; background: var(--hi); border: 1px solid var(--border);
+    position: relative; overflow: hidden; transition: background .3s var(--smooth), border-color .3s, color .3s, transform .3s var(--spring); }
+  .qt .ctl:active { transform: scale(.92); }
+  .qt.on .ctl { background: var(--ice-strong); border-color: var(--ice-strong); color: var(--on-ice); }
+  .qt.on .ctl:hover { background: var(--ice-hover); }
+  .rip { position: absolute; width: 220px; height: 220px; margin: -110px 0 0 -110px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, rgba(255,255,255,.75), rgba(255,255,255,0) 70%); animation: ripple .6s var(--smooth) forwards; }
+  @keyframes ripple { from { transform: scale(0); opacity: .55; } to { transform: scale(1); opacity: 0; } }
+  .srow { display: flex; align-items: center; gap: 12px; margin: 0 4px 18px; font-size: 18px; color: var(--text-2); }
+  .srow .val { width: 34px; text-align: right; font-size: 12px; }
+  .range { flex: 1; height: 4px; border-radius: 2px; background: var(--pink); position: relative; cursor: pointer; touch-action: none; }
+  .range::before { content: ""; position: absolute; inset: -10px 0; }
+  .range .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--ice-strong); }
+  .range .knob { position: absolute; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+    background: var(--hi); border: 4px solid var(--ice-strong); box-shadow: 0 1px 4px color-mix(in srgb, var(--shade) 30%, transparent); transition: transform .25s var(--spring); }
+  .range:active .knob { transform: scale(1.35); }
+  .opt { display: flex; align-items: center; gap: 10px; margin: 0 4px 14px; padding: 10px 12px; border-radius: 12px; background: var(--hi); border: 1px solid var(--border); cursor: pointer; }
+  .opt i { font-size: 18px; color: var(--text-2); }
+  .opt span { flex: 1; }
+  .sw { width: 40px; height: 20px; border-radius: 10px; border: 1px solid var(--text-2); position: relative; transition: background .2s, border-color .2s; flex-shrink: 0; }
+  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--text-2);
+    transition: transform .45s var(--spring), background .15s, width .2s; }
+  .opt:active .sw::after { width: 16px; }
+  .opt.on .sw { background: var(--ice-strong); border-color: var(--ice-strong); }
+  .opt.on .sw::after { transform: translateX(20px); background: var(--on-ice); }
+  .opt.on:active .sw::after { transform: translateX(16px); }
+  /* color theme dots */
+  .dots { display: flex; justify-content: center; gap: 12px; margin: 0 4px 14px; }
+  .dot { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.18), inset 0 0 0 2px rgba(255,255,255,.5);
+    transition: transform .35s var(--spring), box-shadow .2s; }
+  .dot:hover { transform: scale(1.18) rotate(-8deg); }
+  .dot.on { box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--ice-strong), 0 0 14px var(--ice-strong); transform: scale(1.08); }
+  .foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; }
+  .batt { display: flex; align-items: center; gap: 8px; }
+  .bbar { width: 60px; height: 6px; border-radius: 3px; background: var(--pink); overflow: hidden; }
+  .bbar span { display: block; height: 100%; background: var(--ice-strong); transition: width .6s var(--smooth); }
+  .icons { display: flex; gap: 4px; }
+  .icons .ctl { width: 34px; height: 34px; display: grid; place-items: center; font-size: 17px; }
+</style>
+</head>
+<body>
+<div class="popup">
+  <div class="grid stagger">
+    <div class="qt" id="wifi"><div class="ctl"><i class="ph ph-wifi-high"></i></div><span id="wifiName">Wi-Fi</span></div>
+    <div class="qt" id="bt"><div class="ctl"><i class="ph ph-bluetooth"></i></div><span>Bluetooth</span></div>
+    <div class="qt" id="mute"><div class="ctl"><i class="ph ph-speaker-x"></i></div><span>Mute</span></div>
+    <div class="qt" id="night"><div class="ctl"><i class="ph ph-moon"></i></div><span>Night light</span></div>
+    <div class="qt" id="dark"><div class="ctl"><i class="ph ph-moon-stars"></i></div><span id="darkLbl">Dark mode</span></div>
+    <div class="qt" id="lyricsTile" title="Synced lyrics on screen"><div class="ctl"><i class="ph ph-microphone-stage"></i></div><span>Lyrics</span></div>
+    <div class="qt" id="npTile" title="Now Playing on the taskbar"><div class="ctl"><i class="ph ph-music-notes"></i></div><span>Player</span></div>
+    <div class="qt" id="visTile" title="Music visualizer: click to switch between big, subtle and off"><div class="ctl"><i class="ph ph-waveform" id="visIc"></i></div><span id="visLbl">Visualizer</span></div>
+  </div>
+  <div class="srow stagger"><i class="ph ph-speaker-high" id="volIc"></i><div class="range" id="vol"><div class="fill"></div><div class="knob"></div></div><span class="val" id="volVal"></span></div>
+  <div class="dots" id="dots" title="Color theme"></div>
+  <div class="opt" id="autostart" title="Open Pink Cloud automatically when you sign in"><i class="ph ph-rocket-launch"></i><span>Start with Windows</span><div class="sw"></div></div>
+  <div class="foot">
+    <div class="batt" id="batt"><i class="ph ph-battery-high" id="batIc"></i><span id="batPct"></span><div class="bbar"><span id="batBar"></span></div></div>
+    <div class="icons">
+      <div class="ctl" id="settings" title="All settings"><i class="ph ph-gear-six"></i></div>
+      <div class="ctl" id="quit" title="Close Pink Cloud and bring back the Windows taskbar"><i class="ph ph-sign-out"></i></div>
+    </div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  const close = () => invoke("popup_blurred", { name: "quick" });
+  const openSettings = page => { invoke("launch", { path: "ms-settings:" + page }); close(); };
+
+  // ripple from wherever a tile is pressed
+  document.querySelectorAll(".qt .ctl").forEach(t => t.addEventListener("pointerdown", e => {
+    const r = t.getBoundingClientRect(), rip = document.createElement("span");
+    rip.className = "rip"; rip.style.left = e.clientX - r.left + "px"; rip.style.top = e.clientY - r.top + "px";
+    t.appendChild(rip); setTimeout(() => rip.remove(), 650);
+  }));
+
+  // tiles that hand off to Windows Settings
+  wifi.onclick = () => openSettings("network-wifi");
+  bt.onclick = () => openSettings("bluetooth");
+  night.onclick = () => openSettings("nightlight");
+  settings.onclick = () => { invoke("open_settings"); close(); };
+  settings.title = "Pink Cloud Settings";
+
+  // lyrics and the Now Playing player can each be switched off
+  function showMusicTiles() {
+    lyricsTile.classList.toggle("on", store.get("pc-lyrics", true));
+    npTile.classList.toggle("on", store.get("pc-np", true));
+  }
+  lyricsTile.onclick = () => { store.set("pc-lyrics", !store.get("pc-lyrics", true)); showMusicTiles(); };
+  npTile.onclick = () => { store.set("pc-np", !store.get("pc-np", true)); showMusicTiles(); };
+  addEventListener("storage", e => { if (e.key === "pc-lyrics" || e.key === "pc-np") showMusicTiles(); });
+  showMusicTiles();
+
+  // music visualizer: big -> subtle -> off
+  const VIS_NEXT = { big: "subtle", subtle: "off", off: "big" };
+  const VIS_LABEL = { big: "Visualizer: big", subtle: "Visualizer: subtle", off: "Visualizer: off" };
+  function showVis() {
+    const m = store.get("pc-vis", "big");
+    visTile.classList.toggle("on", m !== "off");
+    visLbl.textContent = VIS_LABEL[m];
+    visIc.className = "ph " + (m === "off" ? "ph-waveform-slash" : "ph-waveform");
+  }
+  visTile.onclick = () => { store.set("pc-vis", VIS_NEXT[store.get("pc-vis", "big")]); showVis(); };
+  showVis();
+  quit.onclick = () => invoke("quit");
+
+  // color theme dots
+  const DOTS = [["pink", "Pink Cloud", "linear-gradient(135deg, #f2a6c0, #8cc6e6)"], ["lavender", "Lavender", "linear-gradient(135deg, #c4a7f2, #9cc4f2)"],
+    ["mint", "Mint", "linear-gradient(135deg, #8fe0c2, #f6b8cb)"], ["sunset", "Sunset", "linear-gradient(135deg, #ffb38a, #f78bb0)"],
+    ["cosmos", "Cosmos", "radial-gradient(circle at 35% 35%, #a78bfa, #22d3ee 55%, #0b0a24 80%)"]];
+  function showDots() {
+    dots.innerHTML = "";
+    DOTS.forEach(([id, name, bg]) => {
+      const d = Object.assign(document.createElement("div"), { className: "dot" + (currentPalette() === id ? " on" : ""), title: name });
+      d.style.background = bg;
+      d.onclick = () => { store.set("pc-palette", id); applyTheme(); showDots(); showTheme(); };
+      dots.appendChild(d);
+    });
+  }
+  showDots();
+  addEventListener("storage", e => { if (e.key === "pc-palette") showDots(); });
+
+  // start with Windows
+  const showAutostart = () => invoke("get_autostart").then(on => autostart.classList.toggle("on", on));
+  autostart.onclick = async () => {
+    const want = !autostart.classList.contains("on");
+    autostart.classList.toggle("on", want);
+    if (!(await invoke("set_autostart", { on: want }))) autostart.classList.toggle("on", !want);
+  };
+  showAutostart();
+
+  // Pink Cloud's own dark mode (doesn't change Windows); right-click to follow Windows again
+  function showTheme() {
+    dark.classList.toggle("on", currentTheme() === "dark");
+    darkLbl.textContent = store.get("pc-theme", "auto") === "auto" ? "Dark (auto)" : "Dark mode";
+  }
+  dark.onclick = () => { store.set("pc-theme", currentTheme() === "dark" ? "light" : "dark"); applyTheme(); showTheme(); };
+  dark.oncontextmenu = e => { e.preventDefault(); popupMenu([
+    { text: "Follow Windows", icon: "ph-circle-half", action: () => { store.set("pc-theme", "auto"); applyTheme(); showTheme(); } },
+    { text: "Always light", icon: "ph-sun", action: () => { store.set("pc-theme", "light"); applyTheme(); showTheme(); } },
+    { text: "Always dark", icon: "ph-moon", action: () => { store.set("pc-theme", "dark"); applyTheme(); showTheme(); } },
+  ]); };
+
+  // volume (real)
+  let volume = 0, muted = false, dragging = false, sendTimer = null;
+  function showVolume() {
+    const pct = Math.round(volume * 100);
+    vol.querySelector(".fill").style.width = vol.querySelector(".knob").style.left = pct + "%";
+    volVal.textContent = pct;
+    mute.classList.toggle("on", muted);
+    volIc.className = "ph " + (muted || pct === 0 ? "ph-speaker-x" : pct < 34 ? "ph-speaker-low" : "ph-speaker-high");
+  }
+  function setFromPointer(e) {
+    const r = vol.getBoundingClientRect();
+    volume = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    showVolume();
+    clearTimeout(sendTimer);
+    sendTimer = setTimeout(() => invoke("set_volume", { value: volume }), 15);
+  }
+  vol.addEventListener("pointerdown", e => { dragging = true; vol.setPointerCapture(e.pointerId); setFromPointer(e); });
+  vol.addEventListener("pointermove", e => { if (dragging) setFromPointer(e); });
+  vol.addEventListener("pointerup", () => { dragging = false; });
+  addEventListener("wheel", e => { volume = Math.min(1, Math.max(0, volume - Math.sign(e.deltaY) * .02)); showVolume(); invoke("set_volume", { value: volume }); });
+  mute.onclick = () => { muted = !muted; showVolume(); invoke("set_mute", { muted }); };
+
+  async function refresh(withWifi) {
+    try {
+      const s = await invoke("get_status", { withWifi });
+      if (!dragging && s.volume !== null) { volume = s.volume; muted = s.muted; showVolume(); }
+      if (withWifi) { wifi.classList.toggle("on", !!s.wifi); wifiName.textContent = s.wifi || "Wi-Fi"; }
+      if (s.battery === null) batt.style.visibility = "hidden";
+      else {
+        batt.style.visibility = "";
+        batPct.textContent = s.battery + "%" + (s.charging ? " · charging" : "");
+        batBar.style.width = s.battery + "%";
+        batIc.className = "ph " + (s.charging ? "ph-battery-charging" : s.battery > 55 ? "ph-battery-high" : s.battery > 20 ? "ph-battery-medium" : "ph-battery-low");
+      }
+    } catch {}
+  }
+
+  let timer = null;
+  setupPopup("quick", () => {
+    showMusicTiles();
+    showTheme();
+    showAutostart();
+    refresh(true);
+    clearInterval(timer);
+    timer = setInterval(() => refresh(false), 2000);
+  });
+  addEventListener("storage", e => { if (e.key === "pc-theme") showTheme(); });
+  showTheme(); refresh(true);
+</script>
+</body>
+</html>

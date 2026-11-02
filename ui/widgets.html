@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Widgets</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Widgets on the desktop: in front of the wallpaper, behind your windows. The layer covers
+     the screen but only catches the mouse over a widget, so the desktop works as usual.
+     Drag a widget to move it. */
+  body { font-size: 13px; }
+  .w { position: absolute; padding: 16px 18px; border-radius: 22px; cursor: grab; user-select: none;
+    background: color-mix(in srgb, var(--g1-soft) 40%, rgba(255, 255, 255, .72)); border: 1px solid rgba(255, 255, 255, .8);
+    box-shadow: 0 14px 40px color-mix(in srgb, var(--shade) 25%, transparent), inset 0 1px 0 rgba(255, 255, 255, .9);
+    animation: wIn .7s var(--spring) backwards; animation-delay: calc(var(--i) * 80ms);
+    transition: box-shadow .25s, transform .3s var(--spring); }
+  :root[data-theme="dark"] .w { background: color-mix(in srgb, var(--g1-soft) 35%, rgba(18, 14, 30, .78)); border-color: rgba(255, 255, 255, .12); box-shadow: 0 14px 40px rgba(0, 0, 0, .4); }
+  .w:hover { box-shadow: 0 18px 50px color-mix(in srgb, var(--shade) 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, .9); }
+  .w.dragging { cursor: grabbing; transform: scale(1.04) rotate(-1deg); transition: none; z-index: 10; box-shadow: 0 28px 60px color-mix(in srgb, var(--shade) 45%, transparent); }
+  @keyframes wIn { from { opacity: 0; transform: translateY(30px) scale(.85); filter: blur(8px); } }
+  .lbl { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: none; letter-spacing: .2px; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+
+  /* clock */
+  .clock { width: 260px; text-align: center; }
+  .clock .t { font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; font-size: 62px; font-weight: 600; letter-spacing: -2px; line-height: 1; font-variant-numeric: tabular-nums;
+    background: linear-gradient(120deg, var(--g3), var(--g2)); -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: 4px; }
+  .clock .s { height: 4px; border-radius: 2px; background: var(--pink); margin: 8px 10px 10px; overflow: hidden; }
+  .clock .s span { display: block; height: 100%; background: var(--ice-strong); border-radius: 2px; transition: width 1s linear; }
+  .clock .d { color: var(--text-2); font-size: 14px; }
+
+  /* calendar */
+  .cal { width: 250px; }
+  .cal .m { font-weight: 600; margin-bottom: 8px; }
+  .cal .g { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; font-size: 12px; }
+  .cal .g .h { color: var(--text-2); font-size: 11px; padding-bottom: 2px; }
+  .cal .g div:not(.h) { padding: 5px 0; border-radius: 50%; }
+  .cal .g .o { opacity: .35; }
+  .cal .g .today { background: var(--ice-strong); color: var(--on-ice); font-weight: 700; }
+
+  /* weather */
+  .weather { width: 250px; }
+  .weather .now { display: flex; align-items: center; gap: 12px; }
+  .weather .big { font-size: 46px; animation: bob 4s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-4px) rotate(4deg); } }
+  .weather .temp { font-size: 38px; font-weight: 600; }
+  .weather .desc { color: var(--text-2); }
+  .weather .days { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; }
+  .weather .days i { font-size: 20px; display: block; margin: 3px 0; }
+  .weather .days small { color: var(--text-2); }
+  .hint { color: var(--text-2); line-height: 1.4; }
+
+  /* stats */
+  .stats { width: 250px; }
+  .stats .rings { display: flex; justify-content: space-around; }
+  .ring { position: relative; width: 92px; height: 92px; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 9; stroke-linecap: round; }
+  .ring .bg { stroke: var(--pink); opacity: .6; }
+  .ring .fg { stroke: url(#grad); transition: stroke-dashoffset .9s var(--smooth); }
+  .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; font-weight: 700; }
+  .ring small { position: absolute; left: 0; right: 0; bottom: -18px; text-align: center; color: var(--text-2); font-size: 11px; }
+  .stats .foot { margin-top: 26px; color: var(--text-2); font-size: 12px; text-align: center; }
+
+  /* music */
+  .music { width: 280px; }
+  .music .row { display: flex; align-items: center; gap: 12px; }
+  .music img { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; flex-shrink: 0; box-shadow: 0 6px 16px rgba(0, 0, 0, .2); transition: border-radius .6s var(--spring); }
+  .music.playing img { border-radius: 50%; animation: spin 10s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .music b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .music span { display: block; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .music .bar { height: 4px; border-radius: 2px; background: var(--pink); margin: 12px 0 10px; overflow: hidden; }
+  .music .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--g1), var(--g2)); border-radius: 2px; }
+  .music .ctrls { display: flex; justify-content: center; gap: 12px; }
+  .music .ctrls div { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 17px; cursor: pointer; transition: transform .25s var(--spring), background .15s; }
+  .music .ctrls div:hover { background: var(--panel-hover); transform: scale(1.1); }
+  .music .ctrls .pp { background: var(--ice-strong); color: var(--on-ice); }
+
+  /* note */
+  .note { width: 240px; min-height: 120px; background: rgba(255, 240, 200, .8); transform: rotate(-1.5deg); }
+  :root[data-theme="dark"] .note { background: rgba(90, 70, 40, .72); }
+  .note .txt { white-space: pre-wrap; line-height: 1.45; font-size: 14px; font-family: "Segoe Print", "Segoe UI", sans-serif; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color: var(--g1)"/><stop offset="1" style="stop-color: var(--g2)"/></linearGradient></defs></svg>
+
+<script src="shared.js"></script>
+<script>
+  const ALL = ["clock", "calendar", "weather", "stats", "music", "note"];
+  const W = () => innerWidth;
+  // default spots: a column on the right side of the screen
+  const DEFAULT_POS = {
+    clock: [W() - 300, 30], calendar: [W() - 300, 210], weather: [W() - 590, 30],
+    stats: [W() - 590, 230], music: [W() - 620, 440], note: [W() - 300, 470],
+  };
+  const enabled = () => store.get("pc-widgets", ["clock", "calendar", "weather", "stats", "music", "note"]);
+  const positions = () => store.get("pc-widget-pos", {});
+  const h = (cls, html) => Object.assign(document.createElement("div"), { className: cls, innerHTML: html || "" });
+  const pad = n => String(n).padStart(2, "0");
+  let timers = [];
+
+  // ---------- each widget ----------
+  const make = {
+    clock(el) {
+      el.innerHTML = `<div class="t"></div><div class="s"><span></span></div><div class="d"></div>`;
+      const tick = () => {
+        const d = new Date();
+        el.querySelector(".t").textContent = pad(d.getHours()) + ":" + pad(d.getMinutes());
+        el.querySelector(".s span").style.width = (d.getSeconds() / 59 * 100) + "%";
+        el.querySelector(".d").textContent = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+      };
+      tick(); timers.push(setInterval(tick, 1000));
+    },
+    calendar(el) {
+      const draw = () => {
+        const now = new Date(), first = new Date(now.getFullYear(), now.getMonth(), 1);
+        const start = new Date(first); start.setDate(1 - (first.getDay() + 6) % 7);
+        let g = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map(x => `<div class="h">${x}</div>`).join("");
+        for (let i = 0; i < 42; i++) {
+          const d = new Date(start); d.setDate(start.getDate() + i);
+          const cls = d.toDateString() === now.toDateString() ? "today" : d.getMonth() !== now.getMonth() ? "o" : "";
+          g += `<div class="${cls}">${d.getDate()}</div>`;
+        }
+        el.innerHTML = `<div class="m">${now.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</div><div class="g">${g}</div>`;
+      };
+      draw(); timers.push(setInterval(draw, 60000));
+    },
+    weather(el) {
+      // open-meteo.com: free weather, no account; the city is set in Pink Cloud Settings
+      const CODES = [[0, "☀️", "Clear"], [2, "⛅", "Partly cloudy"], [3, "☁️", "Cloudy"], [48, "🌫️", "Fog"], [57, "🌦️", "Drizzle"], [67, "🌧️", "Rain"], [77, "❄️", "Snow"], [82, "🌧️", "Showers"], [86, "🌨️", "Snow showers"], [99, "⛈️", "Thunderstorm"]];
+      const look = c => CODES.find(([max]) => c <= max) || CODES[CODES.length - 1];
+      const draw = async () => {
+        const city = store.get("pc-weather-city", null);
+        if (!city) { el.innerHTML = `<div class="lbl"><i class="ph ph-cloud-sun"></i>Weather</div><div class="hint">Pick your city in Settings → Widgets to see the weather here.</div>`; return; }
+        try {
+          const r = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=4`)).json();
+          const [, icon, desc] = look(r.current.weather_code);
+          const days = r.daily.time.slice(1, 4).map((t, i) => {
+            const [, ic] = look(r.daily.weather_code[i + 1]);
+            return `<div>${new Date(t).toLocaleDateString("en-GB", { weekday: "short" })}<i>${ic}</i><small>${Math.round(r.daily.temperature_2m_max[i + 1])}° / ${Math.round(r.daily.temperature_2m_min[i + 1])}°</small></div>`;
+          }).join("");
+          el.innerHTML = `<div class="lbl"><i class="ph ph-map-pin"></i>${city.name}</div>
+            <div class="now"><div class="big">${icon}</div><div><div class="temp">${Math.round(r.current.temperature_2m)}°</div><div class="desc">${desc} · ${Math.round(r.daily.temperature_2m_max[0])}° / ${Math.round(r.daily.temperature_2m_min[0])}°</div></div></div>
+            <div class="days">${days}</div>`;
+        } catch { if (!el.innerHTML) el.innerHTML = `<div class="lbl"><i class="ph ph-cloud-sun"></i>Weather</div><div class="hint">Can't reach the weather service right now.</div>`; }
+      };
+      draw(); timers.push(setInterval(draw, 15 * 60000));
+      el._redraw = draw;
+    },
+    stats(el) {
+      const ring = (id, label) => `<div class="ring" id="${id}"><svg width="92" height="92"><circle class="bg" cx="46" cy="46" r="38"/><circle class="fg" cx="46" cy="46" r="38" stroke-dasharray="238.8" stroke-dashoffset="238.8"/></svg><b>0%</b><small>${label}</small></div>`;
+      el.innerHTML = `<div class="lbl"><i class="ph ph-cpu"></i>This PC</div><div class="rings">${ring("cpu", "Processor")}${ring("ram", "Memory")}</div><div class="foot"></div>`;
+      const set = (id, v) => {
+        const r = el.querySelector("#" + id);
+        r.querySelector(".fg").style.strokeDashoffset = (238.8 * (1 - v / 100)).toFixed(1);
+        r.querySelector("b").textContent = Math.round(v) + "%";
+      };
+      const draw = async () => {
+        const u = await invoke("sys_usage").catch(() => null);
+        if (!u) return;
+        set("cpu", u.cpu); set("ram", u.ram);
+        el.querySelector(".foot").textContent = `${u.ram_used.toFixed(1)} of ${Math.round(u.ram_total)} GB memory in use`;
+      };
+      draw(); timers.push(setInterval(draw, 2000));
+    },
+    music(el) {
+      el.innerHTML = `<div class="lbl"><i class="ph ph-music-notes"></i>Now playing</div>
+        <div class="row"><img alt=""><div style="min-width:0"><b>Nothing playing</b><span>Play a song to see it here</span></div></div>
+        <div class="bar"><span style="width:0%"></span></div>
+        <div class="ctrls"><div data-a="previous"><i class="ph-fill ph-skip-back"></i></div><div class="pp" data-a="playpause"><i class="ph-fill ph-play"></i></div><div data-a="next"><i class="ph-fill ph-skip-forward"></i></div></div>`;
+      el.querySelectorAll(".ctrls div").forEach(b => b.onclick = e => { e.stopPropagation(); invoke("media_control", { action: b.dataset.a }); });
+      let s = null;
+      const show = np => {
+        s = np;
+        el.classList.toggle("playing", !!np && np.playing);
+        el.querySelector("b").textContent = np ? np.title : "Nothing playing";
+        el.querySelector(".row span").textContent = np ? (np.artist || "") : "Play a song to see it here";
+        el.querySelector(".pp i").className = "ph-fill " + (np && np.playing ? "ph-pause" : "ph-play");
+        const img = el.querySelector("img");
+        if (np && np.art) { img.src = np.art; img.style.visibility = ""; } else if (!np) img.style.visibility = "hidden";
+      };
+      // progress counts on between the player's updates
+      timers.push(setInterval(() => {
+        if (!s || !s.duration) return;
+        const at = s.position + (s.playing && s.stamp ? Date.now() - s.stamp : 0);
+        el.querySelector(".bar span").style.width = Math.min(100, at / s.duration * 100) + "%";
+      }, 500));
+      invoke("now_playing").then(show);
+      el._np = show;
+    },
+    note(el) {
+      el.innerHTML = `<div class="lbl"><i class="ph ph-note-pencil"></i>Note</div><div class="txt"></div>`;
+      el.querySelector(".txt").textContent = store.get("pc-note", "Write something here in Settings → Widgets ✿");
+    },
+  };
+
+  // ---------- placing and dragging ----------
+  function reportHits(all) {
+    const dpr = devicePixelRatio;
+    const rects = all ? [[0, 0, 100000, 100000]]
+      : [...document.querySelectorAll(".w")].map(e => e.getBoundingClientRect()).map(r => [r.left, r.top, r.right, r.bottom].map(v => Math.round(v * dpr)));
+    invoke("set_layer_hits", { rects });
+  }
+
+  function draggable(el, id) {
+    let from = null;
+    el.addEventListener("pointerdown", e => {
+      if (e.button !== 0 || e.target.closest(".ctrls")) return;
+      from = { x: e.clientX - el.offsetLeft, y: e.clientY - el.offsetTop };
+      el.setPointerCapture(e.pointerId);
+      el.classList.add("dragging");
+      reportHits(true);                    // keep the mouse while dragging, even off the widget
+    });
+    el.addEventListener("pointermove", e => {
+      if (!from) return;
+      el.style.left = Math.max(0, Math.min(innerWidth - el.offsetWidth, e.clientX - from.x)) + "px";
+      el.style.top = Math.max(0, Math.min(innerHeight - el.offsetHeight, e.clientY - from.y)) + "px";
+    });
+    const end = () => {
+      if (!from) return;
+      from = null;
+      el.classList.remove("dragging");
+      const pos = positions(); pos[id] = [el.offsetLeft, el.offsetTop]; store.set("pc-widget-pos", pos);
+      reportHits(false);
+    };
+    el.addEventListener("pointerup", end);
+    el.addEventListener("pointercancel", end);
+  }
+
+  const win = window.__TAURI__.window.getCurrentWindow();
+  function build() {
+    timers.forEach(clearInterval); timers = [];
+    document.querySelectorAll(".w").forEach(e => e.remove());
+    const on = enabled().filter(id => ALL.includes(id));
+    if (!on.length) { win.hide(); return; }
+    win.show();
+    const pos = positions();
+    on.forEach((id, i) => {
+      const el = h("w " + ({ clock: "clock", calendar: "cal", weather: "weather", stats: "stats", music: "music", note: "note" })[id]);
+      el.dataset.id = id;
+      el.style.setProperty("--i", i);
+      const [x, y] = pos[id] || DEFAULT_POS[id];
+      document.body.appendChild(el);
+      make[id](el);
+      el.style.left = Math.max(0, Math.min(innerWidth - el.offsetWidth, x)) + "px";
+      el.style.top = Math.max(0, Math.min(innerHeight - el.offsetHeight, y)) + "px";
+      draggable(el, id);
+    });
+    setTimeout(() => reportHits(false), 900);
+    reportHits(false);
+  }
+
+  listen("now-playing", ({ payload }) => { const m = document.querySelector(".w[data-id=music]"); if (m && m._np) m._np(payload); });
+  addEventListener("storage", e => {
+    if (["pc-widgets", "pc-note", "pc-weather-city"].includes(e.key) || (e.key === "pc-widget-pos" && !e.newValue)) build();
+  });
+  addEventListener("resize", () => reportHits(false));
+  build();
+</script>
+</body>
+</html>

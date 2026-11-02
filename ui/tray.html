@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Background Apps</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .popup { --ox: 50%; --oy: 105%; padding: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, 52px); justify-content: center; }
+  .ic { width: 48px; height: 48px; margin: 2px; display: grid; place-items: center; border-radius: 12px; position: relative; }
+  .ic img { width: 22px; height: 22px; image-rendering: auto; transition: transform .35s var(--spring); filter: drop-shadow(0 1px 2px rgba(0,0,0,.15)); }
+  .ic:hover img { transform: scale(1.25) rotate(-6deg); }
+  .ic:hover { background: none; }
+  /* a soft pill glides to whichever icon the mouse is on */
+  .grid { position: relative; }
+  .hover { position: absolute; left: 0; top: 0; width: 48px; height: 48px; border-radius: 12px; pointer-events: none; opacity: 0;
+    background: var(--hi); border: 1px solid var(--border);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--shade) 20%, transparent), inset 0 -10px 16px -10px color-mix(in srgb, var(--g2) 60%, transparent);
+    transition: transform .4s var(--spring), opacity .2s; }
+  .hover.on { opacity: 1; }
+  .ic { z-index: 1; }
+  .ic .ph { font-size: 20px; color: var(--text-2); }
+  .empty { height: 100%; display: grid; place-items: center; color: var(--text-2); font-size: 12px; text-align: center; padding: 0 8px; }
+</style>
+</head>
+<body>
+<div class="popup"><div class="grid stagger" id="grid"></div></div>
+
+<script src="shared.js"></script>
+<script>
+  // Icons are updated in place: apps refresh their tray icons all the time (new message,
+  // sync progress, ...), and rebuilding would replay the entrance animation every time.
+  const buttons = new Map(); // key -> element
+  let emptyNote = null;
+
+  function setLook(b, t) {
+    b.title = t.tip || "";
+    const img = b.querySelector("img");
+    if (t.image) {
+      if (img) { if (img.src !== t.image) img.src = t.image; }
+      else { b.innerHTML = `<img alt="">`; b.querySelector("img").src = t.image; }
+    } else if (!b.querySelector("i")) {
+      b.innerHTML = `<i class="ph ph-app-window"></i>`;
+    }
+  }
+
+  async function update(fresh) {
+    const icons = await invoke("tray_icons");
+    if (fresh) { grid.innerHTML = ""; buttons.clear(); emptyNote = null; }
+    const keep = new Set(icons.map(t => t.key));
+    for (const [key, b] of buttons) if (!keep.has(key)) { b.remove(); buttons.delete(key); }
+    icons.forEach((t, i) => {
+      let b = buttons.get(t.key);
+      if (!b) {
+        b = document.createElement("div");
+        b.className = "ic ctl";
+        b.onclick = () => invoke("tray_click", { key: t.key, button: "left" });
+        b.ondblclick = () => invoke("tray_click", { key: t.key, button: "double" });
+        b.oncontextmenu = e => { e.preventDefault(); invoke("tray_click", { key: t.key, button: "right" }); };
+        b.style.setProperty("--i", i);
+        buttons.set(t.key, b);
+      }
+      setLook(b, t);
+      if (grid.children[i] !== b) grid.insertBefore(b, grid.children[i] || null);
+    });
+    if (!icons.length && !emptyNote) {
+      emptyNote = Object.assign(document.createElement("div"), { className: "empty", textContent: "No background apps" });
+      emptyNote.style.gridColumn = "1 / -1";
+      grid.appendChild(emptyNote);
+    } else if (icons.length && emptyNote) {
+      emptyNote.remove(); emptyNote = null;
+    }
+  }
+  // the hover pill (kept outside the icon list so updates don't touch it)
+  const pill = Object.assign(document.createElement("div"), { className: "hover" });
+  document.querySelector(".popup").appendChild(pill);
+  let pillOn = null;
+  document.addEventListener("pointerover", e => {
+    const b = e.target.closest && e.target.closest(".ic");
+    if (!b || b === pillOn) return;
+    const first = !pill.classList.contains("on");
+    if (first) pill.style.transition = "opacity .2s";
+    const r = b.getBoundingClientRect(), p = document.querySelector(".popup").getBoundingClientRect();
+    pill.style.transform = `translate(${r.left - p.left}px, ${r.top - p.top}px)`;
+    pill.classList.add("on");
+    if (first) requestAnimationFrame(() => requestAnimationFrame(() => pill.style.transition = ""));
+    pillOn = b;
+  });
+  document.addEventListener("pointerleave", () => { pill.classList.remove("on"); pillOn = null; });
+
+  listen("tray-changed", () => update(false));
+  setupPopup("tray", () => update(true));
+</script>
+</body>
+</html>

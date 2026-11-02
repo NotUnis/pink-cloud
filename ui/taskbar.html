@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Taskbar</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* The window is the bar plus see-through room above it for the music visualizer.
+     No background: everything floats on the wallpaper, with a soft halo behind text and glyphs. */
+  body { position: relative; text-shadow: 0 0 6px var(--halo), 0 1px 2px var(--halo); }
+  #vis { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; display: flex; align-items: center; padding: 0 10px; z-index: 1; }
+  .bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 25%; pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation: sweep 1.6s .5s var(--smooth) both; }
+  @keyframes sweep { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(520%) skewX(-20deg); opacity: 0; } }
+
+  .center { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; }
+  /* a soft pill that glides under whichever button the mouse is on */
+  .hover { position: absolute; left: 0; top: 50%; height: 48px; margin-top: -24px; border-radius: 14px; pointer-events: none; z-index: -1; opacity: 0;
+    background: var(--hi); border: 1px solid var(--border);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--shade) 22%, transparent), inset 0 -10px 18px -10px color-mix(in srgb, var(--g2) 55%, transparent);
+    transition: transform .45s var(--spring), width .35s var(--spring), opacity .25s; }
+  .hover.on { opacity: 1; }
+  .pulse { position: absolute; left: 50%; top: 50%; width: 260px; height: 80px; margin: -40px 0 0 -130px; border-radius: 50%; pointer-events: none; z-index: -1;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--g1) 55%, transparent), color-mix(in srgb, var(--g2) 25%, transparent), transparent); opacity: 0; transition: opacity .12s; }
+  .btn { width: 46px; height: 46px; display: grid; place-items: center; position: relative; }
+  .btn img, .btn .glyph { width: 28px; height: 28px; border-radius: 8px; font-size: 16px; transition: transform .35s var(--spring); pointer-events: none;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,.18)); }
+  .btn::before { content: ""; position: absolute; inset: 3px; border-radius: 10px; pointer-events: none;
+    background: radial-gradient(circle at 50% 110%, color-mix(in srgb, var(--g2) 70%, transparent), transparent 70%);
+    opacity: 0; transform: scale(.5); transition: opacity .25s, transform .4s var(--spring); }
+  .btn:hover::before { opacity: 1; transform: none; }
+  .btn:active img, .btn:active .glyph, .btn:active .logo { transform: scale(.8) !important; transition-duration: .08s; }
+  .btn.run::after { content: ""; position: absolute; bottom: 3px; left: 50%; width: 6px; height: 3px; margin-left: -3px; border-radius: 2px;
+    background: var(--text-2); transition: opacity .2s; }
+  .btn.active::after { opacity: 0; }
+  .btn.multi::after { box-shadow: 5px 0 0 -1px var(--text-2); }
+  @keyframes launch { 0% { transform: none; } 30% { transform: translateY(-10px) scale(1.15); } 55% { transform: translateY(0) scale(.92, 1.08); } 75% { transform: translateY(-3px); } }
+  .btn.launching img, .btn.launching .glyph { animation: launch .7s var(--spring); }
+
+  /* the light under the app in front glides from app to app */
+  .glider { position: absolute; bottom: 3px; left: 0; width: 18px; height: 3px; border-radius: 2px; background: var(--ice-strong); pointer-events: none;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--ice-strong) 70%, transparent); transition: transform .55s var(--spring), opacity .25s; opacity: 0; }
+  @keyframes stretch { 40% { width: 34px; } }
+  .glider.moving { animation: stretch .5s var(--ease); }
+
+  .logo { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; width: 22px; height: 22px; transition: transform .5s var(--spring); pointer-events: none; }
+  .logo span { border-radius: 3px; background: var(--pink-deep); transition: transform .4s var(--spring), border-radius .4s; }
+  .logo span:nth-child(2), .logo span:nth-child(3) { background: var(--g2); }
+  #start:hover .logo { transform: rotate(90deg) !important; }
+  #start:hover .logo span { border-radius: 50%; transform: scale(.8); }
+  .center .btn:hover { background: none; }   /* the gliding hover pill does this */
+
+  .right { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+  .bell { width: 36px; height: 40px; display: grid; place-items: center; font-size: 17px; position: relative; }
+  .bell i { transform-origin: 50% 15%; }
+  .bell.ring i { animation: ring .9s var(--ease); }
+  @keyframes ring { 15%, 45% { transform: rotate(22deg); } 30%, 60% { transform: rotate(-22deg); } 75% { transform: rotate(8deg); } }
+  .badge { position: absolute; top: 6px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font-size: 10px; font-weight: 700;
+    display: grid; place-items: center; background: var(--g3); color: #fff; text-shadow: none; box-shadow: 0 0 0 2px var(--halo);
+    transform: scale(0); transition: transform .4s var(--spring); }
+  .badge.on { transform: scale(1); }
+  .chev { width: 32px; height: 40px; display: grid; place-items: center; font-size: 15px; }
+  .chev i { transition: transform .4s var(--spring); }
+  .chev:hover i { transform: translateY(-3px); }
+  .tray { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; font-size: 17px; }
+  .tray i { transition: transform .35s var(--spring); }
+  .tray:hover i { transform: translateY(-2px); }
+  .tray:hover i:nth-child(2) { transition-delay: .04s; }
+  .tray:hover i:nth-child(3) { transition-delay: .08s; }
+  .clock { text-align: right; height: 40px; padding: 2px 10px; font-size: 12px; line-height: 18px; overflow: hidden; }
+  .clock #time { font-variant-numeric: tabular-nums; }
+  @keyframes flip { from { transform: translateY(70%) rotateX(-70deg); opacity: 0; filter: blur(3px); } }
+  .clock #time.flip { display: inline-block; animation: flip .5s var(--spring); }
+
+  /* Now Playing pill: album art spins like a record while the song plays */
+  .np { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 6px 0 4px; border-radius: 22px; max-width: 360px;
+    background: var(--hi); border: 1px solid var(--border); text-shadow: none; position: relative; overflow: hidden;
+    opacity: 0; transform: translateX(-30px) scale(.9); pointer-events: none; transition: opacity .35s, transform .5s var(--spring), max-width .4s var(--smooth); }
+  .np.on { opacity: 1; transform: none; pointer-events: auto; }
+  .np::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 140% at 0% 50%, var(--art, color-mix(in srgb, var(--g1) 50%, transparent)), transparent 60%); opacity: .45; pointer-events: none; }
+  .art { width: 36px; height: 36px; border-radius: 10px; object-fit: cover; flex-shrink: 0; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    transition: border-radius .6s var(--spring); }
+  .np.playing .art { border-radius: 50%; animation: spin 9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .np .info { position: relative; min-width: 0; line-height: 1.25; cursor: pointer; }
+  .np .t, .np .a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
+  .np .t { font-size: 12px; font-weight: 600; }
+  .np .a { font-size: 11px; color: var(--text-2); }
+  @keyframes songIn { from { opacity: 0; transform: translateY(10px); filter: blur(3px); } }
+  .np .info.new { animation: songIn .5s var(--spring); }
+  .np .ctrls { display: flex; position: relative; }
+  .np .ctrls div { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; cursor: pointer;
+    transition: background .15s, transform .25s var(--spring); }
+  .np .ctrls div:hover { background: var(--panel-hover); transform: scale(1.12); }
+  .np .ctrls div:active { transform: scale(.85); }
+  .np .ctrls .pp { background: var(--ice-strong); color: var(--on-ice); font-size: 14px; }
+  .np .ctrls .pp:hover { background: var(--ice-hover); }
+
+  @keyframes dropIn { from { opacity: 0; transform: translateY(30px) scale(.6); filter: blur(5px); } }
+  .center > .btn, .right > * { animation: dropIn .8s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 50ms + 150ms); }
+  /* an app that opens spins in with a ring of light; one that closes spins away into a burst */
+  @keyframes birth {
+    0% { opacity: 0; transform: translateY(26px) scale(.2) rotate(-200deg); filter: blur(6px) brightness(2); }
+    60% { opacity: 1; transform: translateY(-6px) scale(1.18) rotate(12deg); filter: blur(0) brightness(1.2); }
+    80% { transform: translateY(1px) scale(.94) rotate(-4deg); }
+  }
+  @keyframes leave {
+    0% { transform: none; }
+    30% { transform: translateY(-8px) scale(1.15) rotate(-10deg); }
+    100% { opacity: 0; transform: translateY(18px) scale(0) rotate(180deg); filter: blur(6px) brightness(2); width: 0; margin: 0 -2px; }
+  }
+  @keyframes burst { from { transform: scale(.3); opacity: 1; } to { transform: scale(2.4); opacity: 0; } }
+  .btn.new { animation: birth .8s var(--spring) backwards; }
+  .btn.gone { animation: leave .45s var(--ease) forwards; pointer-events: none; }
+  .burst { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; pointer-events: none;
+    border: 2px solid color-mix(in srgb, var(--g2) 95%, transparent); box-shadow: 0 0 14px color-mix(in srgb, var(--g1) 90%, transparent), inset 0 0 10px rgba(255, 255, 255, .7);
+    animation: burst .7s var(--smooth) forwards; }
+  .btn.gone .burst { border-color: color-mix(in srgb, var(--g1) 95%, transparent); }
+  #apps > .btn { transition: transform .3s var(--spring); }
+  #apps > .btn.dragging { transition: none; z-index: 5; filter: drop-shadow(0 8px 12px color-mix(in srgb, var(--shade) 35%, transparent)); }
+  .np .close { position: absolute; top: 2px; right: 2px; width: 16px !important; height: 16px !important; font-size: 10px !important;
+    background: var(--panel) !important; opacity: 0; transition: opacity .2s !important; }
+  .np:hover .close { opacity: 1; }
+</style>
+</head>
+<body>
+  <canvas id="vis"></canvas>
+  <div class="bar">
+    <div class="np" id="np">
+      <img class="art" id="art" alt="">
+      <div class="info" id="npInfo" title="Play or pause"><div class="t" id="npTitle"></div><div class="a" id="npArtist"></div></div>
+      <div class="ctrls">
+        <div id="npPrev" title="Previous"><i class="ph-fill ph-skip-back"></i></div>
+        <div class="pp" id="npPlay" title="Play or pause"><i class="ph-fill ph-play" id="npPlayIc"></i></div>
+        <div id="npNext" title="Next"><i class="ph-fill ph-skip-forward"></i></div>
+      </div>
+      <div class="ctrls"><div class="close" id="npClose" title="Hide the player (turn it back on in quick settings)"><i class="ph ph-x"></i></div></div>
+    </div>
+    <div class="center" id="center">
+      <div class="pulse" id="pulse"></div>
+      <div class="hover" id="hoverPill"></div>
+      <div class="btn ctl" id="start" title="Start"><div class="logo" id="logo"><span></span><span></span><span></span><span></span></div></div>
+      <div id="apps" style="display:contents"></div>
+      <div class="glider" id="glider"></div>
+    </div>
+    <div class="right" id="right">
+      <div class="chev ctl" id="chev" title="Background apps"><i class="ph ph-caret-up"></i></div>
+      <div class="bell ctl" id="bell" title="Notifications"><i class="ph ph-bell" id="bellIc"></i><span class="badge" id="badge"></span></div>
+      <div class="tray ctl" id="tray" title="Quick settings"><i class="ph ph-wifi-high" id="wifiIc"></i><i class="ph ph-speaker-high" id="volIc"></i><i class="ph ph-battery-high" id="batIc"></i></div>
+      <div class="clock ctl" id="clock"><div id="time"></div><div id="date"></div></div>
+    </div>
+  </div>
+
+<script src="shared.js"></script>
+<script>
+  // Files and Settings use the real Windows icons of File Explorer and Settings.
+  // Files and Settings are Pink Cloud's own apps, shown with the real File Explorer and Settings icons.
+  const FILES_PIN = { name: "Files", path: "pinkcloud:files", exe: "pinkcloud.files", icon: "C:\\Windows\\explorer.exe" };
+  const SETTINGS_PIN = { name: "Settings", path: "pinkcloud:settings", exe: "pinkcloud.settings", icon: "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe" };
+  const DEFAULT_PINS = [FILES_PIN, SETTINGS_PIN];
+  const upgrade = p => {
+    const path = p.path.toLowerCase();
+    if (path === "c:\\windows\\explorer.exe" || path === "pinkcloud:files") return { ...FILES_PIN };
+    if (path === "ms-settings:" || path === "pinkcloud:settings") return { ...SETTINGS_PIN };
+    return p;
+  };
+  let pins = store.get("pc-pins", DEFAULT_PINS).map(upgrade);
+  store.set("pc-pins", pins);
+  const openPath = path =>
+    path === "pinkcloud:files" ? invoke("open_files") :
+    path === "pinkcloud:settings" ? invoke("open_settings") :
+    invoke("launch", { path });
+  let windows = [];
+  const buttons = new Map(); // group key -> element
+  const appsBox = document.getElementById("apps");
+
+  // ---------- clock: digits flip when the minute changes ----------
+  const pad = n => String(n).padStart(2, "0");
+  function tick() {
+    const d = new Date();
+    const t = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    if (time.textContent && time.textContent !== t) { time.classList.remove("flip"); void time.offsetWidth; time.classList.add("flip"); }
+    time.textContent = t;
+    date.textContent = pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear();
+  }
+  tick(); setInterval(tick, 2000);
+
+  // ---------- popups ----------
+  start.onclick = () => invoke("toggle_popup", { name: "start" });
+  tray.onclick = () => invoke("toggle_popup", { name: "quick" });
+  chev.onclick = () => invoke("toggle_popup", { name: "tray" });
+
+  // ---------- notifications bell: a count of new ones since you last looked ----------
+  let unseen = 0;
+  function showBadge() {
+    badge.textContent = unseen > 9 ? "9+" : unseen;
+    badge.classList.toggle("on", unseen > 0);
+    bellIc.className = "ph " + (store.get("pc-dnd", false) ? "ph-bell-slash" : "ph-bell");
+  }
+  invoke("notes_recent").then(list => {
+    const seen = store.get("pc-notes-seen", Date.now());
+    if (!store.get("pc-notes-seen", 0)) store.set("pc-notes-seen", seen);
+    unseen = list.filter(n => n.time > seen).length;
+    showBadge();
+  }).catch(() => {});
+  listen("notes-new", ({ payload }) => {
+    unseen += payload.length;
+    showBadge();
+    bell.classList.remove("ring"); void bell.offsetWidth; bell.classList.add("ring");
+  });
+  bell.onclick = () => { unseen = 0; showBadge(); invoke("toggle_popup", { name: "notes" }); };
+  addEventListener("storage", e => { if (e.key === "pc-dnd") showBadge(); });
+
+  // the opt-in "hide Windows' own pop-ups" keeps working for apps that notify after a restart
+  if (store.get("pc-hide-banners", false)) invoke("set_hide_banners", { on: true });
+
+  // ---------- idle screen timing (set in Settings) ----------
+  const applyIdle = () => invoke("set_idle_minutes", { minutes: store.get("pc-idle", 5) });
+  applyIdle();
+  addEventListener("storage", e => { if (e.key === "pc-idle") applyIdle(); });
+  invoke("tray_enabled").then(on => { if (!on) chev.remove(); });
+  clock.onclick = () => invoke("toggle_popup", { name: "calendar" });
+  clock.title = "Calendar";
+
+  // Clicks only land on the taskbar over its buttons; everywhere else (the empty parts of
+  // the bar and all of the visualizer room above it) they go through to the window underneath.
+  let lastRects = "";
+  function reportHitRects() {
+    const dpr = devicePixelRatio, p = 2;
+    const rects = [...document.querySelectorAll(".center > .btn, #apps > .btn:not(.gone), .right > *, .np.on")]
+      .map(el => el.getBoundingClientRect())
+      .filter(r => r.width > 0)
+      .map(r => [r.left - p, r.top - p, r.right + p, r.bottom + p].map(v => Math.round(v * dpr)));
+    const key = JSON.stringify(rects);
+    if (key !== lastRects) { lastRects = key; invoke("set_hit_rects", { rects }); }
+  }
+  new MutationObserver(() => requestAnimationFrame(reportHitRects)).observe(document.querySelector(".bar"), { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  addEventListener("resize", reportHitRects);
+  setInterval(reportHitRects, 1000);
+
+  // ---------- apps: pinned + running, grouped by program ----------
+  function groups() {
+    const list = pins.map(p => ({ key: (p.exe || p.path).toLowerCase(), pin: p, wins: [] }));
+    for (const w of windows) {
+      const key = (w.app_id || w.exe).toLowerCase() || "hwnd:" + w.hwnd;
+      let g = list.find(g => g.key === key);
+      if (!g) list.push(g = { key, pin: null, wins: [] });
+      g.wins.push(w);
+    }
+    return list;
+  }
+
+  function makeButton(g) {
+    const b = document.createElement("div");
+    b.className = "btn ctl new";
+    const w0 = g.wins[0];
+    const src = g.pin ? (g.pin.icon || g.pin.path) : w0.app_id ? "shell:AppsFolder\\" + w0.app_id : w0.exe;
+    const img = document.createElement("img");
+    img.alt = "";
+    b.appendChild(img);
+    const noIcon = () => img.replaceWith(Object.assign(document.createElement("div"), { className: "glyph", innerHTML: '<i class="ph-fill ph-app-window"></i>' }));
+    iconFor(src).then(async url => {
+      // fall back to the icon the window shows itself (needs an open window)
+      const hwnd = (b._g && b._g.wins[0] || w0 || {}).hwnd;
+      if (!url && hwnd) url = await invoke("window_icon", { hwnd }).catch(() => null);
+      if (url) img.src = url; else noIcon();
+    });
+    b.addEventListener("click", e => { if (b._dragged) { b._dragged = false; return; } stopPreview(true); onAppClick(b._g, b, e); });
+    draggable(b);
+    b.addEventListener("pointerenter", () => startPreview(b));
+    b.addEventListener("pointerleave", () => stopPreview(false));
+    b.addEventListener("auxclick", e => { if (e.button === 1) launchNew(b._g, b); });
+    b.addEventListener("contextmenu", e => { e.preventDefault(); appMenu(b._g, b); });
+    magnet(b);
+    setTimeout(() => b.classList.remove("new"), 850);
+    if (!firstPaint) burst(b);
+    return b;
+  }
+
+  function render() {
+    const gs = groups();
+    const keep = new Set(gs.map(g => g.key));
+    for (const [key, b] of buttons) {
+      if (!keep.has(key) && !b.classList.contains("gone")) {
+        b.classList.add("gone"); burst(b);
+        setTimeout(() => { b.remove(); buttons.delete(key); moveGlider(); }, 450);
+      }
+    }
+    let prev = null;
+    for (const g of gs) {
+      let b = buttons.get(g.key);
+      if (!b || b.classList.contains("gone")) { b?.remove(); b = makeButton(g); buttons.set(g.key, b); }
+      b._g = g;
+      b.title = g.wins.length ? g.wins[0].title : g.pin.name;
+      b.classList.toggle("run", g.wins.length > 0);
+      b.classList.toggle("multi", g.wins.length > 1);
+      b.classList.toggle("active", g.wins.some(w => w.active));
+      const want = prev ? prev.nextSibling : appsBox.firstChild;
+      if (b !== want) appsBox.insertBefore(b, want);
+      prev = b;
+    }
+    moveGlider();
+  }
+
+  // A pin for an open app. Web apps and Store apps are pinned by their app ID, so they
+  // reopen as themselves and not as their host browser.
+  function pinFor(g) {
+    const w = g.wins[0];
+    const name = w.exe.split("\\").pop().replace(/\.exe$/i, "") || w.title;
+    if (w.app_id) return { name: w.title, path: "shell:AppsFolder\\" + w.app_id, exe: w.app_id.toLowerCase(), icon: "shell:AppsFolder\\" + w.app_id };
+    return { name, path: w.exe, exe: w.exe.toLowerCase() };
+  }
+
+  // ---------- drag apps to reorder them (dropping pins them) ----------
+  function draggable(b) {
+    let start = null, dragging = false, slots = [];
+    b.addEventListener("pointerdown", e => {
+      if (e.button !== 0) return;
+      start = e.clientX;
+      b.setPointerCapture(e.pointerId);
+    });
+    b.addEventListener("pointermove", e => {
+      if (start === null) return;
+      const dx = e.clientX - start;
+      if (!dragging && Math.abs(dx) > 6) {
+        dragging = true;
+        stopPreview(true);
+        invoke("set_bar_capture", { on: true });
+        b.classList.add("dragging");
+        slots = [...appsBox.children].filter(x => !x.classList.contains("gone")).map(x => ({ el: x, mid: x.offsetLeft + x.offsetWidth / 2 }));
+      }
+      if (!dragging) return;
+      b.style.transform = `translateX(${dx}px) translateY(-6px) scale(1.12)`;
+      const from = slots.findIndex(s => s.el === b);
+      const x = slots[from].mid + dx;
+      const to = slots.filter(s => s.mid < x && s.el !== b).length;
+      slots.forEach((s, i) => {
+        if (s.el === b) return;
+        const shift = i > from && i <= to ? -b.offsetWidth - 4 : i < from && i >= to ? b.offsetWidth + 4 : 0;
+        s.el.style.transform = shift ? `translateX(${shift}px)` : "";
+      });
+      b._to = to;
+    });
+    const end = () => {
+      if (start === null) return;
+      start = null;
+      if (!dragging) return;
+      dragging = false;
+      b._dragged = true;
+      invoke("set_bar_capture", { on: false });
+      b.classList.remove("dragging");
+      slots.forEach(s => s.el.style.transform = "");
+      const order = slots.map(s => s.el._g);
+      const from = slots.findIndex(s => s.el === b);
+      const [moved] = order.splice(from, 1);
+      order.splice(b._to ?? from, 0, moved);
+      // keep pinned apps in their new order; the dragged one becomes pinned if it wasn't
+      pins = order.filter(g => g.pin || g === moved).map(g => g.pin || pinFor(g));
+      savePins();
+      setTimeout(() => { b._dragged = false; }, 50);
+    };
+    b.addEventListener("pointerup", end);
+    b.addEventListener("pointercancel", end);
+  }
+
+  // the hover pill slides from button to button; the first time it fades in where you are
+  let hoverOn = null;
+  center.addEventListener("pointerover", e => {
+    const b = e.target.closest && e.target.closest(".center .btn");
+    if (!b || b === hoverOn || b.classList.contains("dragging")) return;
+    const first = !hoverPill.classList.contains("on");
+    if (first) hoverPill.style.transition = "opacity .25s";
+    hoverPill.style.width = b.offsetWidth + 4 + "px";
+    hoverPill.style.transform = `translateX(${b.offsetLeft - 2}px)`;
+    hoverPill.classList.add("on");
+    if (first) requestAnimationFrame(() => requestAnimationFrame(() => hoverPill.style.transition = ""));
+    hoverOn = b;
+  });
+  center.addEventListener("pointerleave", () => { hoverPill.classList.remove("on"); hoverOn = null; });
+
+  // a ring of light around a button (apps opening and closing); not for the apps already
+  // open when Pink Cloud starts, those just drop in
+  let firstPaint = true;
+  setTimeout(() => firstPaint = false, 1500);
+  function burst(b) {
+    const r = document.createElement("span");
+    r.className = "burst";
+    b.appendChild(r);
+    setTimeout(() => r.remove(), 750);
+  }
+
+  // ---------- live previews when hovering an app ----------
+  let showTimer = null, hideTimer = null, previewUntil = 0;
+  function startPreview(b) {
+    clearTimeout(hideTimer); clearTimeout(showTimer);
+    const g = b._g;
+    if (!g || !g.wins.length) return;
+    // quick when you slide from one app to the next, a short wait otherwise
+    const wait = Date.now() < previewUntil ? 60 : 450;
+    showTimer = setTimeout(() => {
+      const r = b.getBoundingClientRect();
+      invoke("show_preview", { wins: b._g.wins.map(w => ({ hwnd: w.hwnd, title: w.title, minimized: w.minimized })), anchor: r.left + r.width / 2 });
+      previewUntil = Date.now() + 1500;
+    }, wait);
+  }
+  function stopPreview(now) {
+    clearTimeout(showTimer); clearTimeout(hideTimer);
+    if (now) { invoke("hide_preview", { force: true }); previewUntil = 0; return; }
+    hideTimer = setTimeout(() => invoke("hide_preview", { force: false }), 300);
+    previewUntil = Date.now() + 1200;
+  }
+
+  let gliderAt = null;
+  function moveGlider() {
+    const a = [...buttons.values()].find(b => b.classList.contains("active") && !b.classList.contains("gone"));
+    if (!a) { glider.style.opacity = 0; gliderAt = null; return; }
+    const x = a.offsetLeft + a.offsetWidth / 2 - 9;
+    if (x === gliderAt) return;
+    if (gliderAt !== null) { glider.classList.remove("moving"); void glider.offsetWidth; glider.classList.add("moving"); }
+    else glider.style.transition = "none";
+    glider.style.transform = `translateX(${x}px)`;
+    glider.style.opacity = 1;
+    if (gliderAt === null) requestAnimationFrame(() => glider.style.transition = "");
+    gliderAt = x;
+  }
+
+  const bounce = b => { b.classList.remove("launching"); void b.offsetWidth; b.classList.add("launching"); setTimeout(() => b.classList.remove("launching"), 750); };
+  // no window: open the app; one window: bring it up (or minimize it if it's already in front);
+  // several windows: pick one from a list. Shift+click always opens a new window.
+  function onAppClick(g, b, e) {
+    if (!g.wins.length || (e && e.shiftKey)) { bounce(b); return openPath(g.pin ? g.pin.path : g.wins[0].exe); }
+    if (g.wins.length === 1) return invoke("activate_window", { hwnd: g.wins[0].hwnd, minimizeIfActive: g.wins[0].active });
+    popupMenu([
+      ...g.wins.map(w => ({
+        text: w.title,
+        icon: w.active ? "ph-check-circle" : w.minimized ? "ph-arrow-line-up" : "ph-app-window",
+        action: () => invoke("activate_window", { hwnd: w.hwnd, minimizeIfActive: false }),
+      })),
+      null,
+      { text: "New window", icon: "ph-plus-square", action: () => launchNew(g, b) },
+    ]);
+  }
+  function launchNew(g, b) { if (b) bounce(b); openPath(g.pin ? g.pin.path : g.wins[0].exe); }
+
+  function savePins() { store.set("pc-pins", pins); render(); }
+  function appMenu(g, b) {
+    const name = g.pin ? g.pin.name : (g.wins[0].exe.split("\\").pop().replace(/\.exe$/i, "") || g.wins[0].title);
+    popupMenu([
+      { text: g.wins.length ? "Open new window" : "Open " + name, icon: "ph-plus-square", action: () => launchNew(g, b) },
+      g.pin
+        ? { text: "Unpin from taskbar", icon: "ph-push-pin-slash", action: () => { pins = pins.filter(p => p !== g.pin); savePins(); } }
+        : { text: "Pin to taskbar", icon: "ph-push-pin", action: () => { pins.push(pinFor(g)); savePins(); } },
+      g.wins.length ? null : undefined,
+      g.wins.length ? { text: g.wins.length > 1 ? `Close all ${g.wins.length} windows` : "Close window", icon: "ph-x-circle", danger: true, action: () => g.wins.forEach(w => invoke("close_window", { hwnd: w.hwnd })) } : undefined,
+    ].filter(x => x !== undefined));
+  }
+  addEventListener("storage", e => {
+    if (e.key !== "pc-pins") return;
+    pins = store.get("pc-pins", DEFAULT_PINS).map(upgrade);
+    render();
+  });
+
+  async function poll() {
+    try { windows = await invoke("get_windows"); render(); } catch {}
+  }
+  poll(); setInterval(poll, 800);
+
+  // ---------- magnetic hover: icons lean toward the cursor ----------
+  function magnet(b) {
+    b.addEventListener("pointermove", e => {
+      const ic = b.querySelector("img, .glyph, .logo"); if (!ic) return;
+      const r = b.getBoundingClientRect();
+      ic.style.transform = `translate(${(e.clientX - r.left - r.width / 2) * .3}px, ${(e.clientY - r.top - r.height / 2) * .3 - 3}px) scale(1.12)`;
+    });
+    b.addEventListener("pointerleave", () => { const ic = b.querySelector("img, .glyph, .logo"); if (ic) ic.style.transform = ""; });
+  }
+  magnet(start);
+
+  // ---------- tray status ----------
+  let wifiTick = 0;
+  async function status() {
+    try {
+      const s = await invoke("get_status", { withWifi: wifiTick++ % 6 === 0 });
+      if (s.wifi !== null || wifiTick === 1) wifiIc.className = "ph " + (s.wifi ? "ph-wifi-high" : "ph-wifi-slash");
+      const v = s.volume ?? 0;
+      volIc.className = "ph " + (s.muted || v === 0 ? "ph-speaker-x" : v < .34 ? "ph-speaker-low" : "ph-speaker-high");
+      if (s.battery === null) batIc.style.display = "none";
+      else {
+        batIc.style.display = "";
+        batIc.className = "ph " + (s.charging ? "ph-battery-charging" : s.battery > 80 ? "ph-battery-full" : s.battery > 55 ? "ph-battery-high" : s.battery > 30 ? "ph-battery-medium" : s.battery > 10 ? "ph-battery-low" : "ph-battery-warning");
+        tray.title = `Battery ${s.battery}%` + (s.charging ? " (charging)" : "") + (s.wifi ? ` · ${s.wifi}` : "");
+      }
+    } catch {}
+  }
+  status(); setInterval(status, 5000);
+
+  document.querySelectorAll(".center > .btn, .right > *").forEach((c, i) => c.style.setProperty("--i", i));
+
+  // ---------- Now Playing ----------
+  // The pill shows whatever Windows' media controls know (Spotify, YouTube in a browser, ...).
+  // The album art's main color tints the pill and the visualizer.
+  let artRGB = null;
+  function artColor(img) {
+    try {
+      const c = document.createElement("canvas"); c.width = c.height = 24;
+      const x = c.getContext("2d"); x.drawImage(img, 0, 0, 24, 24);
+      const d = x.getImageData(0, 0, 24, 24).data;
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+        if (mx - mn < 40 || mx < 60) continue;             // skip greys, black and white
+        r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+      }
+      if (n < 8) return null;
+      // brighten it so it reads as a glow
+      const k = 255 / Math.max(r / n, g / n, b / n, 1) * .92;
+      return [Math.round(r / n * k), Math.round(g / n * k), Math.round(b / n * k)];
+    } catch { return null; }
+  }
+  art.onload = () => {
+    artRGB = artColor(art);
+    np.style.setProperty("--art", artRGB ? `rgba(${artRGB.join(",")},.7)` : "");
+  };
+  let lastSong = "";
+  let lastNP = null;
+  function showNowPlaying(s) {
+    lastNP = s;
+    // the player can be switched off (× on the pill, its right-click menu, or quick settings)
+    if (!store.get("pc-np", true)) s = null;
+    np.classList.toggle("on", !!s);
+    if (!s) { artRGB = null; lastSong = ""; return; }
+    np.classList.toggle("playing", s.playing);
+    npPlayIc.className = "ph-fill " + (s.playing ? "ph-pause" : "ph-play");
+    const song = s.title + "|" + s.artist;
+    if (song !== lastSong) {
+      lastSong = song;
+      npTitle.textContent = s.title;
+      npArtist.textContent = s.artist || s.app.replace(/\.exe$/i, "").split(/[!\\.]/)[0];
+      np.title = s.artist ? `${s.title} · ${s.artist}` : s.title;
+      npInfo.classList.remove("new"); void npInfo.offsetWidth; npInfo.classList.add("new");
+    }
+    if (s.art) { if (art.src !== s.art) art.src = s.art; art.style.display = ""; }
+    else if (!art.src) art.style.display = "none";
+  }
+  listen("now-playing", ({ payload }) => showNowPlaying(payload));
+  invoke("now_playing").then(showNowPlaying);
+  const media = action => invoke("media_control", { action });
+  npPlay.onclick = npInfo.onclick = () => { np.classList.toggle("playing"); npPlayIc.className = "ph-fill " + (np.classList.contains("playing") ? "ph-pause" : "ph-play"); media("playpause"); };
+  npPrev.onclick = () => media("previous");
+  npNext.onclick = () => media("next");
+  npClose.onclick = e => { e.stopPropagation(); store.set("pc-np", false); showNowPlaying(lastNP); };
+  np.oncontextmenu = e => {
+    e.preventDefault();
+    const lyricsOn = store.get("pc-lyrics", true);
+    // nudge the lyrics when a song's lyric file is a bit ahead or behind
+    const off = store.get("pc-lyrics-offset", 0);
+    const nudge = ms => store.set("pc-lyrics-offset", Math.round((off + ms) / 100) * 100);
+    const label = off ? ` (now ${off > 0 ? "+" : ""}${(off / 1000).toFixed(1)} s)` : "";
+    popupMenu([
+      { text: lyricsOn ? "Hide lyrics" : "Show lyrics", icon: "ph-microphone-stage", action: () => store.set("pc-lyrics", !lyricsOn) },
+      lyricsOn ? null : undefined,
+      lyricsOn ? { text: "Lyrics 0.5 s earlier" + label, icon: "ph-rewind", action: () => nudge(500) } : undefined,
+      lyricsOn ? { text: "Lyrics 0.5 s later" + label, icon: "ph-fast-forward", action: () => nudge(-500) } : undefined,
+      lyricsOn && off ? { text: "Reset lyrics timing", icon: "ph-arrow-counter-clockwise", action: () => store.set("pc-lyrics-offset", 0) } : undefined,
+      lyricsOn ? (() => {
+        // switch where the lyrics appear: edges -> above the taskbar -> anywhere
+        const places = { edges: ["bottom", "Around the edges"], bottom: ["anywhere", "Above the taskbar"], anywhere: ["edges", "Anywhere"] };
+        const cur = store.get("pc-lyrics-place", "edges");
+        return { text: `Lyrics position: ${places[cur][1]}`, icon: "ph-arrows-out-cardinal", action: () => store.set("pc-lyrics-place", places[cur][0]) };
+      })() : undefined,
+      null,
+      { text: "Hide player", icon: "ph-eye-slash", action: () => { store.set("pc-np", false); showNowPlaying(lastNP); } },
+    ].filter(x => x !== undefined));
+  };
+  addEventListener("storage", e => { if (e.key === "pc-np") showNowPlaying(lastNP); });
+
+  // ---------- music visualizer ----------
+  // Mirrored bars (bass in the middle, treble at the edges) in pink to ice blue, with a soft
+  // glow and a wavy line over the tops. Fades away when nothing is playing.
+  // Modes: "big" rises above the taskbar, "subtle" stays inside it, "off".
+  const ctx = vis.getContext("2d");
+  const BANDS = 48;
+  let target = new Float32Array(BANDS), level = new Float32Array(BANDS);
+  let mode = store.get("pc-vis", "big");
+  let drawing = false;
+
+  function applyMode() {
+    mode = store.get("pc-vis", "big");
+    invoke("set_visualizer", { on: mode !== "off" });
+    if (mode === "off") { target.fill(0); level.fill(0); ctx.clearRect(0, 0, vis.width, vis.height); pulse.style.opacity = 0; logo.style.transform = ""; }
+  }
+  applyMode();
+  addEventListener("storage", e => { if (e.key === "pc-vis") applyMode(); });
+
+  function fit() {
+    const dpr = devicePixelRatio;
+    vis.width = Math.round(innerWidth * dpr);
+    vis.height = Math.round(innerHeight * dpr);
+  }
+  fit(); addEventListener("resize", fit);
+
+  listen("audio", ({ payload }) => {
+    if (mode === "off") return;
+    for (let i = 0; i < BANDS; i++) target[i] = (payload[i] || 0) / 255;
+    if (!drawing) { drawing = true; requestAnimationFrame(draw); }
+  });
+
+  function draw() {
+    let any = false;
+    for (let i = 0; i < BANDS; i++) {
+      level[i] += (target[i] - level[i]) * .35;
+      any = any || level[i] > .004;
+    }
+    const W = vis.width, H = vis.height, dpr = devicePixelRatio;
+    ctx.clearRect(0, 0, W, H);
+    const dark = document.documentElement.dataset.theme === "dark";
+    const maxH = mode === "big" ? H * .92 : 54 * dpr;
+    const alpha = mode === "big" ? .6 : .38;
+
+    const n = BANDS * 2, slot = W / n, bw = Math.max(2, slot * .62);
+    const grad = ctx.createLinearGradient(0, H, 0, H - maxH);
+    // the theme's two colors (the album's color takes the middle when a song has art)
+    grad.addColorStop(0, themeColors.g2 || "#8cc6e6");
+    grad.addColorStop(.55, artRGB ? `rgba(${artRGB.join(",")},1)` : themeColors.g1 || "#f2a6c0");
+    grad.addColorStop(1, "rgba(255,255,255,.9)");
+    const heights = [];
+    for (let k = 0; k < n; k++) {
+      const band = k < BANDS ? BANDS - 1 - k : k - BANDS;      // mirrored: bass in the middle
+      heights.push(Math.pow(level[band], 1.35) * maxH);
+    }
+    // soft glow pass, then crisp bars
+    for (const pass of [0, 1]) {
+      ctx.save();
+      ctx.globalAlpha = pass ? alpha : alpha * .55;
+      if (!pass) ctx.filter = `blur(${10 * dpr}px)`;
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      for (let k = 0; k < n; k++) {
+        const h = heights[k];
+        if (h < 1) continue;
+        const x = k * slot + (slot - bw) / 2;
+        ctx.roundRect(x, H - h, bw, h + bw, bw / 2);
+      }
+      ctx.fill();
+      ctx.restore();
+    }
+    // wavy line over the bar tops
+    if (mode === "big") {
+      ctx.save();
+      ctx.globalAlpha = alpha * .8;
+      ctx.strokeStyle = dark ? "rgba(255,230,240,.8)" : "rgba(255,255,255,.95)";
+      ctx.lineWidth = 2 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(0, H - heights[0] - 6 * dpr);
+      for (let k = 1; k < n; k++) {
+        const x0 = (k - .5) * slot, y0 = H - heights[k - 1] - 6 * dpr, x1 = (k + .5) * slot, y1 = H - heights[k] - 6 * dpr;
+        ctx.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    // the Start button and a glow behind the apps breathe with the bass
+    const bass = (level[0] + level[1] + level[2] + level[3] + level[4]) / 5;
+    pulse.style.opacity = Math.min(1, bass * 1.3).toFixed(3);
+    if (!start.matches(":hover")) logo.style.transform = `scale(${(1 + bass * .28).toFixed(3)}) rotate(${(bass * 20).toFixed(1)}deg)`;
+
+    if (any) requestAnimationFrame(draw);
+    else { drawing = false; ctx.clearRect(0, 0, W, H); pulse.style.opacity = 0; logo.style.transform = ""; }
+  }
+</script>
+</body>
+</html>

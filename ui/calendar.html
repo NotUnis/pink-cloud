@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Calendar</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .popup { --ox: 92%; --oy: 105%; padding: 20px 20px 14px; display: flex; flex-direction: column; }
+  .now { padding: 0 6px 16px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .time { font-size: 44px; font-weight: 600; letter-spacing: -1px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .time small { font-size: 20px; font-weight: 400; color: var(--text-2); margin-left: 4px; }
+  .day { margin-top: 4px; color: var(--text-2); }
+  .head { display: flex; align-items: center; gap: 4px; margin: 0 2px 8px; }
+  .month { flex: 1; font-weight: 600; padding: 6px 8px; }
+  .nav { width: 32px; height: 32px; display: grid; place-items: center; font-size: 16px; }
+  .wd, .grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+  .wd { font-size: 12px; color: var(--text-2); margin-bottom: 4px; }
+  .wd span { padding: 4px 0; }
+  .viewport { overflow: hidden; }
+  .grid { gap: 2px; }
+  .d { height: 40px; display: grid; place-items: center; border-radius: 50%; font-size: 13px; font-variant-numeric: tabular-nums;
+    position: relative; transition: background .15s, color .15s, transform .25s var(--spring); }
+  .d:hover { background: var(--panel-hover); }
+  .d:active { transform: scale(.88); }
+  .d.out { color: var(--text-2); opacity: .55; }
+  .d.weekend:not(.out) { color: var(--text-2); }
+  .d.today { background: var(--ice-strong); color: var(--on-ice); font-weight: 600; opacity: 1; }
+  .d.today:hover { background: var(--ice-hover); }
+  .d.sel:not(.today) { box-shadow: inset 0 0 0 2px var(--pink-deep); font-weight: 600; }
+  @keyframes inLeft { from { opacity: 0; transform: translateX(-40px); filter: blur(4px); } }
+  @keyframes inRight { from { opacity: 0; transform: translateX(40px); filter: blur(4px); } }
+  .grid.fromLeft { animation: inLeft .4s var(--smooth); }
+  .grid.fromRight { animation: inRight .4s var(--smooth); }
+  .picked { margin: 10px 6px 0; font-size: 13px; color: var(--text-2); min-height: 18px; }
+  .foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--border); }
+  .foot .ctl { padding: 6px 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="popup">
+  <div class="now stagger">
+    <div class="time" id="time"></div>
+    <div class="day" id="day"></div>
+  </div>
+  <div class="head">
+    <div class="month" id="month"></div>
+    <div class="nav ctl" id="prev" title="Previous month"><i class="ph ph-caret-up"></i></div>
+    <div class="nav ctl" id="next" title="Next month"><i class="ph ph-caret-down"></i></div>
+  </div>
+  <div class="wd"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+  <div class="viewport"><div class="grid" id="grid"></div></div>
+  <div class="picked" id="picked"></div>
+  <div class="foot">
+    <div class="ctl" id="today"><i class="ph ph-calendar-dot"></i> Today</div>
+    <div class="ctl" id="settings"><i class="ph ph-gear-six"></i> Date and time</div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  const LOCALE = "en-GB";
+  let view = new Date(); view.setDate(1);
+  let selected = null;
+  const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const pad = n => String(n).padStart(2, "0");
+
+  function tick() {
+    const d = new Date();
+    time.innerHTML = `${pad(d.getHours())}:${pad(d.getMinutes())}<small>${pad(d.getSeconds())}</small>`;
+    day.textContent = d.toLocaleDateString(LOCALE, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }
+  tick(); setInterval(tick, 1000);
+
+  function render(direction) {
+    month.textContent = view.toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
+    const first = new Date(view);
+    const offset = (first.getDay() + 6) % 7;           // weeks start on Monday
+    const start = new Date(first); start.setDate(1 - offset);
+    const today = new Date();
+    grid.innerHTML = "";
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const el = document.createElement("div");
+      el.className = "d ctl";
+      el.textContent = d.getDate();
+      if (d.getMonth() !== view.getMonth()) el.classList.add("out");
+      if (d.getDay() === 0 || d.getDay() === 6) el.classList.add("weekend");
+      if (sameDay(d, today)) el.classList.add("today");
+      if (sameDay(d, selected)) el.classList.add("sel");
+      el.onclick = () => {
+        selected = d;
+        if (d.getMonth() !== view.getMonth()) { const back = d < view; view = new Date(d.getFullYear(), d.getMonth(), 1); render(back ? "fromLeft" : "fromRight"); }
+        else render();
+        showPicked();
+      };
+      grid.appendChild(el);
+    }
+    grid.classList.remove("fromLeft", "fromRight");
+    if (direction) { void grid.offsetWidth; grid.classList.add(direction); }
+  }
+
+  function showPicked() {
+    if (!selected) { picked.textContent = ""; return; }
+    const days = Math.round((new Date(selected.getFullYear(), selected.getMonth(), selected.getDate()) - new Date(new Date().toDateString())) / 86400000);
+    const rel = days === 0 ? "today" : days === 1 ? "tomorrow" : days === -1 ? "yesterday" : days > 0 ? `in ${days} days` : `${-days} days ago`;
+    picked.textContent = selected.toLocaleDateString(LOCALE, { weekday: "long", day: "numeric", month: "long" }) + " · " + rel;
+  }
+
+  const shift = n => { view = new Date(view.getFullYear(), view.getMonth() + n, 1); render(n < 0 ? "fromLeft" : "fromRight"); };
+  prev.onclick = () => shift(-1);
+  next.onclick = () => shift(1);
+  addEventListener("wheel", e => shift(Math.sign(e.deltaY)));
+  today.onclick = () => { const now = new Date(); const back = now < view; view = new Date(now.getFullYear(), now.getMonth(), 1); selected = null; showPicked(); render(back ? "fromLeft" : "fromRight"); };
+  settings.onclick = () => { invoke("launch", { path: "ms-settings:dateandtime" }); invoke("popup_blurred", { name: "calendar" }); };
+
+  render();
+  setupPopup("calendar", () => {
+    tick();
+    view = new Date(); view.setDate(1); selected = null; showPicked(); render();
+  });
+</script>
+</body>
+</html>

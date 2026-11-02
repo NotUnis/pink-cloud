@@ -1,0 +1,212 @@
+@import url("vendor/phosphor/regular/style.css");
+@import url("vendor/phosphor/fill/style.css");
+
+/* Color themes. Every screen is colored from these variables, so switching theme
+   (data-palette on the root: pink, lavender, mint, sunset, cosmos) recolors everything.
+   --g1 / --g2 are the theme's two signature colors (gradients, visualizer, glows), --g3 a hot
+   accent, --pink / --ice the soft fills and selection, --sky the idle screen, and --tint the
+   frosted glass behind popups ("r, g, b, a"). The popups sit on real Windows acrylic, so panel
+   colors are thin tints on top of it. */
+:root {
+  --panel: rgba(255, 240, 245, .55);
+  --panel-hover: rgba(246, 201, 214, .5);
+  --hi: rgba(255, 255, 255, .6);
+  --pink: #f6c9d6;
+  --pink-deep: #e7a9bc;
+  --ice: #d6eefb;
+  --ice-strong: #3e93c2;
+  --ice-hover: #357fa8;
+  --on-ice: #fff;
+  --text: #3d2440;
+  --text-2: #6b5170;
+  --border: rgba(214, 170, 190, .55);
+  --halo: rgba(255, 255, 255, .95);
+  --sheen: rgba(255, 255, 255, .6);
+  --g1: #f2a6c0;
+  --g2: #8cc6e6;
+  --g3: #e7799c;
+  --g1-soft: #f6c9d6;
+  --g2-soft: #c6e5f6;
+  --shade: #8c6ebe;
+  --lyric-sung: #fff3f7;
+  --lyric-now: #bfe6fb;
+  --sky: radial-gradient(120% 90% at 20% 10%, #fbd3e0 0%, #f2b8cd 30%, #c9a8e6 62%, #9cc9ec 100%);
+  --tint: 255, 236, 242, 110;
+  --r-ctl: 8px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  --smooth: cubic-bezier(.16, 1, .3, 1);
+}
+:root[data-theme="dark"] {
+  --panel: rgba(40, 26, 46, .45);
+  --panel-hover: rgba(231, 169, 188, .16);
+  --hi: rgba(255, 255, 255, .07);
+  --pink: #5c3b55;
+  --pink-deep: #7d4e6d;
+  --ice: rgba(140, 198, 230, .2);
+  --ice-strong: #8cc6e6;
+  --ice-hover: #a9d8f0;
+  --on-ice: #12202b;
+  --text: #f7eaf0;
+  --text-2: #cdb6c9;
+  --border: rgba(231, 169, 188, .22);
+  --halo: rgba(20, 12, 26, .9);
+  --sheen: rgba(255, 255, 255, .18);
+  --g1-soft: #7a4a6c;
+  --g2-soft: #2a4a60;
+  --shade: #000;
+  --sky: radial-gradient(120% 90% at 20% 10%, #4a2a4e 0%, #35203f 40%, #1e2140 75%, #122236 100%);
+  --tint: 40, 26, 46, 170;
+}
+
+/* Lavender: soft lilac with baby blue */
+:root[data-palette="lavender"] {
+  --panel: rgba(244, 238, 255, .55); --panel-hover: rgba(214, 196, 245, .5);
+  --pink: #ddd0f7; --pink-deep: #c2acee; --ice: #dbe8fb; --ice-strong: #6a7fd6; --ice-hover: #5a6ec4;
+  --text: #2f2548; --text-2: #5f5480; --border: rgba(190, 170, 230, .55);
+  --g1: #c4a7f2; --g2: #9cc4f2; --g3: #a67ce8; --g1-soft: #e3d6fa; --g2-soft: #d3e4fa; --shade: #7a64b8;
+  --lyric-sung: #f6f0ff; --lyric-now: #cfe0fb;
+  --sky: radial-gradient(120% 90% at 20% 10%, #eadcff 0%, #d4c0f5 35%, #b4b6ee 65%, #9fc4ef 100%);
+  --tint: 244, 238, 255, 110;
+}
+:root[data-palette="lavender"][data-theme="dark"] {
+  --panel: rgba(34, 28, 52, .45); --panel-hover: rgba(180, 160, 235, .16);
+  --pink: #4a3e6e; --pink-deep: #64538f; --ice: rgba(156, 196, 242, .2); --ice-strong: #9cc4f2; --ice-hover: #b8d4f6;
+  --on-ice: #141b2e; --text: #f0ebff; --text-2: #c2b8de; --border: rgba(180, 160, 235, .22);
+  --g1-soft: #5a4888; --g2-soft: #2e4466; --shade: #000;
+  --sky: radial-gradient(120% 90% at 20% 10%, #3c2f62 0%, #2b2450 45%, #1b2145 80%, #121a36 100%);
+  --tint: 34, 28, 52, 170;
+}
+
+/* Mint: fresh mint with a soft pink */
+:root[data-palette="mint"] {
+  --panel: rgba(236, 252, 246, .55); --panel-hover: rgba(184, 234, 214, .5);
+  --pink: #c8efe0; --pink-deep: #9ee0c6; --ice: #fde3ea; --ice-strong: #2e9d7a; --ice-hover: #268467;
+  --text: #1f3b35; --text-2: #4b6b63; --border: rgba(150, 214, 190, .55);
+  --g1: #8fe0c2; --g2: #f6b8cb; --g3: #3fc497; --g1-soft: #d3f4e7; --g2-soft: #fbdde6; --shade: #4f9c84;
+  --lyric-sung: #f2fffa; --lyric-now: #ffd6e2;
+  --sky: radial-gradient(120% 90% at 20% 10%, #d8f7ea 0%, #b6ead6 35%, #a9dccf 60%, #f4c6d4 100%);
+  --tint: 236, 252, 246, 110;
+}
+:root[data-palette="mint"][data-theme="dark"] {
+  --panel: rgba(20, 40, 36, .45); --panel-hover: rgba(143, 224, 194, .14);
+  --pink: #285447; --pink-deep: #36705e; --ice: rgba(246, 184, 203, .18); --ice-strong: #8fe0c2; --ice-hover: #aae9d1;
+  --on-ice: #10241e; --text: #e6fbf3; --text-2: #a9cfc3; --border: rgba(143, 224, 194, .2);
+  --g1-soft: #2e6656; --g2-soft: #6a3a4c; --shade: #000;
+  --sky: radial-gradient(120% 90% at 20% 10%, #1f4a40 0%, #173a33 45%, #142c30 80%, #2a1e2c 100%);
+  --tint: 20, 40, 36, 170;
+}
+
+/* Sunset: peach, coral and warm pink */
+:root[data-palette="sunset"] {
+  --panel: rgba(255, 242, 234, .55); --panel-hover: rgba(255, 200, 170, .5);
+  --pink: #ffd8c2; --pink-deep: #ffb898; --ice: #ffe0ea; --ice-strong: #e0566f; --ice-hover: #c8465f;
+  --text: #4a2430; --text-2: #7a4f58; --border: rgba(240, 180, 160, .55);
+  --g1: #ffb38a; --g2: #f78bb0; --g3: #ff7a5c; --g1-soft: #ffdcc8; --g2-soft: #fcd3e1; --shade: #c06a6a;
+  --lyric-sung: #fff6ee; --lyric-now: #ffd2b8;
+  --sky: radial-gradient(120% 90% at 20% 10%, #ffe2c4 0%, #ffbf9a 30%, #f79bb5 62%, #b98bd8 100%);
+  --tint: 255, 236, 226, 110;
+}
+:root[data-palette="sunset"][data-theme="dark"] {
+  --panel: rgba(48, 26, 30, .45); --panel-hover: rgba(255, 150, 120, .15);
+  --pink: #5e3433; --pink-deep: #7c4440; --ice: rgba(247, 139, 176, .2); --ice-strong: #ff9e7d; --ice-hover: #ffb699;
+  --on-ice: #2a1414; --text: #ffeee6; --text-2: #dbb3a8; --border: rgba(255, 160, 130, .22);
+  --g1-soft: #7a4136; --g2-soft: #6e3046; --shade: #000;
+  --sky: radial-gradient(120% 90% at 20% 10%, #5a2f30 0%, #45243a 45%, #2e1d3e 80%, #1c1830 100%);
+  --tint: 48, 26, 30, 170;
+}
+
+/* Cosmos: deep space, violet and cyan nebula light, stars. Always dark. */
+:root[data-palette="cosmos"], :root[data-palette="cosmos"][data-theme="dark"] {
+  --panel: rgba(16, 14, 40, .58); --panel-hover: rgba(139, 92, 246, .2); --hi: rgba(255, 255, 255, .06);
+  --pink: #2c2462; --pink-deep: #4a3a9a; --ice: rgba(34, 211, 238, .16); --ice-strong: #22d3ee; --ice-hover: #67e8f9;
+  --on-ice: #06121f; --text: #eef0ff; --text-2: #a9a7d6; --border: rgba(140, 120, 255, .28);
+  --halo: rgba(6, 6, 24, .9); --sheen: rgba(170, 150, 255, .22);
+  --g1: #a78bfa; --g2: #22d3ee; --g3: #f472b6; --g1-soft: #3b2f7a; --g2-soft: #13435a; --shade: #000;
+  --lyric-sung: #f1ecff; --lyric-now: #7df3ff;
+  --sky: radial-gradient(60% 50% at 25% 30%, rgba(139, 92, 246, .55), transparent 70%),
+         radial-gradient(50% 45% at 75% 65%, rgba(34, 211, 238, .35), transparent 70%),
+         radial-gradient(40% 35% at 60% 20%, rgba(244, 114, 182, .35), transparent 70%),
+         linear-gradient(160deg, #0b0a24 0%, #120c33 45%, #05081c 100%);
+  --tint: 12, 10, 34, 200;
+}
+/* a sprinkle of stars behind every Cosmos panel */
+:root[data-palette="cosmos"] .popup, :root[data-palette="cosmos"] .win, :root[data-palette="cosmos"] .w {
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.9), transparent 60%), radial-gradient(1px 1px at 38% 72%, rgba(255,255,255,.7), transparent 60%),
+    radial-gradient(1.5px 1.5px at 66% 28%, rgba(200,220,255,.9), transparent 60%), radial-gradient(1px 1px at 84% 58%, rgba(255,255,255,.6), transparent 60%),
+    radial-gradient(1px 1px at 22% 88%, rgba(255,255,255,.6), transparent 60%), radial-gradient(1.5px 1.5px at 92% 12%, rgba(167,139,250,.9), transparent 60%),
+    radial-gradient(1px 1px at 52% 44%, rgba(125,243,255,.7), transparent 60%), radial-gradient(1px 1px at 6% 52%, rgba(244,114,182,.7), transparent 60%);
+  background-size: 260px 220px;
+}
+
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; overflow: hidden; background: transparent; }
+body {
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+i[class*="ph"] { line-height: 1; }
+:focus-visible { outline: 2px solid var(--ice-strong); outline-offset: 2px; }
+
+.ctl { border-radius: var(--r-ctl); cursor: pointer; transition: background .15s var(--ease), transform .2s var(--spring); }
+.ctl:hover { background: var(--panel-hover); }
+.ctl:active { transform: scale(.95); }
+
+.field { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 19px;
+  background: var(--hi); border: 1px solid var(--border); color: var(--text-2); transition: border-color .15s, box-shadow .15s; }
+.field:focus-within { border-color: var(--ice-strong); box-shadow: 0 0 0 1px var(--ice-strong); }
+.field input { border: 0; background: none; outline: none; font: inherit; color: var(--text); width: 100%; }
+.field input::placeholder { color: var(--text-2); }
+
+.appicon { width: 40px; height: 40px; object-fit: contain; }
+.glyph { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 22px;
+  background: linear-gradient(160deg, var(--g1-soft), var(--pink-deep)); color: var(--text); }
+
+/* popups: the whole page is the panel; it grows out of the taskbar and a light sweep crosses it */
+.popup { height: 100%; background: var(--panel); border-radius: 14px; position: relative; overflow: hidden; }
+@keyframes reveal {
+  from { clip-path: circle(0% at var(--ox) var(--oy)); filter: blur(10px); opacity: .5; }
+  to { clip-path: circle(150% at var(--ox) var(--oy)); filter: blur(0); opacity: 1; }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(16px) scale(.92); filter: blur(5px); } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-14px); filter: blur(3px); } }
+@keyframes shine { from { transform: translateX(-130%) skewX(-20deg); } to { transform: translateX(330%) skewX(-20deg); } }
+.popup.open { animation: reveal .55s var(--smooth) backwards; }
+.popup.open::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 35%; z-index: 3; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--sheen), transparent); animation: shine 1s .2s var(--smooth) both; }
+/* a ring of light ripples out from where the popup came from */
+@keyframes shock { from { transform: scale(0); opacity: .9; } to { transform: scale(16); opacity: 0; } }
+.popup.open::after { content: ""; position: absolute; left: var(--ox); top: var(--oy); width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--g2) 90%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--g1) 70%, transparent), inset 0 0 12px rgba(255, 255, 255, .6);
+  pointer-events: none; z-index: 4; animation: shock .9s var(--smooth) both; }
+/* items pop in with a little spin and overshoot */
+@keyframes popIn { from { opacity: 0; transform: translateY(22px) scale(.55) rotate(-10deg); filter: blur(6px); } }
+.popup.open .stagger > * { animation: popIn .6s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 28ms + 90ms); }
+
+/* Files and Settings: swoop up out of the taskbar when opened, fold away and dissolve when closed */
+@keyframes appOpen {
+  0% { opacity: 0; transform: perspective(1000px) translateY(80px) scale(.78) rotateX(14deg); filter: blur(12px); }
+  55% { opacity: 1; filter: blur(0); }
+  100% { transform: none; }
+}
+@keyframes appClose {
+  to { opacity: 0; transform: perspective(1000px) translateY(50px) scale(.84) rotateX(-10deg); filter: blur(14px) brightness(1.4); }
+}
+@keyframes appSweep { from { transform: translateX(-130%) skewX(-20deg); } to { transform: translateX(420%) skewX(-20deg); } }
+.appwin { position: relative; transform-origin: 50% 100%; }
+.appwin.opening { animation: appOpen .7s var(--spring); }
+.appwin.opening::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 28%; pointer-events: none; z-index: 50;
+  background: linear-gradient(90deg, transparent, var(--sheen), transparent); animation: appSweep 1.1s .25s var(--smooth) both; }
+.appwin.closing { animation: appClose .32s var(--ease) forwards; pointer-events: none; }
+
+/* tiles and cards tilt toward the mouse in 3D (shared.js drives it) */
+.tilt { transition: transform .45s var(--spring), background .15s, box-shadow .2s; will-change: transform; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

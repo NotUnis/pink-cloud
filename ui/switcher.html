@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Switcher</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Alt+Tab: every window as a live view (drawn by Windows in each card's empty area),
+     and a glowing ring that springs to the one you're about to pick. */
+  .popup { --ox: 50%; --oy: 50%; background: var(--panel); border-radius: 22px; }
+  .card { position: absolute; border-radius: 16px; cursor: pointer; transition: background .15s; }
+  .card:hover { background: var(--panel-hover); }
+  .head { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; }
+  .head img { width: 18px; height: 18px; flex-shrink: 0; }
+  .head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
+  .asleep { position: absolute; left: 0; right: 0; top: 34px; bottom: 10px; display: grid; place-items: center; color: var(--text-2); font-size: 12px; text-align: center; }
+  .asleep img { width: 56px; height: 56px; display: block; margin: 0 auto 6px; opacity: .8; }
+  .asleep img.snap { width: auto; height: auto; max-width: calc(100% - 20px); max-height: 100%; margin: 0; border-radius: 8px; opacity: 1; }
+  .ring { position: absolute; border-radius: 18px; pointer-events: none; z-index: 2;
+    box-shadow: 0 0 0 3px var(--ice-strong), 0 0 24px 4px color-mix(in srgb, var(--g2) 75%, transparent), 0 0 50px 10px color-mix(in srgb, var(--g1) 35%, transparent);
+    transition: transform .42s var(--spring), width .3s var(--spring), height .3s var(--spring); }
+  @keyframes ringPulse { 0%, 100% { opacity: 1; } 50% { opacity: .75; } }
+  .ring { animation: ringPulse 1.6s ease-in-out infinite; }
+  .popup.open .card { animation: popIn .5s var(--spring) backwards; animation-delay: calc(var(--i) * 22ms); }
+</style>
+</head>
+<body>
+<div class="popup" id="panel"></div>
+
+<script src="shared.js"></script>
+<script>
+  let cards = [], ring = null;
+
+  function moveRing(i) {
+    const c = cards[i];
+    if (!c || !ring) return;
+    ring.style.transform = `translate(${c.x - 2}px, ${c.y - 2}px)`;
+  }
+
+  listen("switcher", ({ payload }) => {
+    panel.innerHTML = "";
+    cards = payload.cards;
+    cards.forEach((c, i) => {
+      const el = document.createElement("div");
+      el.className = "card";
+      Object.assign(el.style, { left: c.x + "px", top: c.y + "px", width: payload.w + "px", height: payload.h + "px" });
+      el.style.setProperty("--i", i);
+      el.innerHTML = `<div class="head"><img alt=""><span></span></div>`;
+      el.querySelector("span").textContent = c.title;
+      iconFor(c.app_id ? "shell:AppsFolder\\" + c.app_id : c.exe || "type:.exe")
+        .then(async u => u || invoke("window_icon", { hwnd: c.hwnd }).catch(() => null))
+        .then(u => { if (u) el.querySelector("img").src = u; });
+      if (!c.live && c.snap) {
+        // the last picture of a minimized window
+        el.insertAdjacentHTML("beforeend", `<div class="asleep"><img class="snap" alt="" src="${c.snap}"></div>`);
+      } else if (!c.live) {
+        // no picture yet: the app's icon, big
+        el.insertAdjacentHTML("beforeend", `<div class="asleep"><img alt=""></div>`);
+        iconFor(c.app_id ? "shell:AppsFolder\\" + c.app_id : c.exe || "type:.exe")
+          .then(async u => u || invoke("window_icon", { hwnd: c.hwnd }).catch(() => null))
+          .then(u => { if (u) el.querySelector(".asleep img").src = u; });
+      }
+      el.onclick = () => invoke("switcher_pick", { index: i });
+      panel.appendChild(el);
+    });
+    ring = document.createElement("div");
+    ring.className = "ring";
+    Object.assign(ring.style, { width: payload.w + 4 + "px", height: payload.h + 4 + "px", transition: "none" });
+    panel.appendChild(ring);
+    moveRing(payload.selected);
+    requestAnimationFrame(() => ring && (ring.style.transition = ""));
+    panel.classList.remove("open"); void panel.offsetWidth; panel.classList.add("open");
+  });
+  listen("switcher-select", ({ payload }) => moveRing(payload));
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the Pink Cloud screens are allowed to do",
+  "windows": [
+    "taskbar",
+    "start",
+    "quick",
+    "calendar",
+    "menu",
+    "tray",
+    "files",
+    "preview",
+    "switcher",
+    "lyrics",
+    "settings",
+    "toast",
+    "widgets",
+    "idle",
+    "notes"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize"
+  ]
+}

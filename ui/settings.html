@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body { font-size: 13px; }
+  .win { height: 100%; display: flex; flex-direction: column; background: var(--panel); border-radius: 10px; overflow: hidden; }
+
+  .title { display: flex; align-items: center; height: 42px; padding-left: 14px; flex-shrink: 0; }
+  .title .name { display: flex; align-items: center; gap: 8px; font-weight: 600; pointer-events: none; }
+  .title .name img { width: 20px; height: 20px; }
+  .title .grow { flex: 1; align-self: stretch; }
+  .wb { display: flex; align-self: stretch; }
+  .wb div { width: 46px; display: grid; place-items: center; font-size: 15px; cursor: pointer; transition: background .15s; }
+  .wb div:hover { background: var(--panel-hover); }
+  .wb .close:hover { background: var(--g3); color: #fff; }
+
+  .body { flex: 1; display: flex; min-height: 0; }
+  .side { width: 240px; flex-shrink: 0; padding: 4px 10px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  .me { display: flex; align-items: center; gap: 12px; padding: 10px 10px 16px; }
+  .me .avatar { width: 46px; height: 46px; border-radius: 50%; background: linear-gradient(135deg, var(--g1-soft), var(--g2-soft)); display: grid; place-items: center;
+    font-size: 20px; font-weight: 700; color: #3d2440; box-shadow: 0 4px 12px color-mix(in srgb, var(--shade) 25%, transparent); }
+  .me b { display: block; font-size: 14px; }
+  .me small { color: var(--text-2); }
+  .side .field { margin: 0 2px 10px; height: 36px; }
+  .nav { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 12px; position: relative; }
+  .nav i { font-size: 18px; color: var(--text-2); transition: transform .35s var(--spring), color .2s; }
+  .nav:hover i { transform: scale(1.15) rotate(-6deg); }
+  .nav.on { background: var(--hi); box-shadow: inset 0 0 0 1px var(--border); }
+  .nav.on i { color: var(--ice-strong); }
+  .nav.on::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--ice-strong); }
+
+  .main { flex: 1; min-width: 0; overflow-y: auto; padding: 6px 28px 30px 18px; }
+  .main::-webkit-scrollbar { width: 8px; }
+  .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  h1 { font-size: 26px; font-weight: 700; margin: 4px 0 18px; letter-spacing: -.3px; }
+  h2 { font-size: 13px; font-weight: 600; margin: 22px 2px 8px; color: var(--text-2); }
+  @keyframes pageIn { from { opacity: 0; transform: translateY(14px); filter: blur(4px); } }
+  .page { animation: pageIn .4s var(--smooth); }
+  .page > *, .grid > * { animation: rise .45s var(--smooth) backwards; animation-delay: calc(var(--i, 0) * 25ms); }
+
+  /* setting rows */
+  .row { display: flex; align-items: center; gap: 14px; min-height: 62px; padding: 10px 16px; margin-bottom: 4px; border-radius: 12px;
+    background: var(--hi); border: 1px solid var(--border); }
+  .row > i { font-size: 22px; color: var(--text-2); flex-shrink: 0; }
+  .row .txt { flex: 1; min-width: 0; }
+  .row .txt b { display: block; font-weight: 500; font-size: 14px; }
+  .row .txt small { display: block; color: var(--text-2); margin-top: 2px; }
+  .row.link { cursor: pointer; transition: background .15s, transform .3s var(--spring); }
+  .row.link:hover { background: var(--panel-hover); transform: translateX(3px); }
+  .row.link .go { color: var(--text-2); font-size: 15px; }
+
+  /* switch */
+  .sw { width: 42px; height: 22px; border-radius: 11px; border: 1px solid var(--text-2); position: relative; cursor: pointer; flex-shrink: 0; transition: background .2s, border-color .2s; }
+  .sw::after { content: ""; position: absolute; top: 4px; left: 4px; width: 12px; height: 12px; border-radius: 6px; background: var(--text-2);
+    transition: transform .45s var(--spring), background .15s, width .2s; }
+  .sw:active::after { width: 16px; }
+  .sw.on { background: var(--ice-strong); border-color: var(--ice-strong); }
+  .sw.on::after { transform: translateX(20px); background: var(--on-ice); }
+  .sw.on:active::after { transform: translateX(16px); }
+
+  /* segmented choice */
+  .seg { display: flex; padding: 3px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); position: relative; flex-shrink: 0; }
+  .seg div { position: relative; z-index: 1; padding: 6px 14px; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: color .2s; }
+  .seg .knob { position: absolute; z-index: 0; top: 3px; bottom: 3px; border-radius: 8px; background: var(--ice-strong); transition: left .4s var(--spring), width .4s var(--spring); }
+  .seg div.on { color: var(--on-ice); }
+
+  /* sliders */
+  .range { width: 220px; height: 4px; border-radius: 2px; background: var(--pink); position: relative; cursor: pointer; touch-action: none; flex-shrink: 0; }
+  .range::before { content: ""; position: absolute; inset: -10px 0; }
+  .range .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--ice-strong); }
+  .range .knob { position: absolute; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: var(--hi);
+    border: 4px solid var(--ice-strong); transition: transform .25s var(--spring); }
+  .range:active .knob { transform: scale(1.35); }
+  .val { width: 34px; text-align: right; color: var(--text-2); }
+
+  .btn { height: 34px; padding: 0 16px; border-radius: 17px; border: 1px solid var(--border); background: var(--panel); font: inherit; color: var(--text); cursor: pointer;
+    transition: background .15s, transform .2s var(--spring); white-space: nowrap; }
+  .btn:hover { background: var(--panel-hover); }
+  .btn:active { transform: scale(.95); }
+  .btn.primary { background: var(--ice-strong); border-color: var(--ice-strong); color: var(--on-ice); }
+  .btn.danger { background: var(--g3); border-color: var(--g3); color: #fff; }
+
+  /* home */
+  .hero { display: flex; align-items: center; gap: 20px; padding: 22px; border-radius: 18px; margin-bottom: 18px; position: relative; overflow: hidden;
+    background: linear-gradient(120deg, color-mix(in srgb, var(--g1) 45%, transparent), color-mix(in srgb, var(--g2) 40%, transparent)); border: 1px solid var(--border); }
+  .hero .pc { width: 110px; height: 72px; border-radius: 10px; border: 4px solid var(--hi); background: linear-gradient(135deg, var(--g1), var(--g2));
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--shade) 30%, transparent); position: relative; flex-shrink: 0; }
+  .hero .pc::after { content: ""; position: absolute; left: 35%; right: 35%; bottom: -14px; height: 10px; border-radius: 0 0 6px 6px; background: var(--hi); }
+  .hero b { font-size: 20px; display: block; }
+  .hero small { color: var(--text-2); display: block; margin-top: 3px; }
+  .hero .cloud { position: absolute; right: -30px; top: -40px; font-size: 180px; opacity: .18; animation: drift 9s ease-in-out infinite alternate; pointer-events: none; }
+  @keyframes drift { to { transform: translate(-30px, 14px) rotate(-6deg); } }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .card { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--hi); border: 1px solid var(--border); cursor: pointer; }
+  .card .ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-size: 20px; flex-shrink: 0;
+    background: linear-gradient(160deg, var(--g1-soft), var(--pink-deep)); color: var(--text); }
+  .card:nth-child(3n+2) .ic { background: linear-gradient(160deg, var(--g2-soft), color-mix(in srgb, var(--g2) 60%, var(--g2-soft))); }
+  .card:nth-child(3n) .ic { background: linear-gradient(160deg, var(--g1-soft), color-mix(in srgb, var(--g3) 45%, var(--g1-soft))); }
+  .card b { font-weight: 500; display: block; }
+  .card small { color: var(--text-2); display: block; font-size: 11px; margin-top: 1px; }
+  .quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .qk { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: var(--hi); border: 1px solid var(--border); cursor: pointer;
+    transition: background .2s, border-color .2s, transform .3s var(--spring); }
+  .qk i { font-size: 22px; }
+  .qk.on { background: var(--ice-strong); border-color: var(--ice-strong); color: var(--on-ice); }
+  .qk:active { transform: scale(.95); }
+
+  /* pinned apps list */
+  .pin img { width: 26px; height: 26px; flex-shrink: 0; }
+  .mini { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--text-2); transition: background .15s; }
+  .mini:hover { background: var(--panel-hover); color: var(--text); }
+  .usage { height: 6px; border-radius: 3px; background: var(--pink); overflow: hidden; margin-top: 6px; width: 240px; }
+  .usage span { display: block; height: 100%; background: var(--ice-strong); border-radius: 3px; }
+  /* color theme cards: a tiny scene in each theme's colors */
+  .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .theme { cursor: pointer; text-align: center; padding: 8px 8px 10px; border-radius: 16px; border: 2px solid transparent; }
+  .theme.on { border-color: var(--ice-strong); background: var(--hi); box-shadow: 0 0 18px color-mix(in srgb, var(--ice-strong) 35%, transparent); }
+  .theme b { display: block; margin-top: 8px; font-weight: 500; }
+  .scene { position: relative; height: 84px; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+  .scene .mini { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; gap: 5px; }
+  .scene .mini span { width: 14px; height: 14px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+  .scene .stars { position: absolute; inset: 0;
+    background-image: radial-gradient(1px 1px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 20%, #fff, transparent), radial-gradient(1.5px 1.5px at 45% 60%, #cfe, transparent),
+      radial-gradient(1px 1px at 85% 55%, #fff, transparent), radial-gradient(1px 1px at 10% 70%, #fcf, transparent), radial-gradient(1px 1px at 60% 85%, #fff, transparent);
+    animation: tw 3s ease-in-out infinite; }
+  @keyframes tw { 50% { opacity: .5; } }
+  .info { display: grid; grid-template-columns: 160px 1fr; gap: 10px 16px; padding: 16px 18px; border-radius: 12px; background: var(--hi); border: 1px solid var(--border); }
+  .info span:nth-child(odd) { color: var(--text-2); }
+  .empty { padding: 50px 20px; text-align: center; color: var(--text-2); }
+  .empty i { font-size: 40px; display: block; margin-bottom: 8px; opacity: .6; }
+</style>
+</head>
+<body>
+<div class="win appwin" id="win">
+  <div class="title" data-tauri-drag-region>
+    <div class="name"><img id="appIcon" alt="">Settings</div>
+    <div class="grow" data-tauri-drag-region></div>
+    <div class="wb">
+      <div id="minBtn" title="Minimize"><i class="ph ph-minus"></i></div>
+      <div id="maxBtn" title="Maximize"><i class="ph ph-square"></i></div>
+      <div class="close" id="closeBtn" title="Close"><i class="ph ph-x"></i></div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="side">
+      <div class="me"><div class="avatar" id="avatar"></div><div><b id="uname"></b><small id="pcname"></small></div></div>
+      <label class="field"><i class="ph ph-magnifying-glass"></i><input id="q" placeholder="Find a setting" spellcheck="false"></label>
+      <div id="navs"></div>
+    </div>
+    <div class="main" id="main"></div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  const appWindow = window.__TAURI__.window.getCurrentWindow();
+  const PAGES = [
+    ["home", "Home", "ph-house-line"],
+    ["look", "Look and feel", "ph-paint-brush"],
+    ["taskbar", "Taskbar", "ph-dock"],
+    ["widgets", "Widgets", "ph-squares-four"],
+    ["notifications", "Notifications", "ph-bell"],
+    ["idle", "Idle screen", "ph-cloud-moon"],
+    ["sound", "Sound", "ph-speaker-high"],
+    ["network", "Network and devices", "ph-wifi-high"],
+    ["apps", "Apps", "ph-squares-four"],
+    ["system", "System", "ph-desktop"],
+    ["about", "About", "ph-info"],
+  ];
+  // color themes: id, name, and the colors of their little preview scene
+  const PALETTES = [
+    ["pink", "Pink Cloud", "linear-gradient(135deg, #fbd3e0, #c9a8e6 60%, #9cc9ec)", "#f2a6c0", "#8cc6e6"],
+    ["lavender", "Lavender", "linear-gradient(135deg, #eadcff, #c4b2f2 55%, #9fc4ef)", "#c4a7f2", "#9cc4f2"],
+    ["mint", "Mint", "linear-gradient(135deg, #d8f7ea, #a9dccf 55%, #f4c6d4)", "#8fe0c2", "#f6b8cb"],
+    ["sunset", "Sunset", "linear-gradient(135deg, #ffe2c4, #ffad8a 45%, #f79bb5 75%, #b98bd8)", "#ffb38a", "#f78bb0"],
+    ["cosmos", "Cosmos", "radial-gradient(60% 60% at 30% 35%, #6d3fe0aa, transparent 70%), radial-gradient(50% 50% at 75% 70%, #22d3ee66, transparent 70%), linear-gradient(160deg, #0b0a24, #120c33 50%, #05081c)", "#a78bfa", "#22d3ee"],
+  ];
+  let page = "home";
+  let info = null, drives = [], apps = [], appQuery = "";
+
+  const winSettings = page => { invoke("launch", { path: "ms-settings:" + page }); };
+  const h = (tag, cls, text) => Object.assign(document.createElement(tag), cls ? { className: cls } : {}, text !== undefined ? { textContent: text } : {});
+
+  // ---------- building blocks ----------
+  function row(icon, title, desc, control) {
+    const r = h("div", "row");
+    r.dataset.find = (title + " " + (desc || "")).toLowerCase();
+    r.append(h("i", "ph " + icon));
+    const t = h("div", "txt"); t.append(h("b", "", title)); if (desc) t.append(h("small", "", desc));
+    r.append(t);
+    if (control) r.append(control);
+    return r;
+  }
+  function linkRow(icon, title, desc, action) {
+    const r = row(icon, title, desc, h("i", "ph ph-caret-right go"));
+    r.classList.add("link");
+    r.onclick = action;
+    return r;
+  }
+  function toggle(on, change) {
+    const s = h("div", "sw" + (on ? " on" : ""));
+    s.onclick = () => { s.classList.toggle("on"); change(s.classList.contains("on"), s); };
+    return s;
+  }
+  function choice(options, current, change) {
+    const s = h("div", "seg"), knob = h("div", "knob");
+    s.append(knob);
+    const place = el => { knob.style.left = el.offsetLeft + "px"; knob.style.width = el.offsetWidth + "px"; };
+    options.forEach(([value, label]) => {
+      const o = h("div", value === current ? "on" : "", label);
+      o.onclick = () => { s.querySelectorAll("div:not(.knob)").forEach(x => x.classList.remove("on")); o.classList.add("on"); place(o); change(value); };
+      s.append(o);
+    });
+    requestAnimationFrame(() => { const on = s.querySelector(".on"); if (on) { knob.style.transition = "none"; place(on); requestAnimationFrame(() => knob.style.transition = ""); } });
+    return s;
+  }
+  function slider(value, change) {
+    const r = h("div", "range"), fill = h("div", "fill"), knob = h("div", "knob");
+    r.append(fill, knob);
+    const set = v => { fill.style.width = knob.style.left = Math.round(v * 100) + "%"; };
+    set(value);
+    let drag = false;
+    const move = e => { const b = r.getBoundingClientRect(); const v = Math.min(1, Math.max(0, (e.clientX - b.left) / b.width)); set(v); change(v); };
+    r.onpointerdown = e => { drag = true; r.setPointerCapture(e.pointerId); move(e); };
+    r.onpointermove = e => { if (drag) move(e); };
+    r.onpointerup = () => drag = false;
+    return r;
+  }
+  function card(icon, title, desc, action) {
+    const c = h("div", "card tilt");
+    c.innerHTML = `<div class="ic"><i class="ph-fill ${icon}"></i></div><div><b></b><small></small></div>`;
+    c.querySelector("b").textContent = title;
+    c.querySelector("small").textContent = desc;
+    c.onclick = action;
+    return c;
+  }
+  const size = n => n >= 1e12 ? (n / 1e12).toFixed(1) + " TB" : (n / 1e9).toFixed(0) + " GB";
+
+  // shared Pink Cloud preferences (the other screens pick up changes right away)
+  const prefs = {
+    theme: () => store.get("pc-theme", "auto"),
+    vis: () => store.get("pc-vis", "big"),
+    lyrics: () => store.get("pc-lyrics", true),
+    player: () => store.get("pc-np", true),
+  };
+  const setTheme = v => { store.set("pc-theme", v); applyTheme(); };
+
+  // ---------- pages ----------
+  const build = {
+    async home(m) {
+      const hero = h("div", "hero");
+      hero.innerHTML = `<div class="pc"></div><div><b></b><small></small><small></small></div><i class="ph-fill ph-cloud cloud"></i>`;
+      const [b, s1, s2] = hero.querySelectorAll("b, small");
+      b.textContent = info ? info.pc_name : "";
+      s1.textContent = info ? `${info.windows} · ${info.version}` : "";
+      s2.textContent = info ? `${info.cpu} · ${info.ram_gb} GB memory` : "";
+      m.append(hero);
+
+      m.append(h("h2", "", "Quick switches"));
+      const q = h("div", "quick");
+      const quick = (icon, label, on, flip) => {
+        const k = h("div", "qk" + (on ? " on" : ""));
+        k.innerHTML = `<i class="ph ${icon}"></i><span></span>`;
+        k.querySelector("span").textContent = label;
+        k.onclick = () => { k.classList.toggle("on"); flip(k.classList.contains("on")); };
+        q.append(k);
+      };
+      quick("ph-moon-stars", "Dark mode", currentTheme() === "dark", on => setTheme(on ? "dark" : "light"));
+      quick("ph-waveform", "Visualizer", prefs.vis() !== "off", on => store.set("pc-vis", on ? "big" : "off"));
+      quick("ph-microphone-stage", "Lyrics", prefs.lyrics(), on => store.set("pc-lyrics", on));
+      quick("ph-music-notes", "Music player", prefs.player(), on => store.set("pc-np", on));
+      const auto = await invoke("get_autostart");
+      quick("ph-rocket-launch", "Start with Windows", auto, on => invoke("set_autostart", { on }));
+      m.append(q);
+
+      m.append(h("h2", "", "Windows settings"));
+      const g = h("div", "grid");
+      [
+        ["ph-monitor", "Display", "Brightness, resolution, scale", "display"],
+        ["ph-speaker-high", "Sound", "Output, input, volume", "sound"],
+        ["ph-bluetooth", "Bluetooth and devices", "Headphones, mouse, printers", "bluetooth"],
+        ["ph-wifi-high", "Network and internet", "Wi-Fi, VPN, data usage", "network"],
+        ["ph-paint-brush", "Personalization", "Wallpaper, colors, cursor", "personalization"],
+        ["ph-squares-four", "Apps", "Installed apps, defaults", "appsfeatures"],
+        ["ph-user-circle", "Accounts", "Your info, sign-in options", "accounts"],
+        ["ph-clock", "Time and language", "Date, time, region", "dateandtime"],
+        ["ph-game-controller", "Gaming", "Game mode, captures", "gaming-gamemode"],
+        ["ph-person-arms-spread", "Accessibility", "Text size, magnifier", "easeofaccess"],
+        ["ph-shield-check", "Privacy and security", "Permissions, security", "privacy"],
+        ["ph-arrows-clockwise", "Windows Update", "Updates, update history", "windowsupdate"],
+      ].forEach(([ic, t, d, p]) => g.append(card(ic, t, d, () => winSettings(p))));
+      m.append(g);
+    },
+
+    look(m) {
+      m.append(h("h2", "", "Color theme"));
+      const themes = h("div", "themes");
+      PALETTES.forEach(([id, name, sky, a, b]) => {
+        const c = h("div", "theme tilt" + (currentPalette() === id ? " on" : ""));
+        c.innerHTML = `<div class="scene" style="background:${sky}">${id === "cosmos" ? '<i class="stars"></i>' : ""}<div class="mini"><span style="background:${a}"></span><span style="background:${b}"></span><span style="background:${a}"></span></div></div><b></b>`;
+        c.querySelector("b").textContent = name;
+        c.onclick = () => { store.set("pc-palette", id); applyTheme(); themes.querySelectorAll(".theme").forEach(t => t.classList.toggle("on", t === c)); };
+        themes.append(c);
+      });
+      m.append(themes);
+      m.append(h("h2", "", "Pink Cloud"));
+      m.append(row("ph-circle-half", "Light or dark", "Follow Windows, or always light or dark (Cosmos is always dark)",
+        choice([["auto", "Follow Windows"], ["light", "Light"], ["dark", "Dark"]], prefs.theme(), setTheme)));
+      m.append(row("ph-waveform", "Music visualizer", "Bars behind the taskbar that move with what's playing",
+        choice([["big", "Big"], ["subtle", "Subtle"], ["off", "Off"]], prefs.vis(), v => store.set("pc-vis", v))));
+      m.append(row("ph-microphone-stage", "Lyrics", "Synced lyrics on screen while a song plays",
+        toggle(prefs.lyrics(), on => store.set("pc-lyrics", on))));
+      m.append(row("ph-arrows-out-cardinal", "Lyrics position", "Where the lines pop up",
+        choice([["edges", "Around the edges"], ["bottom", "Above the taskbar"], ["anywhere", "Anywhere"]], store.get("pc-lyrics-place", "edges"), v => store.set("pc-lyrics-place", v))));
+      m.append(row("ph-music-notes", "Music player", "Now Playing on the left of the taskbar",
+        toggle(prefs.player(), on => store.set("pc-np", on))));
+      m.append(h("h2", "", "Windows"));
+      m.append(linkRow("ph-image", "Wallpaper", "Wallpaper Engine keeps working with Pink Cloud", () => winSettings("personalization-background")));
+      m.append(linkRow("ph-palette", "Accent color", "Used by Windows apps and Settings", () => winSettings("colors")));
+      m.append(linkRow("ph-cursor", "Mouse pointer", "Pointer size and color", () => winSettings("easeofaccess-mousepointer")));
+    },
+
+    taskbar(m) {
+      m.append(h("h2", "", "Pinned apps"));
+      const pins = store.get("pc-pins", []);
+      if (!pins.length) m.append(h("div", "empty", "Nothing pinned yet. Right-click an app on the taskbar or in Start to pin it."));
+      pins.forEach((p, i) => {
+        const img = h("img"); img.alt = "";
+        iconFor(p.icon || p.path).then(u => { if (u) img.src = u; });
+        const ctrls = h("div"); ctrls.style.display = "flex"; ctrls.style.gap = "2px";
+        const mini = (icon, title, fn, off) => { const b = h("div", "mini"); b.title = title; b.innerHTML = `<i class="ph ${icon}"></i>`; if (off) b.style.visibility = "hidden"; b.onclick = fn; ctrls.append(b); };
+        const save = list => { store.set("pc-pins", list); show("taskbar"); };
+        mini("ph-arrow-up", "Move left", () => { const l = [...pins]; [l[i - 1], l[i]] = [l[i], l[i - 1]]; save(l); }, i === 0);
+        mini("ph-arrow-down", "Move right", () => { const l = [...pins]; [l[i + 1], l[i]] = [l[i], l[i + 1]]; save(l); }, i === pins.length - 1);
+        mini("ph-push-pin-slash", "Unpin", () => save(pins.filter((_, j) => j !== i)));
+        const r = row("ph-dot", p.name, p.path.startsWith("pinkcloud:") ? "Pink Cloud" : p.path.replace(/^shell:AppsFolder\\/, ""), ctrls);
+        r.classList.add("pin");
+        r.querySelector("i").replaceWith(img);
+        m.append(r);
+      });
+      m.append(h("h2", "", "Behavior"));
+      m.append(row("ph-windows-logo", "Windows key", "A tap opens Pink Cloud Start; shortcuts like Win+E still work"));
+      m.append(row("ph-cards", "Alt+Tab", "Opens Pink Cloud's window switcher with live previews"));
+      m.append(row("ph-hand-grabbing", "Reorder apps", "Drag apps along the taskbar; dropping an app pins it"));
+      m.append(row("ph-eye", "Window previews", "Hover an app on the taskbar to see its windows"));
+    },
+
+    widgets(m) {
+      const LIST = [
+        ["clock", "ph-clock", "Clock", "Big time and date"],
+        ["calendar", "ph-calendar-blank", "Calendar", "This month at a glance"],
+        ["weather", "ph-cloud-sun", "Weather", "Now and the next 3 days"],
+        ["stats", "ph-cpu", "PC stats", "Processor and memory use"],
+        ["music", "ph-music-notes", "Music", "The song that's playing, with controls"],
+        ["note", "ph-note-pencil", "Note", "A little sticky note"],
+      ];
+      m.append(h("h2", "", "On your desktop"));
+      m.append(row("ph-hand-grabbing", "Moving widgets", "Drag a widget on your desktop to put it anywhere"));
+      LIST.forEach(([id, icon, name, desc]) => {
+        const on = store.get("pc-widgets", LIST.map(l => l[0])).includes(id);
+        m.append(row(icon, name, desc, toggle(on, v => {
+          const cur = new Set(store.get("pc-widgets", LIST.map(l => l[0])));
+          v ? cur.add(id) : cur.delete(id);
+          store.set("pc-widgets", [...cur]);
+        })));
+      });
+
+      m.append(h("h2", "", "Weather"));
+      const city = store.get("pc-weather-city", null);
+      const wf = h("div"); wf.style.cssText = "display:flex;gap:8px;align-items:center";
+      const inp = h("input"); inp.placeholder = "Type your city"; inp.value = city ? city.name : "";
+      inp.style.cssText = "height:34px;border-radius:17px;border:1px solid var(--border);background:var(--panel);padding:0 14px;font:inherit;color:var(--text);width:200px;outline:none";
+      const find = h("button", "btn primary", "Set");
+      const msg = h("small", "", "");
+      find.onclick = async () => {
+        const q = inp.value.trim();
+        if (!q) return;
+        msg.textContent = "Looking it up…";
+        try {
+          const r = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1`)).json();
+          const p = r.results && r.results[0];
+          if (!p) { msg.textContent = "Couldn't find that place. Try another spelling."; return; }
+          store.set("pc-weather-city", { name: p.name, lat: p.latitude, lon: p.longitude });
+          inp.value = p.name;
+          msg.textContent = `Set to ${p.name}${p.country ? ", " + p.country : ""}`;
+        } catch { msg.textContent = "Can't reach the weather service right now."; }
+      };
+      inp.onkeydown = e => { if (e.key === "Enter") find.onclick(); };
+      wf.append(inp, find);
+      const cityRow = row("ph-map-pin", "Your city", "Weather comes from open-meteo.com (free, no account)", wf);
+      cityRow.querySelector(".txt").append(msg);
+      m.append(cityRow);
+
+      m.append(h("h2", "", "Note"));
+      const ta = h("textarea");
+      ta.value = store.get("pc-note", "");
+      ta.placeholder = "Write something for your desktop…";
+      ta.style.cssText = "width:100%;min-height:110px;border-radius:12px;border:1px solid var(--border);background:var(--hi);padding:12px 14px;font:inherit;color:var(--text);resize:vertical;outline:none";
+      let saveT = null;
+      ta.oninput = () => { clearTimeout(saveT); saveT = setTimeout(() => store.set("pc-note", ta.value), 300); };
+      m.append(ta);
+
+      m.append(h("h2", "", "Layout"));
+      const reset = h("button", "btn", "Reset");
+      reset.onclick = () => { try { localStorage.removeItem("pc-widget-pos"); } catch {} reset.textContent = "Done"; };
+      m.append(row("ph-arrows-counter-clockwise", "Put widgets back in their places", "Moves every widget back to where it started", reset));
+    },
+
+    async notifications(m) {
+      m.append(row("ph-chat-circle-dots", "Pink Cloud pop-ups", "A pink pop-up for every new notification",
+        toggle(store.get("pc-note-popups", true), on => store.set("pc-note-popups", on))));
+      m.append(row("ph-moon", "Do not disturb", "No pop-ups; notifications still land in the panel behind the bell",
+        toggle(store.get("pc-dnd", false), on => store.set("pc-dnd", on))));
+      m.append(h("h2", "", "Windows' own pop-ups"));
+      m.append(row("ph-eye-slash", "Hide Windows' notification pop-ups",
+        "So you only see the pink ones. Windows still keeps every notification. Switching this off puts Windows' pop-ups back.",
+        toggle(store.get("pc-hide-banners", false), on => { store.set("pc-hide-banners", on); invoke("set_hide_banners", { on }); })));
+      m.append(linkRow("ph-gear-six", "Which apps may notify you", "Windows' notification settings", () => winSettings("notifications")));
+    },
+
+    idle(m) {
+      m.append(row("ph-cloud-moon", "Show the idle screen", "A dreamy clock with your song and the visualizer when you step away",
+        choice([[0, "Never"], [2, "2 min"], [5, "5 min"], [10, "10 min"], [20, "20 min"]], store.get("pc-idle", 5), v => store.set("pc-idle", v))));
+      m.append(row("ph-film-strip", "Videos and games", "It never shows while a video plays or something runs fullscreen"));
+      const now = h("button", "btn primary", "Show it now");
+      now.onclick = () => { closeAppWindow(win, appWindow); setTimeout(() => invoke("show_idle"), 400); };
+      m.append(row("ph-sparkle", "Try it", "Also in Start → power button → Cloud screen", now));
+    },
+
+    async sound(m) {
+      const s = await invoke("get_status", { withWifi: false });
+      const val = h("span", "val", Math.round((s.volume || 0) * 100));
+      const ctl = h("div"); ctl.style.display = "flex"; ctl.style.alignItems = "center"; ctl.style.gap = "12px";
+      ctl.append(slider(s.volume || 0, v => { val.textContent = Math.round(v * 100); invoke("set_volume", { value: v }); }), val);
+      m.append(row("ph-speaker-high", "Volume", "Main volume of this PC", ctl));
+      m.append(row("ph-speaker-x", "Mute", "Silence everything", toggle(s.muted, on => invoke("set_mute", { muted: on }))));
+      m.append(h("h2", "", "More"));
+      m.append(linkRow("ph-headphones", "Output and input devices", "Pick speakers, headphones and microphone", () => winSettings("sound")));
+      m.append(linkRow("ph-sliders-horizontal", "Volume mixer", "Volume per app", () => winSettings("apps-volume")));
+    },
+
+    async network(m) {
+      const s = await invoke("get_status", { withWifi: true });
+      m.append(linkRow("ph-wifi-high", "Wi-Fi", s.wifi ? `Connected to ${s.wifi}` : "Not connected", () => winSettings("network-wifi")));
+      m.append(linkRow("ph-bluetooth", "Bluetooth and devices", "Pair headphones, controllers and more", () => winSettings("bluetooth")));
+      m.append(linkRow("ph-shield", "VPN", "Add or connect a VPN", () => winSettings("network-vpn")));
+      m.append(linkRow("ph-airplane", "Airplane mode", "Turn off all wireless", () => winSettings("network-airplanemode")));
+      m.append(linkRow("ph-printer", "Printers and scanners", "", () => winSettings("printers")));
+    },
+
+    async apps(m) {
+      if (!apps.length) apps = await invoke("list_apps");
+      const f = h("label", "field");
+      f.innerHTML = `<i class="ph ph-magnifying-glass"></i><input placeholder="Search apps" spellcheck="false">`;
+      f.style.marginBottom = "12px";
+      const inp = f.querySelector("input");
+      inp.value = appQuery;
+      const box = h("div");
+      const fill = () => {
+        box.innerHTML = "";
+        const t = appQuery.toLowerCase();
+        const list = apps.filter(a => a.name.toLowerCase().includes(t)).slice(0, 80);
+        list.forEach(a => {
+          const img = h("img"); img.alt = ""; img.style.width = img.style.height = "26px";
+          iconFor(a.path).then(u => { if (u) img.src = u; });
+          const open = h("button", "btn", "Open");
+          open.onclick = () => invoke("launch", { path: a.path });
+          const r = row("ph-dot", a.name, "", open);
+          r.querySelector("i").replaceWith(img);
+          box.append(r);
+        });
+        if (!list.length) box.append(h("div", "empty", "No apps match that search."));
+      };
+      inp.oninput = () => { appQuery = inp.value; fill(); };
+      m.append(f);
+      m.append(linkRow("ph-trash", "Uninstall or change apps", "Opens Windows' installed apps list", () => winSettings("appsfeatures")));
+      m.append(linkRow("ph-rocket", "Startup apps", "Apps that open when you sign in", () => winSettings("startupapps")));
+      m.append(linkRow("ph-file-arrow-up", "Default apps", "Which app opens which files", () => winSettings("defaultapps")));
+      m.append(h("h2", "", `All apps (${apps.length})`));
+      m.append(box);
+      fill();
+    },
+
+    async system(m) {
+      if (!drives.length) drives = await invoke("fs_drives");
+      const s = await invoke("get_status", { withWifi: false });
+      m.append(row("ph-rocket-launch", "Start Pink Cloud with Windows", "Opens automatically when you sign in",
+        toggle(await invoke("get_autostart"), on => invoke("set_autostart", { on }))));
+      if (s.battery !== null) m.append(linkRow("ph-battery-high", "Power and battery", `${s.battery}%${s.charging ? ", charging" : ""}`, () => winSettings("powersleep")));
+      else m.append(linkRow("ph-plug", "Power", "Sleep and power mode", () => winSettings("powersleep")));
+      m.append(linkRow("ph-monitor", "Display", "Brightness, night light, resolution", () => winSettings("display")));
+      m.append(linkRow("ph-bell", "Notifications", "Which apps can notify you", () => winSettings("notifications")));
+      m.append(h("h2", "", "Storage"));
+      drives.forEach(d => {
+        const used = d.total ? (d.total - d.free) / d.total : 0;
+        const r = linkRow(d.kind === "usb" ? "ph-usb" : "ph-hard-drives", `${d.label} (${d.path.slice(0, 2)})`, `${size(d.free)} free of ${size(d.total)}`, () => invoke("open_files", { path: d.path }));
+        const bar = h("div", "usage"); bar.innerHTML = `<span style="width:${Math.round(used * 100)}%"></span>`;
+        r.querySelector(".txt").append(bar);
+        m.append(r);
+      });
+      m.append(linkRow("ph-broom", "Clean up storage", "Windows' storage settings", () => winSettings("storagesense")));
+    },
+
+    async about(m) {
+      const v = await invoke("app_version");
+      const grid = h("div", "info");
+      const add = (k, val) => grid.append(h("span", "", k), h("span", "", val));
+      if (info) {
+        add("Device name", info.pc_name);
+        add("Windows", `${info.windows} ${info.version}`);
+        add("Build", info.build);
+        add("Processor", `${info.cpu} (${info.cores} threads)`);
+        add("Memory", `${info.ram_gb} GB (${info.ram_used} GB in use)`);
+        add("On since", info.uptime_min < 60 ? `${info.uptime_min} minutes` : `${Math.floor(info.uptime_min / 60)} h ${info.uptime_min % 60} min`);
+      }
+      add("Pink Cloud", "version " + v);
+      m.append(grid);
+      m.append(h("h2", "", "Pink Cloud"));
+      const quit = h("button", "btn danger", "Close Pink Cloud");
+      quit.onclick = () => invoke("quit");
+      m.append(row("ph-sign-out", "Close Pink Cloud", "The normal Windows taskbar comes back until you start Pink Cloud again", quit));
+      const ws = h("button", "btn", "Open");
+      ws.onclick = () => winSettings("");
+      m.append(row("ph-gear-six", "Windows Settings", "Everything Windows has, in its own app", ws));
+    },
+  };
+
+  // ---------- navigation and search ----------
+  function renderNav() {
+    navs.innerHTML = "";
+    PAGES.forEach(([id, label, icon]) => {
+      const n = h("div", "nav ctl" + (id === page ? " on" : ""));
+      n.innerHTML = `<i class="ph ${icon}"></i><span></span>`;
+      n.querySelector("span").textContent = label;
+      n.onclick = () => { q.value = ""; show(id); };
+      navs.append(n);
+    });
+  }
+  async function show(id) {
+    page = id;
+    renderNav();
+    const m = h("div", "page");
+    m.append(h("h1", "", PAGES.find(p => p[0] === id)[1]));
+    await build[id](m);
+    [...m.children].forEach((c, i) => c.style.setProperty("--i", Math.min(i, 20)));
+    m.querySelectorAll(".grid > *").forEach((c, i) => c.style.setProperty("--i", i));
+    main.innerHTML = "";
+    main.append(m);
+    main.scrollTop = 0;
+  }
+  // searching shows matching settings from every page
+  q.addEventListener("input", async () => {
+    const t = q.value.trim().toLowerCase();
+    if (!t) return show(page === "search" ? "home" : page);
+    const m = h("div", "page");
+    m.append(h("h1", "", "Results"));
+    for (const [id, label] of PAGES) {
+      if (id === "home" || id === "apps") continue;
+      const holder = h("div");
+      await build[id](holder);
+      const hits = [...holder.querySelectorAll(".row")].filter(r => r.dataset.find && r.dataset.find.includes(t));
+      if (hits.length) { m.append(h("h2", "", label)); hits.forEach(r => m.append(r)); }
+    }
+    if (m.children.length === 1) m.append(h("div", "empty", "No settings match that. Try other words."));
+    navs.querySelectorAll(".nav").forEach(n => n.classList.remove("on"));
+    main.innerHTML = ""; main.append(m);
+  });
+
+  // ---------- window: zooms up when it opens, dissolves when it closes ----------
+  minBtn.onclick = () => appWindow.minimize();
+  maxBtn.onclick = () => appWindow.toggleMaximize();
+  closeBtn.onclick = () => closeAppWindow(win, appWindow);
+  appWindow.onResized(async () => { maxBtn.innerHTML = `<i class="ph ${(await appWindow.isMaximized()) ? "ph-copy-simple" : "ph-square"}"></i>`; });
+  listen("settings-open", ({ payload }) => { openAppWindow(win); if (payload) show(payload); });
+  addEventListener("storage", e => { if (["pc-theme", "pc-vis", "pc-lyrics", "pc-np", "pc-pins"].includes(e.key) && !q.value) show(page); });
+
+  iconFor("C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe").then(u => { if (u) appIcon.src = u; });
+  invoke("user_name").then(n => { uname.textContent = n; avatar.textContent = (n[0] || "?").toUpperCase(); });
+  (async () => {
+    info = await invoke("sys_info");
+    pcname.textContent = info.pc_name;
+    show("home");
+  })();
+</script>
+</body>
+</html>

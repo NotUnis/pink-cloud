@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Previews</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Cards with a title row; the live window views themselves are drawn by Windows on top
+     of the empty area under each title. */
+  body { font-size: 12px; }
+  .popup { background: var(--panel); }
+  .card { position: absolute; top: 8px; height: calc(100% - 16px); border-radius: 12px; cursor: pointer;
+    transition: background .15s, box-shadow .2s; }
+  .card:hover { background: var(--panel-hover); box-shadow: inset 0 0 0 1px var(--border); }
+  .card.on { box-shadow: inset 0 0 0 2px var(--ice-strong); }
+  .head { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 4px 0 10px; }
+  .head span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .x { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-size: 13px; opacity: 0; transition: opacity .15s, background .15s; }
+  .card:hover .x { opacity: 1; }
+  .x:hover { background: var(--g3); color: #fff; }
+  .asleep { position: absolute; left: 0; right: 0; top: 30px; bottom: 8px; display: grid; place-items: center; color: var(--text-2); text-align: center; gap: 4px; }
+  .asleep i { font-size: 30px; display: block; }
+  .asleep .snap { max-width: calc(100% - 16px); max-height: 100%; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+  .asleep .appic { width: 56px; height: 56px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,.2)); }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(12px) scale(.94); } }
+  .card { animation: cardIn .35s var(--spring) backwards; animation-delay: calc(var(--i) * 40ms); }
+</style>
+</head>
+<body>
+<div class="popup" id="panel"></div>
+
+<script src="shared.js"></script>
+<script>
+  const hide = force => invoke("hide_preview", { force });
+
+  listen("preview", ({ payload }) => {
+    panel.innerHTML = "";
+    payload.cards.forEach((c, i) => {
+      const el = document.createElement("div");
+      el.className = "card";
+      el.style.left = c.x + "px";
+      el.style.width = payload.width + "px";
+      el.style.setProperty("--i", i);
+      el.innerHTML = `<div class="head"><span></span><div class="x" title="Close window"><i class="ph ph-x"></i></div></div>`;
+      el.querySelector("span").textContent = c.title;
+      // minimized windows aren't drawn by Windows: show the last picture Pink Cloud took of
+      // the window, or its app icon if there isn't one yet
+      if (!c.live && c.snap) el.insertAdjacentHTML("beforeend", `<div class="asleep"><img class="snap" alt="" src="${c.snap}"></div>`);
+      else if (!c.live) {
+        el.insertAdjacentHTML("beforeend", `<div class="asleep"><img class="appic" alt=""></div>`);
+        invoke("window_icon", { hwnd: c.hwnd }).then(u => { if (u) el.querySelector(".appic").src = u; });
+      }
+      el.onclick = () => { invoke("activate_window", { hwnd: c.hwnd, minimizeIfActive: false }); hide(true); };
+      el.querySelector(".x").onclick = e => { e.stopPropagation(); invoke("close_window", { hwnd: c.hwnd }); hide(true); };
+      panel.appendChild(el);
+    });
+  });
+
+  // stays open while the mouse is on it, closes shortly after it leaves
+  document.addEventListener("pointerenter", () => invoke("preview_hold", { hold: true }));
+  document.addEventListener("pointerleave", () => { invoke("preview_hold", { hold: false }); setTimeout(() => hide(false), 250); });
+</script>
+</body>
+</html>

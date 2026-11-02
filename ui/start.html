@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Start</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .popup { --ox: 50%; --oy: 105%; display: flex; flex-direction: column; padding: 22px 26px 0; }
+  .field { margin-bottom: 18px; flex-shrink: 0; }
+  .sec { display: flex; justify-content: space-between; align-items: center; margin: 0 6px 10px; font-weight: 600; flex-shrink: 0; }
+  .sec .ctl { font-weight: 400; font-size: 12px; padding: 4px 10px; background: var(--hi); border: 1px solid var(--border); }
+  .body { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -10px; padding: 0 10px 12px; }
+  .body::-webkit-scrollbar { width: 6px; }
+  .body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .pin { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 2px 8px; font-size: 12px; text-align: center; }
+  .pin span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; }
+  .pin img, .pin .glyph { transition: transform .4s var(--spring); }
+  .pin:hover img, .pin:hover .glyph { transform: translateY(-3px) scale(1.1) rotate(-4deg); }
+  .list { display: flex; flex-direction: column; gap: 2px; }
+  .row { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 10px; }
+  .row img, .row .glyph { width: 28px; height: 28px; font-size: 16px; border-radius: 8px; }
+  .row.top { background: var(--ice); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ice-strong) 45%, transparent); }
+  .letter { font-size: 12px; font-weight: 600; color: var(--text-2); padding: 10px 10px 4px; }
+  .empty { padding: 30px 10px; text-align: center; color: var(--text-2); }
+  .recs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-top: 4px; }
+  .file { display: flex; align-items: center; gap: 12px; padding: 8px 10px; min-width: 0; }
+  .file img { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; }
+  .file img.thumb { object-fit: cover; border-radius: 6px; }
+  .file div { min-width: 0; }
+  .file b, .file small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file b { font-weight: 500; font-size: 13px; }
+  .file small { color: var(--text-2); font-size: 11px; }
+  .sub { font-weight: 600; margin: 16px 6px 8px; }
+  .foot { display: flex; align-items: center; justify-content: space-between; margin: 0 -26px; padding: 12px 34px; flex-shrink: 0;
+    border-top: 1px solid var(--border); background: var(--hi); }
+  .user { display: flex; align-items: center; gap: 10px; padding: 6px 10px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--g1-soft), var(--g2-soft)); display: grid; place-items: center; color: #3d2440; font-weight: 600; }
+  .power { width: 36px; height: 36px; display: grid; place-items: center; font-size: 18px; transition: transform .4s var(--spring), background .15s; }
+  .power.on { transform: rotate(180deg); background: var(--ice); color: var(--ice-strong); }
+
+  /* power sheet: slides up over the bottom of Start */
+  .sheet { position: absolute; left: 12px; right: 12px; bottom: 70px; padding: 18px 10px 14px; border-radius: 16px; z-index: 5;
+    background: var(--hi); border: 1px solid var(--border); backdrop-filter: blur(20px) saturate(140%);
+    box-shadow: 0 12px 30px color-mix(in srgb, var(--shade) 20%, transparent);
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
+    opacity: 0; transform: translateY(24px) scale(.96); pointer-events: none; transition: opacity .2s var(--ease), transform .4s var(--spring); }
+  .sheet.on { opacity: 1; transform: none; pointer-events: auto; }
+  .pw { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; background: none !important; }
+  .pw .disc { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 22px;
+    background: var(--panel); border: 1px solid var(--border); transition: transform .35s var(--spring), background .2s, color .2s, box-shadow .2s; }
+  .pw:hover .disc { transform: translateY(-4px) scale(1.08); background: var(--ice); color: var(--ice-strong); box-shadow: 0 8px 18px color-mix(in srgb, var(--ice-strong) 22%, transparent); }
+  .pw.danger:hover .disc { background: rgba(231, 120, 155, .2); color: #c2456b; box-shadow: 0 8px 18px rgba(194,69,107,.2); }
+  .sheet.on .pw { animation: rise .45s var(--spring) backwards; animation-delay: calc(var(--i) * 40ms + 40ms); }
+
+  /* countdown before restart / shut down */
+  .count { position: absolute; inset: 0; z-index: 9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    background: var(--panel); backdrop-filter: blur(16px); opacity: 0; pointer-events: none; transition: opacity .25s var(--ease); }
+  .count.on { opacity: 1; pointer-events: auto; }
+  .ring { position: relative; width: 120px; height: 120px; }
+  .ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 6; stroke-linecap: round; }
+  .ring .track { stroke: var(--pink); }
+  .ring .prog { stroke: var(--ice-strong); stroke-dasharray: 339.3; stroke-dashoffset: 0; }
+  .count.on .ring .prog { animation: drain 3s linear forwards; }
+  @keyframes drain { to { stroke-dashoffset: 339.3; } }
+  .ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 40px; font-weight: 600; }
+  .count .what { font-size: 16px; font-weight: 600; }
+  .count .cancel { padding: 10px 26px; border-radius: 20px; background: var(--hi); border: 1px solid var(--border); font-weight: 600; }
+  .count .now { font-size: 12px; color: var(--text-2); }
+</style>
+</head>
+<body>
+<div class="popup">
+  <label class="field"><i class="ph ph-magnifying-glass"></i><input id="q" placeholder="Search for apps and settings" autocomplete="off" spellcheck="false"></label>
+  <div class="sec"><span id="secTitle">Pinned</span><div class="ctl" id="toggleAll">All apps <i class="ph ph-caret-right"></i></div></div>
+  <div class="body" id="body"></div>
+  <div class="foot">
+    <div class="user ctl" id="user" title="Account settings"><div class="avatar" id="avatar"></div><span id="uname"></span></div>
+    <div class="power ctl" id="power" title="Power"><i class="ph ph-power"></i></div>
+  </div>
+  <div class="sheet" id="sheet">
+    <div class="pw ctl" data-act="idle"><div class="disc"><i class="ph ph-cloud-moon"></i></div>Cloud screen</div>
+    <div class="pw ctl" data-act="lock"><div class="disc"><i class="ph ph-lock-simple"></i></div>Lock</div>
+    <div class="pw ctl" data-act="sleep"><div class="disc"><i class="ph ph-moon-stars"></i></div>Sleep</div>
+    <div class="pw ctl" data-act="signout"><div class="disc"><i class="ph ph-sign-out"></i></div>Sign out</div>
+    <div class="pw ctl danger" data-act="restart"><div class="disc"><i class="ph ph-arrow-clockwise"></i></div>Restart</div>
+    <div class="pw ctl danger" data-act="shutdown"><div class="disc"><i class="ph ph-power"></i></div>Shut down</div>
+  </div>
+  <div class="count" id="count">
+    <div class="ring"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="54"/><circle class="prog" cx="60" cy="60" r="54"/></svg><b id="countNum">3</b></div>
+    <div class="what" id="countWhat"></div>
+    <div class="cancel ctl" id="countCancel">Cancel</div>
+    <div class="now">Press Enter to do it now</div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  let apps = [];
+  let mode = "pinned"; // pinned | all | search
+  let results = [];
+  const FAVORITES = ["Files", "Settings", "Microsoft Edge", "Google Chrome", "Firefox", "Spotify", "Discord", "Steam", "Notepad", "Paint", "Calculator", "Wallpaper Engine", "Visual Studio Code", "Photos"];
+
+  function startPins() {
+    const saved = store.get("pc-start-pins", null)?.map(n => n === "File Explorer" ? "Files" : n);
+    if (saved) return saved;
+    const lower = new Map(apps.map(a => [a.name.toLowerCase(), a.name]));
+    return FAVORITES.map(f => lower.get(f.toLowerCase())).filter(Boolean).slice(0, 18);
+  }
+  const byName = n => apps.find(a => a.name === n);
+
+  // Files and Settings show the real File Explorer and Settings icons
+  const ICON_OF = {
+    "ms-settings:": "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+    "pinkcloud:settings": "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+    "pinkcloud:files": "C:\\Windows\\explorer.exe",
+  };
+  function iconEl(app) {
+    const img = document.createElement("img");
+    img.className = "appicon"; img.alt = "";
+    iconFor(ICON_OF[app.path] || app.path).then(u => { if (u) img.src = u; });
+    return img;
+  }
+
+  function item(app, cls) {
+    const el = document.createElement("div");
+    el.className = cls + " ctl" + (cls === "pin" ? " tilt" : "");
+    el.title = app.name;
+    el.append(iconEl(app), Object.assign(document.createElement("span"), { textContent: app.name }));
+    el.onclick = () => open(app);
+    el.oncontextmenu = e => { e.preventDefault(); appMenu(app); };
+    return el;
+  }
+
+  function render() {
+    body.innerHTML = "";
+    secTitle.textContent = mode === "pinned" ? "Pinned" : mode === "all" ? "All apps" : "Best matches";
+    toggleAll.innerHTML = mode === "pinned" ? 'All apps <i class="ph ph-caret-right"></i>' : '<i class="ph ph-caret-left"></i> Back';
+    if (mode === "pinned") {
+      const grid = Object.assign(document.createElement("div"), { className: "grid stagger" });
+      startPins().map(byName).filter(Boolean).forEach(a => grid.appendChild(item(a, "pin")));
+      body.appendChild(grid);
+      if (recent.length) {
+        body.appendChild(Object.assign(document.createElement("div"), { className: "sub", textContent: "Recommended" }));
+        const recs = Object.assign(document.createElement("div"), { className: "recs stagger" });
+        recent.slice(0, 6).forEach(f => recs.appendChild(fileItem(f)));
+        body.appendChild(recs);
+      }
+    } else {
+      const list = Object.assign(document.createElement("div"), { className: "list stagger" });
+      const shown = mode === "all" ? apps : results;
+      let letter = "";
+      shown.forEach((a, i) => {
+        const l = /[a-z]/i.test(a.name[0]) ? a.name[0].toUpperCase() : "#";
+        if (mode === "all" && l !== letter) { letter = l; list.appendChild(Object.assign(document.createElement("div"), { className: "letter", textContent: l })); }
+        const r = item(a, "row");
+        if (mode === "search" && i === 0) r.classList.add("top");
+        list.appendChild(r);
+      });
+      if (!shown.length && !(mode === "search" && found.length)) list.appendChild(Object.assign(document.createElement("div"), { className: "empty", textContent: "Nothing matches that search." }));
+      body.appendChild(list);
+      if (mode === "search" && found.length) {
+        body.appendChild(Object.assign(document.createElement("div"), { className: "sub", textContent: "Files" }));
+        const fl = Object.assign(document.createElement("div"), { className: "list stagger" });
+        found.forEach(f => fl.appendChild(fileItem(f)));
+        body.appendChild(fl);
+      }
+    }
+    stagger(document);
+  }
+
+  // ---------- files: recently opened, and search results from your main folders ----------
+  let recent = [], found = [], fileTimer = null, fileRun = 0;
+  const IMG = /\.(png|jpe?g|gif|webp|bmp|avif)$/i;
+  const folderOf = p => p.replace(/\\[^\\]+$/, "");
+  function ago(ms) {
+    const m = Math.round((Date.now() - ms) / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return m + " min ago";
+    if (m < 1440) return Math.round(m / 60) + " h ago";
+    const d = Math.round(m / 1440);
+    return d === 1 ? "yesterday" : d < 7 ? d + " days ago" : new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
+  function fileItem(f) {
+    const el = document.createElement("div");
+    el.className = "file ctl";
+    el.title = f.path;
+    const img = document.createElement("img");
+    img.alt = "";
+    if (IMG.test(f.name)) { img.className = "thumb"; img.src = window.__TAURI__.core.convertFileSrc(f.path); }
+    else iconFor("type:" + ((f.name.match(/\.[^.]+$/) || [".file"])[0].toLowerCase())).then(u => { if (u) img.src = u; });
+    const text = document.createElement("div");
+    text.append(Object.assign(document.createElement("b"), { textContent: f.name }),
+      Object.assign(document.createElement("small"), { textContent: mode === "search" ? folderOf(f.path) : ago(f.modified) }));
+    el.append(img, text);
+    el.onclick = () => { invoke("launch", { path: f.path }); invoke("popup_blurred", { name: "start" }); };
+    el.oncontextmenu = e => { e.preventDefault(); popupMenu([
+      { text: "Open", icon: "ph-arrow-square-out", action: () => el.onclick() },
+      { text: "Open file location", icon: "ph-folder-open", action: () => { invoke("open_files", { path: folderOf(f.path) }); invoke("popup_blurred", { name: "start" }); } },
+      { text: "Copy path", icon: "ph-link", action: () => navigator.clipboard.writeText(f.path) },
+    ]); };
+    return el;
+  }
+  function searchFiles(t) {
+    clearTimeout(fileTimer);
+    const run = ++fileRun;
+    if (t.length < 2) return;
+    fileTimer = setTimeout(async () => {
+      const r = await invoke("start_search", { query: t }).catch(() => []);
+      if (run !== fileRun || mode !== "search") return;
+      found = r; render();
+    }, 220);
+  }
+
+  function search(text) {
+    const t = text.trim().toLowerCase();
+    found = [];
+    searchFiles(t);
+    if (!t) { mode = "pinned"; return render(); }
+    mode = "search";
+    const score = a => { const n = a.name.toLowerCase(); return n.startsWith(t) ? 0 : n.split(/\s+/).some(w => w.startsWith(t)) ? 1 : n.includes(t) ? 2 : 9; };
+    results = apps.map(a => [score(a), a]).filter(([s]) => s < 9).sort((x, y) => x[0] - y[0] || x[1].name.localeCompare(y[1].name)).map(([, a]) => a).slice(0, 30);
+    render();
+  }
+
+  function open(app) {
+    if (app.path === "pinkcloud:files") invoke("open_files");
+    else if (app.path === "pinkcloud:settings") invoke("open_settings");
+    else invoke("launch", { path: app.path });
+    invoke("popup_blurred", { name: "start" });
+  }
+
+  function appMenu(app) {
+    const sp = startPins();
+    const pinned = sp.includes(app.name);
+    const tbPins = store.get("pc-pins", null);
+    popupMenu([
+      { text: "Open", icon: "ph-arrow-square-out", action: () => open(app) },
+      null,
+      pinned
+        ? { text: "Unpin from Start", icon: "ph-push-pin-slash", action: () => { store.set("pc-start-pins", sp.filter(n => n !== app.name)); render(); } }
+        : { text: "Pin to Start", icon: "ph-push-pin", action: () => { store.set("pc-start-pins", [...sp, app.name]); render(); } },
+      { text: "Pin to taskbar", icon: "ph-app-window", action: () => {
+          const list = tbPins || [
+            { name: "Files", path: "pinkcloud:files", exe: "pinkcloud.files", icon: "C:\\Windows\\explorer.exe" },
+            { name: "Settings", path: "pinkcloud:settings", exe: "pinkcloud.settings", icon: "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe" },
+          ];
+          // Store apps and web apps match their open windows by app ID
+          const id = app.path.toLowerCase().startsWith("shell:appsfolder\\") ? app.path.slice(17).toLowerCase() : "";
+          const own = { "pinkcloud:files": "pinkcloud.files", "pinkcloud:settings": "pinkcloud.settings" }[app.path];
+          if (!list.some(p => p.path === app.path)) list.push({ name: app.name, path: app.path, exe: own || app.exe || id, icon: ICON_OF[app.path] || app.path });
+          store.set("pc-pins", list);
+        } },
+    ]);
+  }
+
+  q.addEventListener("input", () => search(q.value));
+  q.addEventListener("keydown", e => {
+    if (e.key === "Enter" && mode === "search" && results[0]) open(results[0]);
+  });
+  toggleAll.onclick = () => { q.value = ""; mode = mode === "pinned" ? "all" : "pinned"; render(); };
+  user.onclick = () => { invoke("launch", { path: "ms-settings:yourinfo" }); invoke("popup_blurred", { name: "start" }); };
+  // power sheet
+  [...sheet.children].forEach((c, i) => c.style.setProperty("--i", i));
+  const showSheet = on => { sheet.classList.toggle("on", on); power.classList.toggle("on", on); };
+  power.onclick = e => { e.stopPropagation(); showSheet(!sheet.classList.contains("on")); };
+  document.addEventListener("click", e => { if (!sheet.contains(e.target)) showSheet(false); });
+
+  let countTimer = null, countAction = null;
+  function doPower(action) {
+    stopCount();
+    invoke("popup_blurred", { name: "start" });
+    invoke("power", { action });
+  }
+  function stopCount() {
+    clearInterval(countTimer); countTimer = null; countAction = null;
+    count.classList.remove("on");
+  }
+  function startCount(action) {
+    countAction = action;
+    let n = 3;
+    countNum.textContent = n;
+    countWhat.textContent = action === "restart" ? "Restarting…" : "Shutting down…";
+    count.classList.remove("on"); void count.offsetWidth; count.classList.add("on");
+    countTimer = setInterval(() => {
+      n -= 1;
+      if (n <= 0) doPower(action); else countNum.textContent = n;
+    }, 1000);
+  }
+  sheet.querySelectorAll(".pw").forEach(b => b.onclick = () => {
+    const act = b.dataset.act;
+    showSheet(false);
+    if (act === "idle") { invoke("popup_blurred", { name: "start" }); setTimeout(() => invoke("show_idle"), 250); return; }
+    if (act === "restart" || act === "shutdown") startCount(act); else doPower(act);
+  });
+  countCancel.onclick = stopCount;
+  // Start closing (clicking elsewhere) always cancels a pending restart or shut down
+  window.__TAURI__.window.getCurrentWindow().onFocusChanged(({ payload: focused }) => { if (!focused) stopCount(); });
+  addEventListener("keydown", e => {
+    if (!countTimer) return;
+    if (e.key === "Enter") doPower(countAction);
+    if (e.key === "Escape") { e.stopImmediatePropagation(); stopCount(); }
+  }, true);
+
+  invoke("user_name").then(n => { uname.textContent = n; avatar.textContent = (n[0] || "?").toUpperCase(); });
+
+  async function loadApps() {
+    apps = await invoke("list_apps");
+    // "Settings" is Pink Cloud Settings; the Windows one stays available as "Windows Settings"
+    apps = apps.map(a => a.path === "ms-settings:" ? { ...a, name: "Windows Settings" } : a);
+    apps.unshift({ name: "Files", path: "pinkcloud:files", exe: "" }, { name: "Settings", path: "pinkcloud:settings", exe: "" });
+    render();
+  }
+  async function loadRecent() {
+    recent = await invoke("recent_files").catch(() => []);
+    if (mode === "pinned") render();
+  }
+  loadApps(); loadRecent();
+
+  setupPopup("start", () => {
+    stopCount(); showSheet(false);
+    q.value = ""; mode = "pinned"; found = []; render();
+    setTimeout(() => q.focus(), 30);
+    loadApps(); loadRecent();
+  });
+</script>
+</body>
+</html>

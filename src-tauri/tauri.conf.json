@@ -1,0 +1,372 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Pink Cloud",
+  "version": "1.4.0",
+  "identifier": "com.daan.pinkcloud",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "**"
+        ]
+      }
+    },
+    "windows": [
+      {
+        "label": "taskbar",
+        "url": "taskbar.html",
+        "title": "Pink Cloud Taskbar",
+        "width": 800,
+        "height": 56,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "focus": false,
+        "visible": false
+      },
+      {
+        "label": "start",
+        "url": "start.html",
+        "title": "Pink Cloud Start",
+        "width": 640,
+        "height": 640,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      },
+      {
+        "label": "switcher",
+        "url": "switcher.html",
+        "title": "Pink Cloud Switcher",
+        "width": 600,
+        "height": 300,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      },
+      {
+        "label": "lyrics",
+        "url": "lyrics.html",
+        "title": "Pink Cloud Lyrics",
+        "width": 1000,
+        "height": 190,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false,
+        "shadow": false,
+        "visible": false
+      },
+      {
+        "label": "preview",
+        "url": "preview.html",
+        "title": "Pink Cloud Previews",
+        "width": 240,
+        "height": 180,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      },
+      {
+        "label": "tray",
+        "url": "tray.html",
+        "title": "Pink Cloud Background Apps",
+        "width": 280,
+        "height": 72,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      },
+      {
+        "label": "settings",
+        "url": "settings.html",
+        "title": "Settings",
+        "width": 1000,
+        "height": 680,
+        "minWidth": 640,
+        "minHeight": 440,
+        "center": true,
+        "decorations": false,
+        "transparent": true,
+        "skipTaskbar": true,
+        "resizable": true,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      },
+      {
+        "label": "files",
+        "url": "files.html",
+        "title": "Files",
+        "width": 1040,
+        "height": 660,
+        "minWidth": 560,
+        "minHeight": 380,
+        "center": true,
+        "decorations": false,
+        "transparent": true,
+        "skipTaskbar": true,
+        "resizable": true,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      },
+      {
+        "label": "menu",
+        "url": "menu.html",
+        "title": "Pink Cloud Menu",
+        "width": 240,
+        "height": 200,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      },
+      {
+        "label": "calendar",
+        "url": "calendar.html",
+        "title": "Pink Cloud Calendar",
+        "width": 360,
+        "height": 470,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      },
+      {
+        "label": "quick",
+        "url": "quick.html",
+        "title": "Pink Cloud Quick Settings",
+        "width": 380,
+        "height": 612,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      },
+      {
+        "label": "toast",
+        "url": "toast.html",
+        "title": "Pink Cloud Notifications",
+        "width": 800,
+        "height": 600,
+        "alwaysOnTop": true,
+        "visible": true,
+        "decorations": false,
+        "transparent": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false,
+        "shadow": false
+      },
+      {
+        "label": "widgets",
+        "url": "widgets.html",
+        "title": "Pink Cloud Widgets",
+        "width": 800,
+        "height": 600,
+        "alwaysOnTop": false,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false,
+        "shadow": false
+      },
+      {
+        "label": "idle",
+        "url": "idle.html",
+        "title": "Pink Cloud Idle Screen",
+        "width": 800,
+        "height": 600,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "visible": false
+      },
+      {
+        "label": "notes",
+        "url": "notes.html",
+        "title": "Pink Cloud Notification Panel",
+        "width": 380,
+        "height": 560,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": [
+            "acrylic"
+          ],
+          "color": [
+            255,
+            236,
+            242,
+            110
+          ]
+        }
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "publisher": "Daan",
+    "shortDescription": "Pink Cloud: your own cute Windows taskbar, Start menu and file manager",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ]
+  }
+}
