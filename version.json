@@ -1,4 +1,4 @@
 {
-  "version": "1.5.0",
-  "notes": "Update notices, a Huge visualizer, and better lyrics: fewer wrong matches, plus \"Try another version\" in the player's menu."
+  "version": "1.6.0",
+  "notes": "Songs in games (like Nullscape) are now recognized by sound, with lyrics. Players that only give the title get the right artist, so lyrics match much better."
 }

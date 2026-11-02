@@ -29,6 +29,71 @@ pub fn start(on_frame: impl Fn(Vec<u8>) + Send + 'static) {
     });
 }
 
+/// Records `seconds` of whatever the PC is playing (not the microphone) as a WAV file, for
+/// recognizing in-game music. Returns the WAV bytes and when the recording started (unix ms).
+pub fn record_clip(seconds: u32) -> Option<(Vec<u8>, i64)> {
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let en: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
+        let client: IAudioClient = en.GetDefaultAudioEndpoint(eRender, eConsole).ok()?.Activate(CLSCTX_ALL, None).ok()?;
+        let fmt = client.GetMixFormat().ok()?;
+        let (channels, rate, bits, tag) = ((*fmt).nChannels as usize, (*fmt).nSamplesPerSec, (*fmt).wBitsPerSample, (*fmt).wFormatTag);
+        let float = tag == 3 || (tag == 0xFFFE && bits == 32);
+        client.Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, 2_000_000, 0, fmt, None).ok()?;
+        CoTaskMemFree(Some(fmt as *const _));
+        let capture: IAudioCaptureClient = client.GetService().ok()?;
+        let started = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0);
+        client.Start().ok()?;
+        let want = (rate * seconds) as usize;
+        let mut mono: Vec<i16> = Vec::with_capacity(want);
+        let deadline = Instant::now() + Duration::from_secs(seconds as u64 + 2);
+        while mono.len() < want && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(15));
+            while capture.GetNextPacketSize().ok()? > 0 {
+                let mut data = std::ptr::null_mut();
+                let (mut frames, mut flags) = (0u32, 0u32);
+                capture.GetBuffer(&mut data, &mut frames, &mut flags, None, None).ok()?;
+                let silent = flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0;
+                for f in 0..frames as usize {
+                    let mut s = 0.0f32;
+                    if !silent {
+                        for c in 0..channels {
+                            let i = f * channels + c;
+                            s += if float { *(data as *const f32).add(i) } else if bits == 16 { *(data as *const i16).add(i) as f32 / 32768.0 } else { 0.0 };
+                        }
+                        s /= channels as f32;
+                    }
+                    mono.push((s.clamp(-1.0, 1.0) * 32767.0) as i16);
+                }
+                capture.ReleaseBuffer(frames).ok()?;
+            }
+        }
+        let _ = client.Stop();
+        if mono.len() < rate as usize * 3 {
+            return None; // (almost) nothing played
+        }
+        // a plain 16-bit mono WAV file
+        let data_len = (mono.len() * 2) as u32;
+        let mut wav = Vec::with_capacity(44 + data_len as usize);
+        wav.extend(b"RIFF");
+        wav.extend((36 + data_len).to_le_bytes());
+        wav.extend(b"WAVEfmt ");
+        wav.extend(16u32.to_le_bytes());
+        wav.extend(1u16.to_le_bytes());
+        wav.extend(1u16.to_le_bytes());
+        wav.extend(rate.to_le_bytes());
+        wav.extend((rate * 2).to_le_bytes());
+        wav.extend(2u16.to_le_bytes());
+        wav.extend(16u16.to_le_bytes());
+        wav.extend(b"data");
+        wav.extend(data_len.to_le_bytes());
+        for s in mono {
+            wav.extend(s.to_le_bytes());
+        }
+        Some((wav, started))
+    }
+}
+
 fn listen(on_frame: &dyn Fn(Vec<u8>)) -> windows::core::Result<()> {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);

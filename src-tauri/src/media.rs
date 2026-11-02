@@ -11,7 +11,7 @@ use windows::Media::Control::{
 };
 use windows::Storage::Streams::DataReader;
 
-#[derive(Serialize, Clone, PartialEq, Default)]
+#[derive(Serialize, serde::Deserialize, Clone, PartialEq, Default)]
 pub struct NowPlaying {
     pub title: String,
     pub artist: String,

@@ -119,6 +119,10 @@
   .btn.gone .burst { border-color: color-mix(in srgb, var(--g1) 95%, transparent); }
   #apps > .btn { transition: transform .3s var(--spring); }
   #apps > .btn.dragging { transition: none; z-index: 5; filter: drop-shadow(0 8px 12px color-mix(in srgb, var(--shade) 35%, transparent)); }
+  .np.heard .ctrls:not(:last-child) { display: none; }
+  .np .ear { display: none; width: 30px; height: 30px; place-items: center; font-size: 17px; color: var(--ice-strong); position: relative; animation: earPulse 2.4s ease-in-out infinite; }
+  .np.heard .ear { display: grid; }
+  @keyframes earPulse { 50% { transform: scale(1.15); opacity: .7; } }
   .np .close { position: absolute; top: 2px; right: 2px; width: 16px !important; height: 16px !important; font-size: 10px !important;
     background: var(--panel) !important; opacity: 0; transition: opacity .2s !important; }
   .np:hover .close { opacity: 1; }
@@ -135,6 +139,7 @@
         <div class="pp" id="npPlay" title="Play or pause"><i class="ph-fill ph-play" id="npPlayIc"></i></div>
         <div id="npNext" title="Next"><i class="ph-fill ph-skip-forward"></i></div>
       </div>
+      <div class="ear" title="Recognized by sound"><i class="ph-fill ph-ear"></i></div>
       <div class="ctrls"><div class="close" id="npClose" title="Hide the player (turn it back on in quick settings)"><i class="ph ph-x"></i></div></div>
     </div>
     <div class="center" id="center">
@@ -554,19 +559,78 @@
     np.classList.toggle("on", !!s);
     if (!s) { artRGB = null; lastSong = ""; return; }
     np.classList.toggle("playing", s.playing);
+    // recognized by sound (e.g. a game's music): there's nothing to pause or skip
+    np.classList.toggle("heard", s.app === "heard");
     npPlayIc.className = "ph-fill " + (s.playing ? "ph-pause" : "ph-play");
     const song = s.title + "|" + s.artist;
     if (song !== lastSong) {
       lastSong = song;
       npTitle.textContent = s.title;
-      npArtist.textContent = s.artist || s.app.replace(/\.exe$/i, "").split(/[!\\.]/)[0];
+      npArtist.textContent = s.app === "heard" ? `${s.artist} · heard` : s.artist || s.app.replace(/\.exe$/i, "").split(/[!\\.]/)[0];
       np.title = s.artist ? `${s.title} · ${s.artist}` : s.title;
       npInfo.classList.remove("new"); void npInfo.offsetWidth; npInfo.classList.add("new");
     }
     if (s.art) { if (art.src !== s.art) art.src = s.art; art.style.display = ""; }
     else if (!art.src) art.style.display = "none";
   }
-  listen("now-playing", ({ payload }) => showNowPlaying(payload));
+  listen("now-playing", ({ payload }) => { showNowPlaying(payload); hearing.np = payload; });
+
+  // ---------- recognizing songs by sound (games, and players that give no artist) ----------
+  // Records ~10 s of what the PC plays and asks AudD (audd.io) which song it is, only when:
+  //  - sound has been playing for a few seconds, and
+  //  - no app reports a song (a game like Nullscape), or the app gives no artist (some web players).
+  // Never twice for the same song; backs off after a miss. Switch it off in Settings.
+  const hearing = { np: null, busy: false, soundSince: 0, lastSound: 0, tried: new Set(), nextTry: 0, heardAt: 0 };
+  function soundHeard(levels) {
+    const loud = levels.reduce((a, b) => a + b, 0) / levels.length > 18;
+    const now = Date.now();
+    if (loud) { if (!hearing.soundSince) hearing.soundSince = now; hearing.lastSound = now; }
+    else if (now - hearing.lastSound > 4000) hearing.soundSince = 0;
+  }
+  async function hearCheck() {
+    if (!store.get("pc-hear", true) || hearing.busy || Date.now() < hearing.nextTry) return;
+    const np = hearing.np, now = Date.now();
+    const playing = hearing.soundSince && now - hearing.soundSince > 6000 && now - hearing.lastSound < 2000;
+    // a song we recognized earlier is over (it ended, or the sound stopped): let it go
+    if (np && np.app === "heard") {
+      const end = np.stamp + (np.duration ? np.duration - np.position : 240000) + 8000;
+      if (now > end || now - hearing.lastSound > 25000) { invoke("set_heard", { np: null }); return; }
+      // the game might have moved on to another song: listen again after a while
+      if (!playing || now - hearing.heardAt < store.get("pc-hear-every", 120) * 1000) return;
+    } else if (np) {
+      // an app reports a song; only help when it gives no artist, once per song
+      if (np.artist || hearing.tried.has(np.title) || !playing) return;
+      hearing.tried.add(np.title);
+    } else if (!playing) return;
+
+    hearing.busy = true;
+    try {
+      const { answer, start } = await invoke("hear_song", { token: store.get("pc-audd-token", "") });
+      const r = answer && answer.result;
+      if (answer && answer.status === "error") {
+        store.set("pc-hear-status", { state: "error", text: answer.error ? answer.error.error_message : "Song recognition failed", at: Date.now() });
+        hearing.nextTry = Date.now() + 10 * 60000;   // e.g. free tries used up: wait a while
+      } else if (!r) {
+        store.set("pc-hear-status", { state: "none", text: "Couldn't recognize the last song", at: Date.now() });
+        hearing.nextTry = Date.now() + 60000;
+      } else {
+        const t = (r.timecode || "0:00").split(":").map(Number);
+        const position = ((t.length === 3 ? t[0] * 3600 + t[1] * 60 + t[2] : t[0] * 60 + t[1]) || 0) * 1000;
+        const art = (r.spotify && r.spotify.album && r.spotify.album.images && r.spotify.album.images[0] && r.spotify.album.images[0].url)
+          || (r.apple_music && r.apple_music.artwork && r.apple_music.artwork.url && r.apple_music.artwork.url.replace("{w}", "600").replace("{h}", "600")) || null;
+        const duration = (r.spotify && r.spotify.duration_ms) || (r.apple_music && r.apple_music.durationInMillis) || 0;
+        hearing.heardAt = Date.now();
+        store.set("pc-hear-status", { state: "ok", text: `Heard ${r.artist} - ${r.title}`, at: Date.now() });
+        await invoke("set_heard", { np: { title: r.title, artist: r.artist, playing: true, art, app: "heard", position, stamp: start, duration } });
+      }
+    } catch (e) {
+      hearing.nextTry = Date.now() + 60000;
+    }
+    hearing.busy = false;
+  }
+  setInterval(hearCheck, 3000);
+  // "Recognize now" in Settings
+  addEventListener("storage", e => { if (e.key === "pc-hear-now") { hearing.nextTry = 0; hearing.heardAt = 0; hearing.tried.clear(); hearing.soundSince = Date.now() - 7000; hearing.lastSound = Date.now(); hearCheck(); } });
   invoke("now_playing").then(showNowPlaying);
   const media = action => invoke("media_control", { action });
   npPlay.onclick = npInfo.onclick = () => { np.classList.toggle("playing"); npPlayIc.className = "ph-fill " + (np.classList.contains("playing") ? "ph-pause" : "ph-play"); media("playpause"); };
@@ -631,11 +695,12 @@
 
   function applyMode() {
     mode = store.get("pc-vis", "big");
-    invoke("set_visualizer", { on: mode !== "off" });
+    // the PC's sound is also listened to (not recorded) for song recognition, even with the visualizer off
+    invoke("set_visualizer", { on: mode !== "off" || store.get("pc-hear", true) });
     if (mode === "off") { target.fill(0); level.fill(0); ctx.clearRect(0, 0, vis.width, vis.height); pulse.style.opacity = 0; logo.style.transform = ""; }
   }
   applyMode();
-  addEventListener("storage", e => { if (e.key === "pc-vis") applyMode(); });
+  addEventListener("storage", e => { if (e.key === "pc-vis" || e.key === "pc-hear") applyMode(); });
 
   function fit() {
     const dpr = devicePixelRatio;
@@ -645,6 +710,7 @@
   fit(); addEventListener("resize", fit);
 
   listen("audio", ({ payload }) => {
+    soundHeard(payload);
     if (mode === "off") return;
     for (let i = 0; i < BANDS; i++) target[i] = (payload[i] || 0) / 255;
     if (!drawing) { drawing = true; requestAnimationFrame(draw); }

@@ -315,6 +315,28 @@
         toggle(prefs.lyrics(), on => store.set("pc-lyrics", on))));
       m.append(row("ph-arrows-out-cardinal", "Lyrics position", "Where the lines pop up",
         choice([["edges", "Around the edges"], ["bottom", "Above the taskbar"], ["anywhere", "Anywhere"]], store.get("pc-lyrics-place", "edges"), v => store.set("pc-lyrics-place", v))));
+      m.append(h("h2", "", "Song recognition"));
+      m.append(row("ph-ear", "Recognize songs by sound",
+        "For games and players that don't say what's playing: ~10 s of your PC's sound is sent to AudD (audd.io) to find the song, its artist and lyrics",
+        toggle(store.get("pc-hear", true), on => store.set("pc-hear", on))));
+      m.append(row("ph-game-controller", "Check again during games", "Game music changes; how often to listen again",
+        choice([[60, "1 min"], [120, "2 min"], [300, "5 min"]], store.get("pc-hear-every", 120), v => store.set("pc-hear-every", v))));
+      const keyBox = h("input");
+      keyBox.type = "password"; keyBox.placeholder = "Paste your AudD key"; keyBox.value = store.get("pc-audd-token", "");
+      keyBox.style.cssText = "height:34px;border-radius:17px;border:1px solid var(--border);background:var(--panel);padding:0 14px;font:inherit;color:var(--text);width:220px;outline:none";
+      keyBox.oninput = () => store.set("pc-audd-token", keyBox.value.trim());
+      const keyRow = row("ph-key", "AudD key (optional)", "Without a key you get a few free recognitions a day. A key from audd.io gives you more", keyBox);
+      const getKey = h("small", "", "Get a key at audd.io →");
+      getKey.style.cssText = "cursor:pointer;color:var(--ice-strong)";
+      getKey.onclick = () => invoke("launch", { path: "https://dashboard.audd.io/" });
+      keyRow.querySelector(".txt").append(getKey);
+      m.append(keyRow);
+      const st = store.get("pc-hear-status", null);
+      const now = h("button", "btn", "Recognize now");
+      now.onclick = () => { now.textContent = "Listening…"; store.set("pc-hear-now", Date.now()); setTimeout(() => show("look"), 15000); };
+      m.append(row("ph-waveform", st ? st.text : "Nothing recognized yet",
+        st ? `${Math.max(1, Math.round((Date.now() - st.at) / 60000))} min ago` : "Play something and press Recognize now", now));
+
       m.append(row("ph-music-notes", "Music player", "Now Playing on the left of the taskbar",
         toggle(prefs.player(), on => store.set("pc-np", on))));
       m.append(h("h2", "", "Windows"));

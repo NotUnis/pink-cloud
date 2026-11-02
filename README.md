@@ -34,6 +34,8 @@ Uninstall it like any app: Windows Settings → Apps → Installed apps → Pink
 | 🎵 **Now Playing** | Album art that spins like a record, song, artist and controls, for Spotify, YouTube and anything else that plays. |
 | 🌈 **Music visualizer** | Bars that dance to whatever's playing, tinted by the album art. |
 | 🎤 **Synced lyrics** | Lines pop up around your screen as the song is sung, letter by letter with a little wave. |
+| 👂 **Song recognition** | In games (and players that don't say what's playing) Pink Cloud recognizes the song by sound, so you still get the song, art and lyrics. |
+| 🔄 **Updates** | Pink Cloud tells you when there's a new version and updates itself in one click. |
 | 🪟 **Live previews & Alt+Tab** | Hover an app to see its windows; Alt+Tab opens a frosted switcher with live views. |
 | 🔎 **Start menu** | All your apps (Store apps too), recent files, search through apps and files, a power panel with a cancellable countdown. |
 | 🔔 **Notifications** | Pink pop-ups and a notification panel behind the bell, with Do not disturb. |
@@ -54,7 +56,9 @@ Wallpaper Engine keeps working with Pink Cloud.
   *Run with PowerShell* and the normal taskbar comes back.
 - **Your data stays on your PC.** The visualizer listens to your speakers' output but records nothing.
   Notifications are read from a copy of Windows' own list. Pink Cloud only goes online for lyrics
-  ([LRCLIB](https://lrclib.net)) and weather ([Open-Meteo](https://open-meteo.com)).
+  ([LRCLIB](https://lrclib.net)), weather ([Open-Meteo](https://open-meteo.com)), update checks (this page),
+  and song recognition: when it's on and no app says what's playing, ~10-second clips of your PC's
+  sound go to [AudD](https://audd.io). Switch it off in Settings → Look and feel.
 
 ## Build it yourself
 

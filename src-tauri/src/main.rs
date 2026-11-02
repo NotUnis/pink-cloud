@@ -47,6 +47,8 @@ struct AppState {
     preview_hold: Mutex<bool>,
     /// last Now Playing state, for screens that open later
     now_playing: Mutex<Option<media::NowPlaying>>,
+    /// a song recognized by sound, for when no app reports one
+    heard: Mutex<Option<media::NowPlaying>>,
     switcher: Mutex<Switcher>,
     /// last picture of each window, for previews of minimized windows
     snaps: Mutex<HashMap<i64, String>>,
@@ -805,7 +807,71 @@ fn preview_hold(state: State<AppState>, hold: bool) {
 
 #[tauri::command]
 fn now_playing(state: State<AppState>) -> Option<media::NowPlaying> {
-    state.now_playing.lock().unwrap().clone()
+    combine(state.now_playing.lock().unwrap().clone(), state.heard.lock().unwrap().clone())
+}
+
+/// What to show as Now Playing: the app's song, or (when no app reports one) a song recognized
+/// by sound. When the app only gives the title (some web players), the recognized song fills in
+/// the artist, album art and length, so the lyrics find the right song.
+fn combine(real: Option<media::NowPlaying>, heard: Option<media::NowPlaying>) -> Option<media::NowPlaying> {
+    let norm = |s: &str| s.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect::<String>();
+    match (real, heard) {
+        (None, h) => h,
+        (Some(mut r), Some(h)) if r.artist.is_empty() && !h.title.is_empty() && norm(&r.title).contains(&norm(&h.title)) => {
+            r.title = h.title;
+            r.artist = h.artist;
+            if r.art.is_none() {
+                r.art = h.art;
+            }
+            if r.duration == 0 {
+                r.duration = h.duration;
+            }
+            Some(r)
+        }
+        (r, _) => r,
+    }
+}
+
+fn tell_now_playing(app: &AppHandle, np: Option<media::NowPlaying>) {
+    for target in ["taskbar", "lyrics", "idle", "widgets"] {
+        let _ = app.emit_to(target, "now-playing", np.clone());
+    }
+}
+
+// ---------- recognizing songs by sound (games and other apps that don't report songs) ----------
+
+/// Records ~10 s of what the PC is playing and asks AudD (audd.io) which song it is.
+/// Only runs when you switched song recognition on and gave your own AudD key.
+#[tauri::command]
+async fn hear_song(token: String) -> Result<serde_json::Value, String> {
+    use std::os::windows::process::CommandExt;
+    let (wav, start) = audio::record_clip(10).ok_or("Nothing is playing right now.")?;
+    let dir = std::env::temp_dir();
+    let (clip, key) = (dir.join("PinkCloud-clip.wav"), dir.join("PinkCloud-audd-key.txt"));
+    std::fs::write(&clip, wav).map_err(|e| e.to_string())?;
+    // the key goes in through a file so it doesn't show up in the process list
+    std::fs::write(&key, token.trim()).map_err(|e| e.to_string())?;
+    let out = std::process::Command::new("curl.exe")
+        .args(["-s", "--max-time", "40", "-F"])
+        .arg(format!("api_token=<{}", key.display()))
+        .args(["-F", "return=spotify,apple_music", "-F"])
+        .arg(format!("file=@{}", clip.display()))
+        .arg("https://api.audd.io/")
+        .creation_flags(0x0800_0000)
+        .output();
+    let _ = std::fs::remove_file(&key);
+    let _ = std::fs::remove_file(&clip);
+    let out = out.map_err(|_| "Couldn't reach the song recognition service.")?;
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).map_err(|_| "The song recognition service sent something unexpected.")?;
+    Ok(serde_json::json!({ "answer": json, "start": start }))
+}
+
+/// A song recognized by sound (or None when it's over). Shown wherever no app reports a song.
+#[tauri::command]
+fn set_heard(app: AppHandle, state: State<AppState>, np: Option<media::NowPlaying>) {
+    *state.heard.lock().unwrap() = np.clone();
+    let real = state.now_playing.lock().unwrap().clone();
+    tell_now_playing(&app, combine(real, np));
 }
 
 #[tauri::command]
@@ -1012,6 +1078,22 @@ fn main() {
         }
         return;
     }
+    // Developer check: `pink-cloud --hear [key]` records 10 s of what's playing and asks AudD.
+    if args.get(1).map(String::as_str) == Some("--hear") {
+        let key = args.get(2).cloned().unwrap_or_default();
+        match tauri::async_runtime::block_on(hear_song(key)) {
+            Ok(v) => {
+                let r = &v["answer"]["result"];
+                if r.is_object() {
+                    println!("heard: {} - {} at {} (song length {} ms)", r["artist"], r["title"], r["timecode"], r["spotify"]["duration_ms"]);
+                } else {
+                    println!("answer: {}", v["answer"]);
+                }
+            }
+            Err(e) => println!("error: {e}"),
+        }
+        return;
+    }
     // Developer check: `pink-cloud --notes` prints the latest notifications as Pink Cloud sees them.
     if args.get(1).map(String::as_str) == Some("--notes") {
         for n in notify::recent(5) {
@@ -1130,6 +1212,8 @@ fn main() {
             preview_hold,
             now_playing,
             media_control,
+            hear_song,
+            set_heard,
             open_files,
             open_settings,
             sys_info,
@@ -1214,10 +1298,8 @@ fn main() {
             let handle = app.handle().clone();
             media::watch(move |np| {
                 *handle.state::<AppState>().now_playing.lock().unwrap() = np.clone();
-                let _ = handle.emit_to("taskbar", "now-playing", np.clone());
-                let _ = handle.emit_to("lyrics", "now-playing", np.clone());
-                let _ = handle.emit_to("idle", "now-playing", np.clone());
-                let _ = handle.emit_to("widgets", "now-playing", np);
+                let heard = handle.state::<AppState>().heard.lock().unwrap().clone();
+                tell_now_playing(&handle, combine(np, heard));
             });
             for label in ["preview", "switcher"] {
                 if let Some(w) = app.get_webview_window(label) {
