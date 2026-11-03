@@ -1246,6 +1246,7 @@ fn main() {
             place_taskbar(app.handle());
             if !preview() {
                 shell::take_over_taskbar();
+                std::thread::spawn(shell::upgrade_autostart);
                 let handle = app.handle().clone();
                 keys::watch(move |k| switcher_key(&handle, k));
                 let handle = app.handle().clone();

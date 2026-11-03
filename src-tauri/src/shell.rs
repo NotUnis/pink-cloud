@@ -978,20 +978,78 @@ pub fn first_instance() -> bool {
 // ---------- start with Windows ----------
 
 const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+const TASK: &str = "Pink Cloud";
 
-/// Whether Pink Cloud is in your account's startup list.
-pub fn autostart() -> bool {
+fn in_run_key() -> bool {
     Command::new("reg").args(["query", RUN_KEY, "/v", "PinkCloud"]).creation_flags(CREATE_NO_WINDOW).output().map(|o| o.status.success()).unwrap_or(false)
 }
 
+fn task_exists() -> bool {
+    Command::new("schtasks").args(["/query", "/tn", TASK]).creation_flags(CREATE_NO_WINDOW).output().map(|o| o.status.success()).unwrap_or(false)
+}
+
+/// Whether Pink Cloud starts when you sign in.
+pub fn autostart() -> bool {
+    task_exists() || in_run_key()
+}
+
+/// Starting with Windows goes through a sign-in task rather than the registry's Run list:
+/// Windows works through that list one app at a time, and with many apps in it Pink Cloud
+/// could wait minutes, or never start when an app ahead of it hangs.
 pub fn set_autostart(on: bool) -> bool {
-    let status = if on {
-        let exe = std::env::current_exe().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
-        Command::new("reg").args(["add", RUN_KEY, "/v", "PinkCloud", "/t", "REG_SZ", "/d", &format!("\"{exe}\""), "/f"]).creation_flags(CREATE_NO_WINDOW).status()
-    } else {
-        Command::new("reg").args(["delete", RUN_KEY, "/v", "PinkCloud", "/f"]).creation_flags(CREATE_NO_WINDOW).status()
-    };
-    status.map(|s| s.success()).unwrap_or(false)
+    if !on {
+        let _ = Command::new("schtasks").args(["/delete", "/tn", TASK, "/f"]).creation_flags(CREATE_NO_WINDOW).status();
+        let _ = Command::new("reg").args(["delete", RUN_KEY, "/v", "PinkCloud", "/f"]).creation_flags(CREATE_NO_WINDOW).status();
+        return !autostart();
+    }
+    let exe = std::env::current_exe().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+    let user = format!(r"{}\{}", std::env::var("USERDOMAIN").unwrap_or_default(), std::env::var("USERNAME").unwrap_or_default());
+    let esc = |t: &str| t.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
+    // normal priority (tasks default to below normal) and no time limit
+    let xml = format!(
+        r#"<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>Starts Pink Cloud when you sign in.</Description></RegistrationInfo>
+  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{user}</UserId></LogonTrigger></Triggers>
+  <Principals><Principal id="Author"><UserId>{user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>4</Priority>
+    <StartWhenAvailable>true</StartWhenAvailable>
+  </Settings>
+  <Actions Context="Author"><Exec><Command>"{exe}"</Command></Exec></Actions>
+</Task>"#,
+        user = esc(&user),
+        exe = esc(&exe)
+    );
+    let path = std::env::temp_dir().join("PinkCloud-task.xml");
+    let mut bytes = vec![0xFF, 0xFE];
+    bytes.extend(xml.encode_utf16().flat_map(|u| u.to_le_bytes()));
+    if std::fs::write(&path, bytes).is_err() {
+        return false;
+    }
+    let made = Command::new("schtasks")
+        .args(["/create", "/tn", TASK, "/xml", &path.to_string_lossy(), "/f"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    let _ = std::fs::remove_file(&path);
+    if made {
+        // the old Run entry would only start a second copy later
+        let _ = Command::new("reg").args(["delete", RUN_KEY, "/v", "PinkCloud", "/f"]).creation_flags(CREATE_NO_WINDOW).status();
+    }
+    made
+}
+
+/// Moves an older Run-list autostart over to the sign-in task.
+pub fn upgrade_autostart() {
+    if in_run_key() {
+        set_autostart(true);
+    }
 }
 
 pub fn power(action: &str) {

@@ -1,4 +1,4 @@
 {
-  "version": "1.6.0",
-  "notes": "Songs in games (like Nullscape) are now recognized by sound, with lyrics. Players that only give the title get the right artist, so lyrics match much better."
+  "version": "1.6.1",
+  "notes": "Start with Windows works reliably now: Pink Cloud opens right when you sign in instead of waiting behind your other startup apps."
 }
