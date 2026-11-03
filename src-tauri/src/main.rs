@@ -600,8 +600,9 @@ fn announce_update(app: AppHandle, version: String, notes: String) {
     let _ = app.emit_to("toast", "update-available", serde_json::json!({ "version": version, "notes": notes }));
 }
 
-/// Downloads the new installer, then (once Pink Cloud has closed) installs it quietly and
-/// starts Pink Cloud again. Only ever downloads from Pink Cloud's own GitHub page.
+/// Downloads the new installer and hands over to it: it closes Pink Cloud if it's still
+/// open, installs quietly and starts Pink Cloud again (/R). Only ever downloads from Pink
+/// Cloud's own GitHub page.
 #[tauri::command]
 async fn install_update(app: AppHandle) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
@@ -619,20 +620,13 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     if !ok || std::fs::metadata(&setup).map(|m| m.len() < 1_000_000).unwrap_or(true) {
         return Err("Couldn't download the update. Check your internet and try again.".into());
     }
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let script = temp.join("PinkCloud-Update.cmd");
-    let body = format!(
-        "@echo off\r\n:wait\r\ntasklist /FI \"IMAGENAME eq pink-cloud.exe\" | find /I \"pink-cloud.exe\" >nul && (timeout /t 1 /nobreak >nul & goto wait)\r\ntimeout /t 1 /nobreak >nul\r\n\"{}\" /S\r\nstart \"\" \"{}\"\r\n",
-        setup.display(),
-        exe.display()
-    );
-    std::fs::write(&script, body).map_err(|e| e.to_string())?;
-    std::process::Command::new("cmd")
-        .arg("/c")
-        .arg(&script)
-        .creation_flags(0x0800_0000 | 0x0000_0008) // no window, detached
+    // (Older versions waited in a hidden cmd script, which stalls when started detached:
+    // Pink Cloud closed and the update never ran.)
+    let _ = std::fs::remove_file(temp.join("PinkCloud-Update.cmd"));
+    std::process::Command::new(&setup)
+        .args(["/S", "/R", "/UPDATE"])
         .spawn()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Couldn't start the update: {e}"))?;
     cleanup(&app);
     app.exit(0);
     Ok(())

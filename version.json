@@ -1,4 +1,4 @@
 {
-  "version": "1.7.2",
-  "notes": "You can open the normal Windows File Explorer again when you want it: the Explorer button in Files, right-click menus, Start and quick search. Folders still open in Pink Cloud Files by default."
+  "version": "1.7.3",
+  "notes": "Updating works again: Pink Cloud now installs the update and opens again by itself (before, it could close and never come back)."
 }
