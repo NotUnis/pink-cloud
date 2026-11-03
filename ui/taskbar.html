@@ -175,6 +175,7 @@
   const openPath = path =>
     path === "pinkcloud:files" ? invoke("open_files") :
     path === "pinkcloud:settings" ? invoke("open_settings") :
+    isExplorer(path) ? invoke("open_explorer") :
     invoke("launch", { path });
   let windows = [];
   const buttons = new Map(); // group key -> element

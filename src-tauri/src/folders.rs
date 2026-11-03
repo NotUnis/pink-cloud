@@ -8,7 +8,8 @@
 
 use std::os::windows::process::CommandExt;
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Mutex;
 
 use windows::core::{w, Interface};
 use windows::Win32::Foundation::*;
@@ -21,6 +22,26 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 const NO_WINDOW: u32 = 0x0800_0000;
 /// Whether folders open in Pink Cloud Files (Settings → Files).
 pub static ON: AtomicBool = AtomicBool::new(false);
+/// Explorer windows you asked for on purpose stay Explorer: any that open before this time
+/// (unix ms) are left alone, and so are the windows in ALLOWED for as long as they're open.
+static ALLOW_UNTIL: AtomicU64 = AtomicU64::new(0);
+static ALLOWED: Mutex<Vec<isize>> = Mutex::new(Vec::new());
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+}
+
+/// Opens the normal Windows File Explorer (at a folder, or with a file selected) and lets it be.
+pub fn open_explorer(path: Option<&str>, select: bool) {
+    ALLOW_UNTIL.store(now_ms() + 5000, Ordering::SeqCst);
+    let mut cmd = Command::new("explorer.exe");
+    match path {
+        Some(p) if select => cmd.arg(format!("/select,{p}")),
+        Some(p) => cmd.arg(p),
+        None => &mut cmd,
+    };
+    let _ = cmd.spawn();
+}
 
 fn reg(args: &[&str]) {
     let _ = Command::new("reg").args(args).creation_flags(NO_WINDOW).status();
@@ -109,14 +130,26 @@ pub fn watch_explorer(on_open: impl Fn(String) + Send + 'static) {
                 continue;
             }
             let Ok(all) = CoCreateInstance::<_, IShellWindows>(&ShellWindows, None, CLSCTX_ALL) else { continue };
+            // forget Explorer windows you opened on purpose once they're closed
+            ALLOWED.lock().unwrap().retain(|h| IsWindow(Some(HWND(*h as *mut _))).as_bool());
             let n = all.Count().unwrap_or(0);
             for i in 0..n {
                 let Ok(item) = all.Item(&VARIANT::from(i)) else { continue };
                 let Ok(app) = item.cast::<IWebBrowserApp>() else { continue };
-                let Ok(url) = app.LocationURL() else { continue };
-                let Some(path) = path_of_url(&url.to_string()) else { continue };
                 let Ok(h) = app.HWND() else { continue };
                 let hwnd = HWND(h.0 as *mut _);
+                {
+                    let mut allowed = ALLOWED.lock().unwrap();
+                    if allowed.contains(&(h.0 as isize)) {
+                        continue;
+                    }
+                    if now_ms() < ALLOW_UNTIL.load(Ordering::SeqCst) {
+                        allowed.push(h.0 as isize);
+                        continue;
+                    }
+                }
+                let Ok(url) = app.LocationURL() else { continue };
+                let Some(path) = path_of_url(&url.to_string()) else { continue };
                 let _ = ShowWindow(hwnd, SW_HIDE);
                 let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
                 on_open(path);

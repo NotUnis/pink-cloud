@@ -138,10 +138,6 @@ pub fn properties(path: &str) {
     shell_verb(path, w!("properties"));
 }
 
-pub fn show_in_explorer(path: &str) {
-    let _ = std::process::Command::new("explorer.exe").arg(format!("/select,{path}")).spawn();
-}
-
 pub fn rename(path: &str, new_name: &str) -> Result<String, String> {
     let name = new_name.trim();
     if name.is_empty() || name.contains(['\\', '/', ':', '*', '?', '"', '<', '>', '|']) {

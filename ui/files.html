@@ -240,6 +240,8 @@
     <div class="ctl" id="deleteBtn" title="Move to Recycle Bin (Delete)"><i class="ph ph-trash"></i>Delete</div>
     <div class="ctl" id="lookBtn" title="Quick look (Space)"><i class="ph ph-eye"></i></div>
     <div class="ctl" id="propsBtn" title="Properties"><i class="ph ph-info"></i></div>
+    <div class="vsep"></div>
+    <div class="ctl" id="explorerBtn" title="Open this folder in Windows File Explorer"><img id="explorerIcon" alt="" style="width:17px;height:17px">Explorer</div>
     <div class="grow"></div>
     <div class="ctl" id="hiddenBtn" title="Show hidden items"><i class="ph ph-eye-slash"></i></div>
     <div class="ctl" id="viewBtn" title="Switch view"><i class="ph ph-squares-four"></i></div>
@@ -1004,7 +1006,7 @@
       one ? { text: "Rename", icon: "ph-textbox", action: () => startRename(e) } : undefined,
       { text: one ? "Copy path" : "Copy paths", icon: "ph-link", action: () => copyPaths(sel) },
       e.dir && one ? { text: isPinned(e.path) ? "Unpin from sidebar" : "Pin to sidebar", icon: "ph-push-pin", action: () => togglePin(e.path) } : undefined,
-      one && !ownFiles() ? { text: "Show in Windows Explorer", icon: "ph-folder-open", action: () => invoke("fs_action", { action: "explorer", path: e.path }) } : undefined,
+      one ? { text: "Show in Windows File Explorer", icon: "ph-folder-open", action: () => invoke("fs_action", { action: "explorer", path: e.path }) } : undefined,
       null,
       { text: one ? "Move to Recycle Bin" : `Move ${sel.length} items to Recycle Bin`, icon: "ph-trash", danger: true, action: () => askDelete(sel) },
       one ? { text: "Properties", icon: "ph-info", action: () => invoke("fs_action", { action: "properties", path: e.path }) } : undefined,
@@ -1016,6 +1018,7 @@
       { text: "Open in new tab", icon: "ph-browsers", action: () => newTab(p) },
       { text: isPinned(p) ? "Unpin from sidebar" : "Pin to sidebar", icon: "ph-push-pin", action: () => togglePin(p) },
       { text: "Copy path", icon: "ph-link", action: () => navigator.clipboard.writeText(p).then(() => say("Path copied")) },
+      { text: "Open in Windows File Explorer", icon: "ph-folder-open", action: () => invoke("open_explorer", { path: p }) },
       { text: "Properties", icon: "ph-info", action: () => invoke("fs_action", { action: "properties", path: p }) },
     ]);
   }
@@ -1035,7 +1038,7 @@
       { text: showHidden ? "Hide hidden items" : "Show hidden items", icon: showHidden ? "ph-eye-slash" : "ph-eye", action: toggleHidden },
       { text: isPinned(path) ? "Unpin this folder" : "Pin this folder to the sidebar", icon: "ph-push-pin", action: () => togglePin(path) },
       null,
-      !ownFiles() ? { text: "Open in Windows Explorer", icon: "ph-folder-open", action: () => invoke("fs_action", { action: "explorer", path }) } : undefined,
+      { text: "Open in Windows File Explorer", icon: "ph-folder-open", action: () => invoke("open_explorer", { path }) },
       { text: "Properties", icon: "ph-info", action: () => invoke("fs_action", { action: "properties", path }) },
     ].filter(x => x !== undefined));
   };
@@ -1070,6 +1073,8 @@
   cutBtn.onclick = () => clip(selectedEntries(), true);
   copyFilesBtn.onclick = () => clip(selectedEntries(), false);
   pasteBtn.onclick = () => pasteInto();
+  // the normal Windows File Explorer, here (or on its Home page from Pink Cloud's Home)
+  explorerBtn.onclick = () => invoke("open_explorer", { path: path || null });
 
   // type a few letters to jump to the first item that starts with them
   let typed = "", typedTimer;
@@ -1138,7 +1143,7 @@
     else newTab(payload);
   });
 
-  iconFor("C:\\Windows\\explorer.exe").then(u => { if (u) appIcon.src = u; });
+  iconFor("C:\\Windows\\explorer.exe").then(u => { if (u) { appIcon.src = u; explorerIcon.src = u; } });
 
   (async () => {
     [places, drives] = await Promise.all([invoke("fs_places"), invoke("fs_drives")]);

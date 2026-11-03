@@ -1,4 +1,4 @@
 {
-  "version": "1.7.1",
-  "notes": "Fixes the taskbar disappearing while apps like ChatGPT or Discord are maximized (or open on another screen), and quick search (Alt+Space) not opening."
+  "version": "1.7.2",
+  "notes": "You can open the normal Windows File Explorer again when you want it: the Explorer button in Files, right-click menus, Start and quick search. Folders still open in Pink Cloud Files by default."
 }

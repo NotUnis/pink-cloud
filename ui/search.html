@@ -72,6 +72,7 @@
   const ACTIONS = [
     ["Pink Cloud Settings", () => invoke("open_settings"), "ph-gear-six", "settings preferences pink cloud"],
     ["Files", () => invoke("open_files"), "ph-folder-simple", "explorer folders"],
+    ["Windows File Explorer", () => invoke("open_explorer"), "ph-folder-open", "file explorer windows normal old"],
     ["Lock", () => invoke("power", { action: "lock" }), "ph-lock", "lock screen"],
     ["Sleep", () => invoke("power", { action: "sleep" }), "ph-moon", "sleep"],
     ["Restart", () => invoke("power", { action: "restart" }), "ph-arrow-clockwise", "restart reboot"],
@@ -200,6 +201,7 @@
   function openApp(a) {
     if (a.path === "pinkcloud:files") invoke("open_files");
     else if (a.path === "pinkcloud:settings") invoke("open_settings");
+    else if (isExplorer(a.path, a.exe)) invoke("open_explorer");
     else invoke("launch", { path: a.path });
   }
 

@@ -1072,9 +1072,15 @@ fn fs_action(action: String, path: String) {
     match action.as_str() {
         "openwith" => files::open_with(&path),
         "properties" => files::properties(&path),
-        "explorer" => files::show_in_explorer(&path),
+        "explorer" => folders::open_explorer(Some(&path), true),
         _ => shell::launch(&path),
     }
+}
+
+/// The normal Windows File Explorer, at a folder or on its Home page.
+#[tauri::command]
+fn open_explorer(path: Option<String>) {
+    folders::open_explorer(path.as_deref(), false);
 }
 
 #[tauri::command]
@@ -1345,6 +1351,7 @@ fn main() {
             toggle_overlay,
             fit_search,
             fs_move,
+            open_explorer,
             fs_read_text,
             wallpaper_key,
             wallpaper_data,

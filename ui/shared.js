@@ -162,6 +162,11 @@ function sfx(name) {
   } catch {}
 }
 
+// The normal Windows File Explorer (its shortcut, its app ID or explorer.exe itself): opened
+// through Pink Cloud so it stays Explorer instead of turning into Pink Cloud Files.
+const isExplorer = (path, exe) => /(^|\\)explorer\.exe$/i.test(exe || "") || /(^|\\)explorer\.exe$/i.test(path || "") ||
+  /Microsoft\.Windows\.Explorer/i.test(path || "") || /\\File Explorer\.lnk$/i.test(path || "");
+
 // Icons are fetched once per path and shared.
 const iconCache = new Map();
 function iconFor(path) {

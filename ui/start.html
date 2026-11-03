@@ -227,6 +227,7 @@
   function open(app) {
     if (app.path === "pinkcloud:files") invoke("open_files");
     else if (app.path === "pinkcloud:settings") invoke("open_settings");
+    else if (isExplorer(app.path, app.exe)) invoke("open_explorer");
     else invoke("launch", { path: app.path });
     invoke("popup_blurred", { name: "start" });
   }
