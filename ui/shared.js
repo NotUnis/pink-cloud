@@ -15,11 +15,11 @@ const store = {
 };
 
 // Light/dark: "auto" follows Windows; every screen shares the choice.
-// Color theme ("palette"): pink, lavender, mint, sunset or cosmos (which is always dark).
+// Color theme ("palette"): pink, lavender, mint, sunset, or cosmos and grove (always dark).
 const darkQuery = matchMedia("(prefers-color-scheme: dark)");
 const currentPalette = () => store.get("pc-palette", "pink");
 function currentTheme() {
-  if (currentPalette() === "cosmos") return "dark";
+  if (["cosmos", "grove"].includes(currentPalette())) return "dark";
   const pick = store.get("pc-theme", "auto");
   return pick === "auto" ? (darkQuery.matches ? "dark" : "light") : pick;
 }

@@ -120,7 +120,8 @@
   // color theme dots
   const DOTS = [["pink", "Pink Cloud", "linear-gradient(135deg, #f2a6c0, #8cc6e6)"], ["lavender", "Lavender", "linear-gradient(135deg, #c4a7f2, #9cc4f2)"],
     ["mint", "Mint", "linear-gradient(135deg, #8fe0c2, #f6b8cb)"], ["sunset", "Sunset", "linear-gradient(135deg, #ffb38a, #f78bb0)"],
-    ["cosmos", "Cosmos", "radial-gradient(circle at 35% 35%, #a78bfa, #22d3ee 55%, #0b0a24 80%)"]];
+    ["cosmos", "Cosmos", "radial-gradient(circle at 35% 35%, #a78bfa, #22d3ee 55%, #0b0a24 80%)"],
+    ["grove", "Grove", "radial-gradient(circle at 65% 30%, #f3dd72, #8fdc5a 35%, #1a5a2a 65%, #061a0d)"]];
   function showDots() {
     dots.innerHTML = "";
     const made = (key, name) => { const c = store.get(key, DEFAULT_CUSTOM); return `linear-gradient(135deg, ${c.g1}, ${c.g3} 55%, ${c.g2})`; };

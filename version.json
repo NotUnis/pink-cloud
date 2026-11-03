@@ -1,4 +1,4 @@
 {
-  "version": "1.7.3",
-  "notes": "Updating works again: Pink Cloud now installs the update and opens again by itself (before, it could close and never come back)."
+  "version": "1.8.0",
+  "notes": "New Grove theme: an old forest in deep greens with sunbeams, drifting light and glowing jade glyphs on the idle screen. Pick it in Settings or quick settings."
 }

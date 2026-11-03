@@ -45,7 +45,7 @@ Uninstall it like any app: Windows Settings → Apps → Installed apps → Pink
 | 🌙 **Idle screen** | Step away and a dreamy clock with your song fades in. Never over videos or games. |
 | 🗂️ **Files** | Tabs, one-click sorting remembered per folder (with groups like *Today* and *Yesterday*), Quick Look (Space), drag to move, box select, pinned folders. Folders you open anywhere (and Win+E) open here. |
 | ⚙️ **Settings** | Every Pink Cloud option, plus shortcuts to every Windows settings page. |
-| 🎨 **Themes** | Pink Cloud, Lavender, Mint, Sunset and **Cosmos** 🌌, a theme that matches **your wallpaper** (Wallpaper Engine too) or the song's cover, and **your own colors** with a code to share. Each in light and dark. |
+| 🎨 **Themes** | Pink Cloud, Lavender, Mint, Sunset, **Cosmos** 🌌 and **Grove** 🌿 (forest light and glowing jade glyphs), a theme that matches **your wallpaper** (Wallpaper Engine too) or the song's cover, and **your own colors** with a code to share. Each in light and dark. |
 | 🔊 **Sounds** | Soft pops and chimes when things open and notifications arrive (switch off in Settings). |
 
 Wallpaper Engine keeps working with Pink Cloud.

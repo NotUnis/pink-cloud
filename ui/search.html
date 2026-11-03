@@ -81,7 +81,7 @@
     ["Recycle Bin", () => invoke("launch", { path: "shell:RecycleBinFolder" }), "ph-trash", "recycle bin trash"],
     ["Game overlay", () => invoke("toggle_overlay"), "ph-game-controller", "game overlay"],
     ["Idle screen", () => invoke("show_idle"), "ph-moon-stars", "idle screensaver"],
-    ...["pink", "lavender", "mint", "sunset", "cosmos", "wallpaper", "custom"].map(p => [
+    ...["pink", "lavender", "mint", "sunset", "cosmos", "grove", "wallpaper", "custom"].map(p => [
       `Theme: ${p[0].toUpperCase() + p.slice(1)}`, () => store.set("pc-palette", p), "ph-palette", "theme color colour " + p]),
     ["Dark mode", () => store.set("pc-theme", "dark"), "ph-moon", "dark mode theme"],
     ["Light mode", () => store.set("pc-theme", "light"), "ph-sun", "light mode theme"],

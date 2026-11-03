@@ -2,7 +2,7 @@
 @import url("vendor/phosphor/fill/style.css");
 
 /* Color themes. Every screen is colored from these variables, so switching theme
-   (data-palette on the root: pink, lavender, mint, sunset, cosmos) recolors everything.
+   (data-palette on the root: pink, lavender, mint, sunset, cosmos, grove) recolors everything.
    --g1 / --g2 are the theme's two signature colors (gradients, visualizer, glows), --g3 a hot
    accent, --pink / --ice the soft fills and selection, --sky the idle screen, and --tint the
    frosted glass behind popups ("r, g, b, a"). The popups sit on real Windows acrylic, so panel
@@ -138,6 +138,30 @@
     radial-gradient(1px 1px at 22% 88%, rgba(255,255,255,.6), transparent 60%), radial-gradient(1.5px 1.5px at 92% 12%, rgba(167,139,250,.9), transparent 60%),
     radial-gradient(1px 1px at 52% 44%, rgba(125,243,255,.7), transparent 60%), radial-gradient(1px 1px at 6% 52%, rgba(244,114,182,.7), transparent 60%);
   background-size: 260px 220px;
+}
+
+/* Grove: an old forest in deep greens, sunbeams through the leaves, and glyphs that glow
+   jade. Always dark. */
+:root[data-palette="grove"], :root[data-palette="grove"][data-theme="dark"] {
+  --panel: rgba(10, 30, 18, .58); --panel-hover: rgba(120, 220, 120, .16); --hi: rgba(220, 255, 200, .06);
+  --pink: #1f4a2c; --pink-deep: #2f6a3e; --ice: rgba(63, 240, 192, .15); --ice-strong: #3ff0c0; --ice-hover: #7df7d6;
+  --on-ice: #04170f; --text: #ecfbe6; --text-2: #a8cfa0; --border: rgba(110, 230, 150, .26);
+  --halo: rgba(4, 16, 8, .9); --sheen: rgba(200, 255, 170, .2);
+  --g1: #8fdc5a; --g2: #3ff0c0; --g3: #f3dd72; --g1-soft: #2c5a26; --g2-soft: #124a3c; --shade: #000;
+  --lyric-sung: #f4ffe8; --lyric-now: #8ff7d8;
+  --sky: linear-gradient(200deg, rgba(243, 221, 114, .35) 0%, transparent 35%),
+         radial-gradient(45% 60% at 62% 30%, rgba(190, 240, 120, .45), transparent 70%),
+         radial-gradient(70% 50% at 50% 105%, rgba(90, 190, 60, .55), transparent 70%),
+         linear-gradient(170deg, #0f3a1c 0%, #0b2a16 45%, #061a0d 100%);
+  --tint: 8, 26, 14, 200;
+}
+/* sunbeams falling across every Grove panel */
+:root[data-palette="grove"] .popup, :root[data-palette="grove"] .win, :root[data-palette="grove"] .w {
+  background-image:
+    linear-gradient(115deg, transparent 52%, rgba(230, 255, 160, .07) 56%, transparent 61%),
+    linear-gradient(110deg, transparent 66%, rgba(230, 255, 160, .05) 69%, transparent 74%),
+    linear-gradient(120deg, transparent 38%, rgba(63, 240, 192, .04) 41%, transparent 45%),
+    radial-gradient(80% 60% at 85% 0%, rgba(243, 221, 114, .08), transparent 70%);
 }
 
 * { box-sizing: border-box; margin: 0; }
