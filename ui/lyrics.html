@@ -226,6 +226,7 @@
     if (key !== k) return;               // the song changed while we were looking
     lines = !hit ? [] : hit.syncedLyrics ? parse(hit.syncedLyrics) : spread(hit.plainLyrics, s.duration);
     setStatus(k, !hit ? "none" : hit.syncedLyrics ? "synced" : "plain", hit);
+    if (hit) bump("karaoke");
     update();
   }
 
@@ -358,7 +359,7 @@
   }
 
   function update() {
-    const show = enabled && song && song.playing && lines.length > 0 && !(gaming && gameLyrics() === "off");
+    const show = enabled && song && song.playing && lines.length > 0 && !(gaming && gameLyrics() === "off") && !(focusState() && !store.get("pc-focus-lyrics", false));
     document.body.classList.toggle("hidden", !show);
     if (!show) return;
     const t = now();

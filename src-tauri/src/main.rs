@@ -2,11 +2,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod audio;
+mod discord;
 mod files;
 mod folders;
 mod keys;
 mod media;
 mod notify;
+mod safe;
 mod shell;
 mod tray;
 
@@ -24,6 +26,8 @@ const GAP: f64 = 10.0;
 /// Clicks there go straight through to whatever is underneath.
 const VIS_HEIGHT: f64 = 340.0;
 const POPUPS: [&str; 6] = ["start", "quick", "calendar", "tray", "notes", "search"];
+/// Whether this is the very first time Pink Cloud runs on this PC (for the welcome tour).
+static FIRST_RUN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 #[derive(Default)]
 struct AppState {
@@ -284,6 +288,7 @@ fn place_taskbar(app: &AppHandle) {
 }
 
 fn cleanup(app: &AppHandle) {
+    safe::clean_exit();
     if preview() {
         return;
     }
@@ -623,6 +628,9 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     // (Older versions waited in a hidden cmd script, which stalls when started detached:
     // Pink Cloud closed and the update never ran.)
     let _ = std::fs::remove_file(temp.join("PinkCloud-Update.cmd"));
+    // keep this version in case the new one doesn't start, and tell the crash helper this is on purpose
+    safe::keep_previous(&app.package_info().version.to_string());
+    safe::clean_exit();
     std::process::Command::new(&setup)
         .args(["/S", "/R", "/UPDATE"])
         .spawn()
@@ -761,6 +769,80 @@ fn set_mute(muted: bool) {
 #[tauri::command]
 fn js_log(window: WebviewWindow, msg: String) {
     eprintln!("[{}] {}", window.label(), msg);
+    safe::log(&format!("[{}] {}", window.label(), msg.chars().take(400).collect::<String>()));
+}
+
+// ---------- help: bug reports, crashes, the welcome tour, pop-up cards ----------
+
+/// The technical part of a bug report: versions, the PC, and the last log lines.
+#[tauri::command]
+async fn report_details(app: AppHandle) -> String {
+    let i = shell::sys_info();
+    format!(
+        "Pink Cloud {} | Windows {} {} (build {}) | {} ({} threads) | {} GB RAM | on for {} min
+
+Recent log:
+{}",
+        app.package_info().version,
+        i.windows,
+        i.version,
+        i.build,
+        i.cpu,
+        i.cores,
+        i.ram_gb,
+        i.uptime_min,
+        safe::recent_log(30)
+    )
+}
+
+/// A crash report left by the last run, if it hasn't been sent or dismissed yet.
+#[tauri::command]
+fn crash_report() -> Option<String> {
+    std::fs::read_to_string(safe::crash_file()).ok()
+}
+
+#[tauri::command]
+fn dismiss_crash() {
+    let _ = std::fs::remove_file(safe::crash_file());
+}
+
+/// An update you went back from after it didn't work; it isn't offered again.
+#[tauri::command]
+fn skipped_version() -> Option<String> {
+    safe::skipped_version()
+}
+
+#[tauri::command]
+fn first_run() -> bool {
+    FIRST_RUN.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[tauri::command]
+fn open_tour(app: AppHandle) {
+    let Some(win) = window_or_rebuild(&app, "tour") else { return };
+    let _ = win.center();
+    let _ = win.show();
+    let _ = win.set_focus();
+    let _ = app.emit_to("tour", "tour-open", ());
+}
+
+/// A pop-up card in the corner (what's new, achievements, focus finished...), from any screen.
+#[tauri::command]
+fn show_card(app: AppHandle, card: serde_json::Value) {
+    let _ = app.emit_to("toast", "card", card);
+}
+
+// ---------- Discord status ----------
+
+#[tauri::command]
+fn discord_available() -> bool {
+    discord::available()
+}
+
+#[tauri::command]
+fn set_discord(state: State<AppState>, on: bool) {
+    discord::set_on(on);
+    discord::tell(combine(state.now_playing.lock().unwrap().clone(), state.heard.lock().unwrap().clone()));
 }
 
 #[tauri::command]
@@ -935,6 +1017,7 @@ fn combine(real: Option<media::NowPlaying>, heard: Option<media::NowPlaying>) ->
 }
 
 fn tell_now_playing(app: &AppHandle, np: Option<media::NowPlaying>) {
+    discord::tell(np.clone());
     for target in ["taskbar", "lyrics", "idle", "widgets", "overlay"] {
         let _ = app.emit_to(target, "now-playing", np.clone());
     }
@@ -1160,6 +1243,13 @@ fn main() {
         "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required",
     );
     let args: Vec<String> = std::env::args().collect();
+    // the safe-start helper (see safe.rs): `--watch <pid> <pink-cloud.exe>`
+    if args.get(1).map(String::as_str) == Some("--watch") {
+        if let (Some(pid), Some(exe)) = (args.get(2).and_then(|p| p.parse().ok()), args.get(3)) {
+            safe::watch(pid, std::path::PathBuf::from(exe));
+        }
+        return;
+    }
     // Developer check: `pink-cloud --now-playing` prints what the Now Playing pill would show.
     if args.get(1).map(String::as_str) == Some("--now-playing") {
         let (tx, rx) = std::sync::mpsc::channel();
@@ -1300,6 +1390,9 @@ fn main() {
         }
         return;
     }
+    // the screens keep their data in this folder; it isn't there yet on the very first run
+    let data = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default()).join("com.daan.pinkcloud");
+    FIRST_RUN.store(!data.exists(), std::sync::atomic::Ordering::SeqCst);
 
     tauri::Builder::default()
         .manage(AppState::default())
@@ -1376,10 +1469,19 @@ fn main() {
             fs_clip_get,
             fs_paste,
             fs_search,
+            report_details,
+            crash_report,
+            dismiss_crash,
+            skipped_version,
+            first_run,
+            open_tour,
+            show_card,
+            discord_available,
+            set_discord,
             quit
         ])
         .setup(move |app| {
-            for p in POPUPS.iter().chain(&["menu", "files", "settings"]) {
+            for p in POPUPS.iter().chain(&["menu", "files", "settings", "tour"]) {
                 if let Some(w) = app.get_webview_window(p) {
                     shell::round_corners(hwnd(&w));
                 }
@@ -1389,6 +1491,8 @@ fn main() {
             shell::unregister_appbar(hwnd(&bar));
             place_taskbar(app.handle());
             if !preview() {
+                safe::start(&app.package_info().version.to_string());
+                discord::start();
                 shell::take_over_taskbar();
                 std::thread::spawn(shell::upgrade_autostart);
                 let handle = app.handle().clone();

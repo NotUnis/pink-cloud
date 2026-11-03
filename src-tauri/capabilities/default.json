@@ -19,7 +19,8 @@
     "idle",
     "notes",
     "search",
-    "overlay"
+    "overlay",
+    "tour"
   ],
   "permissions": [
     "core:default",

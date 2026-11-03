@@ -132,6 +132,22 @@
       radial-gradient(1px 1px at 85% 55%, #fff, transparent), radial-gradient(1px 1px at 10% 70%, #fcf, transparent), radial-gradient(1px 1px at 60% 85%, #fff, transparent);
     animation: tw 3s ease-in-out infinite; }
   @keyframes tw { 50% { opacity: .5; } }
+  .lead { color: var(--text-2); margin: -4px 0 14px; line-height: 1.45; }
+  .achs { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .ach { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 14px; background: var(--hi); border: 1px solid var(--border); opacity: .62; }
+  .ach.on { opacity: 1; border-color: color-mix(in srgb, #f5c542 55%, var(--border)); }
+  .ach .medal { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-size: 20px; color: var(--text-2); background: var(--panel); border: 1px dashed var(--border); }
+  .ach.on .medal { color: #fff; border: 0; background: radial-gradient(circle at 35% 30%, #fff3b0, #f5c542 45%, #e08a1e); box-shadow: 0 4px 14px rgba(245, 197, 66, .45); }
+  .ach b { display: block; font-size: 13px; } .ach small { display: block; color: var(--text-2); font-size: 12px; margin-top: 2px; }
+  .ach .bar { height: 4px; border-radius: 2px; background: var(--panel); margin-top: 6px; overflow: hidden; }
+  .ach .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--g1), var(--g2)); border-radius: 2px; }
+  ul.news { margin: 0 0 8px; padding-left: 20px; line-height: 1.55; }
+  textarea.report { width: 100%; min-height: 130px; resize: vertical; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel);
+    font: inherit; color: var(--text); outline: none; margin-bottom: 8px; user-select: text; }
+  textarea.report:focus { border-color: var(--ice-strong); }
+  .acts { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px; }
+  details.peek { margin-top: 6px; color: var(--text-2); } details.peek summary { cursor: pointer; }
+  details.peek pre { white-space: pre-wrap; font-size: 11px; max-height: 220px; overflow: auto; padding: 10px; border-radius: 10px; background: var(--hi); user-select: text; }
   .info { display: grid; grid-template-columns: 160px 1fr; gap: 10px 16px; padding: 16px 18px; border-radius: 12px; background: var(--hi); border: 1px solid var(--border); }
   .info span:nth-child(odd) { color: var(--text-2); }
   .empty { padding: 50px 20px; text-align: center; color: var(--text-2); }
@@ -160,6 +176,7 @@
 </div>
 
 <script src="shared.js"></script>
+<script src="changes.js"></script>
 <script>
   const appWindow = window.__TAURI__.window.getCurrentWindow();
   const PAGES = [
@@ -173,8 +190,14 @@
     ["network", "Network and devices", "ph-wifi-high"],
     ["apps", "Apps", "ph-squares-four"],
     ["system", "System", "ph-desktop"],
+    ["focus", "Focus", "ph-target"],
+    ["achievements", "Achievements", "ph-trophy"],
+    ["news", "What's new", "ph-sparkle"],
+    ["report", "Something's wrong?", "ph-bug"],
     ["about", "About", "ph-info"],
   ];
+  // bug reports go to this address (the friend presses Send in their own mail app or Gmail)
+  const REPORT_TO = "notunisthegoat@gmail.com";
   // color themes: id, name, and the colors of their little preview scene
   const PALETTES = [
     ["pink", "Pink Cloud", "linear-gradient(135deg, #fbd3e0, #c9a8e6 60%, #9cc9ec)", "#f2a6c0", "#8cc6e6"],
@@ -301,7 +324,7 @@
       m.append(g);
     },
 
-    look(m) {
+    async look(m) {
       m.append(h("h2", "", "Color theme"));
       const themes = h("div", "themes");
       PALETTES.forEach(([id, name, sky, a, b]) => {
@@ -384,6 +407,12 @@
 
       m.append(row("ph-music-notes", "Music player", "Now Playing on the left of the taskbar",
         toggle(prefs.player(), on => store.set("pc-np", on))));
+      if (await invoke("discord_available")) {
+        m.append(row("ph-discord-logo", "Discord status", "Shows \"Listening to\" with your song on your Discord profile while the Discord app is open",
+          toggle(store.get("pc-discord", false), on => store.set("pc-discord", on))));
+      } else {
+        m.append(row("ph-discord-logo", "Discord status", "Coming in an update soon: your song on your Discord profile"));
+      }
 
       m.append(h("h2", "", "Game mode"));
       m.append(row("ph-game-controller", "Game mode", "Turns on by itself while a game fills your screen (videos don't count)",
@@ -632,6 +661,93 @@
     },
   };
 
+  Object.assign(build, {
+    // ---------- focus mode ----------
+    focus(m) {
+      const f = focusState();
+      const go = h("button", "btn primary", f ? "End focus" : "Start focus");
+      go.onclick = () => { f ? stopFocus(false) : startFocus(); show("focus"); };
+      m.append(row("ph-target", f ? (f.until ? `Focusing, ${Math.max(1, Math.ceil((f.until - Date.now()) / 60000))} min left` : "Focusing, no timer") : "Focus mode",
+        "Notifications wait, lyrics step aside, and the taskbar counts down. Also in quick settings and quick search", go));
+      m.append(row("ph-timer", "Session length", "When it's over you get a little card, and the notifications you missed",
+        choice([[15, "15 min"], [25, "25 min"], [45, "45 min"], [60, "1 hour"], [0, "No timer"]], store.get("pc-focus-minutes", 25), v => store.set("pc-focus-minutes", v))));
+      m.append(row("ph-bell-slash", "Hold notifications", "Pop-ups wait until you're done; they're still in the notification panel",
+        toggle(store.get("pc-focus-quiet", true), on => store.set("pc-focus-quiet", on))));
+      m.append(row("ph-microphone-stage", "Lyrics while focusing", "Off keeps the screen calm",
+        toggle(store.get("pc-focus-lyrics", false), on => store.set("pc-focus-lyrics", on))));
+      const prog = store.get("pc-ach-progress", {});
+      m.append(row("ph-brain", "Time in focus", `${Math.floor((prog.deepfocus || 0) / 60)} h ${(prog.deepfocus || 0) % 60} min so far`));
+    },
+
+    // ---------- achievements ----------
+    achievements(m) {
+      const got = achieved(), prog = store.get("pc-ach-progress", {});
+      const n = ACHIEVEMENTS.filter(a => got[a[0]]).length;
+      m.append(h("p", "lead", `${n} of ${ACHIEVEMENTS.length} unlocked`));
+      const g = h("div", "achs");
+      ACHIEVEMENTS.forEach(([id, name, desc, icon, goal]) => {
+        const on = !!got[id], c = h("div", "ach" + (on ? " on" : ""));
+        const secret = id === "time" && !on;
+        c.innerHTML = `<div class="medal"><i class="ph-fill ${secret ? "ph-question" : icon}"></i></div><div><b></b><small></small><div class="bar"><span></span></div></div>`;
+        c.querySelector("b").textContent = secret ? "???" : name;
+        c.querySelector("small").textContent = on ? `${desc} · ${new Date(got[id]).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : desc;
+        const bar = c.querySelector(".bar");
+        if (on || goal === 1) bar.remove(); else bar.firstChild.style.width = Math.min(100, (prog[id] || 0) / goal * 100) + "%";
+        if (!on && goal > 1) c.querySelector("small").textContent += ` (${Math.min(prog[id] || 0, goal)}/${goal})`;
+        g.append(c);
+      });
+      m.append(g);
+    },
+
+    // ---------- what's new ----------
+    news(m) {
+      CHANGES.forEach(([v, items]) => {
+        m.append(h("h2", "", "Pink Cloud " + v));
+        const ul = h("ul", "news");
+        items.forEach(t => ul.append(h("li", "", t)));
+        m.append(ul);
+      });
+      m.append(linkRow("ph-map-trifold", "Take the welcome tour again", "Themes, start with Windows and the handy shortcuts", () => invoke("open_tour")));
+    },
+
+    // ---------- bug reports ----------
+    async report(m) {
+      const crash = await invoke("crash_report");
+      m.append(h("p", "lead", "Tell what happened, then send it. The report opens as an email to the Pink Cloud team in Gmail or your mail app, so you can read it and press Send."));
+      const ta = h("textarea", "report");
+      ta.placeholder = "What went wrong? What were you doing when it happened?";
+      ta.value = store.get("pc-report-draft", "");
+      ta.oninput = () => store.set("pc-report-draft", ta.value);
+      m.append(ta);
+      let withDetails = true;
+      m.append(row("ph-cpu", "Include technical details", "Pink Cloud's version, your Windows version and PC, and the last error messages. No files, passwords or personal stuff",
+        toggle(true, on => withDetails = on)));
+      const details = await invoke("report_details");
+      const full = () => [ta.value.trim() || "(no description)", withDetails ? "\n---\n" + details : "", crash ? "\n---\nCrash:\n" + crash : ""].join("\n");
+      const subject = () => "Pink Cloud bug: " + (ta.value.trim().split("\n")[0].slice(0, 60) || "something's wrong");
+      const sent = () => { achieve("helper"); invoke("dismiss_crash"); store.set("pc-report-draft", ""); };
+      const acts = h("div", "acts");
+      const gmail = h("button", "btn primary", "Send with Gmail");
+      gmail.onclick = () => {
+        invoke("launch", { path: `https://mail.google.com/mail/?view=cm&fs=1&to=${REPORT_TO}&su=${encodeURIComponent(subject())}&body=${encodeURIComponent(full().slice(0, 6000))}` });
+        sent();
+      };
+      const mail = h("button", "btn", "Send with my mail app");
+      mail.onclick = () => {
+        invoke("launch", { path: `mailto:${REPORT_TO}?subject=${encodeURIComponent(subject())}&body=${encodeURIComponent(full().slice(0, 1800))}` });
+        sent();
+      };
+      const copy = h("button", "btn", "Copy report");
+      copy.onclick = () => navigator.clipboard.writeText(`To: ${REPORT_TO}\nSubject: ${subject()}\n\n${full()}`).then(() => copy.textContent = "Copied ✓");
+      acts.append(gmail, mail, copy);
+      m.append(acts);
+      if (crash) m.append(row("ph-warning-circle", "A crash report is included", "Pink Cloud closed unexpectedly last time; that report goes with this one"));
+      const peek = h("details", "peek");
+      peek.append(h("summary", "", "See what's sent"), h("pre", "", details + (crash ? "\n\n" + crash : "")));
+      m.append(peek);
+    },
+  });
+
   // ---------- navigation and search ----------
   function renderNav() {
     navs.innerHTML = "";
@@ -679,7 +795,7 @@
   closeBtn.onclick = () => closeAppWindow(win, appWindow);
   appWindow.onResized(async () => { maxBtn.innerHTML = `<i class="ph ${(await appWindow.isMaximized()) ? "ph-copy-simple" : "ph-square"}"></i>`; });
   listen("settings-open", ({ payload }) => { openAppWindow(win); if (payload) show(payload); });
-  addEventListener("storage", e => { if (["pc-theme", "pc-vis", "pc-lyrics", "pc-np", "pc-pins", "pc-update"].includes(e.key) && !q.value) show(page); });
+  addEventListener("storage", e => { if ((["pc-theme", "pc-vis", "pc-lyrics", "pc-np", "pc-pins", "pc-update"].includes(e.key) || (e.key === "pc-ach" && page === "achievements") || (e.key === "pc-focus" && page === "focus")) && !q.value) show(page); });
 
   iconFor("C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe").then(u => { if (u) appIcon.src = u; });
   invoke("user_name").then(n => { uname.textContent = n; avatar.textContent = (n[0] || "?").toUpperCase(); });

@@ -45,12 +45,23 @@
   .acts button:hover { transform: scale(1.05); }
   .acts .go { background: linear-gradient(120deg, var(--g1), var(--g2)); border: 0; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
   .acts .go:disabled { filter: saturate(.5); cursor: progress; }
+  /* Pink Cloud's own cards */
+  .badgeic { width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; display: grid; place-items: center; font-size: 22px; color: #fff;
+    background: linear-gradient(135deg, var(--g1), var(--g2)); box-shadow: 0 4px 14px color-mix(in srgb, var(--g2) 45%, transparent); animation: hop .6s .2s var(--spring) both; }
+  .card ul { margin: 6px 0 0; padding-left: 18px; color: var(--text-2); line-height: 1.4; }
+  .card li { margin: 2px 0; }
+  /* an achievement lands with a golden glow */
+  .card.achievement { border-color: color-mix(in srgb, #f5c542 70%, transparent); }
+  .card.achievement .badgeic { background: radial-gradient(circle at 35% 30%, #fff3b0, #f5c542 45%, #e08a1e); animation: hop .6s .2s var(--spring) both, medal 2.4s 1s ease-in-out infinite; }
+  @keyframes medal { 50% { box-shadow: 0 0 22px 4px rgba(245, 197, 66, .6); } }
+  .card.crash .badgeic { background: linear-gradient(135deg, #f59e8b, #e0566f); }
 </style>
 </head>
 <body>
 <div class="stack" id="stack"></div>
 
 <script src="shared.js"></script>
+<script src="changes.js"></script>
 <script>
   const LIFE = 7000, MAX = 3;
   const names = new Map();
@@ -128,22 +139,97 @@
     reportHits();
   });
 
-  // game mode: pop-ups wait until you stop playing, then the last few come in
+  // ---------- Pink Cloud's own cards: what's new, achievements, focus, crashes ----------
+  // { kind, icon (a Phosphor icon), title, body, list?, buttons?: [[text, action, primary]], life? }
+  function card(c) {
+    if (c.kind === "achievement") sfx("game"); else sfx("note");
+    const t = document.createElement("div");
+    t.className = "toast update card " + (c.kind || "");
+    const life = c.life ?? (c.buttons ? 0 : 9000);
+    t.innerHTML = `<div class="badgeic"><i class="ph-fill"></i></div><div class="txt"><div class="app"></div><div class="title"></div><div class="body"></div></div><div class="x" title="Dismiss"><i class="ph ph-x"></i></div>`;
+    t.querySelector(".badgeic i").classList.add(c.icon || "ph-sparkle");
+    t.querySelector(".app").textContent = c.kind === "achievement" ? "Achievement unlocked" : "Pink Cloud";
+    t.querySelector(".title").textContent = c.title;
+    t.querySelector(".body").textContent = c.body || "";
+    if (c.list) {
+      const ul = document.createElement("ul");
+      c.list.slice(0, 6).forEach(x => ul.append(Object.assign(document.createElement("li"), { textContent: x })));
+      t.querySelector(".txt").append(ul);
+    }
+    if (c.buttons) {
+      const acts = Object.assign(document.createElement("div"), { className: "acts" });
+      c.buttons.forEach(([text, action, primary]) => {
+        const b = Object.assign(document.createElement("button"), { textContent: text, className: primary ? "go" : "" });
+        b.onclick = e => { e.stopPropagation(); action && action(); dismiss(t); };
+        acts.append(b);
+      });
+      t.querySelector(".txt").append(acts);
+    }
+    t.querySelector(".x").onclick = e => { e.stopPropagation(); c.onDismiss && c.onDismiss(); dismiss(t); };
+    if (life) {
+      t.style.setProperty("--life", life + "ms");
+      t.append(Object.assign(document.createElement("div"), { className: "timer" }));
+      const arm = () => { t._timer = setTimeout(() => dismiss(t), life); };
+      t.onmouseenter = () => clearTimeout(t._timer);
+      t.onmouseleave = arm;
+      arm();
+    }
+    stack.appendChild(t);
+    while (stack.children.length > MAX + 1) dismiss(stack.children[0]);
+    setTimeout(reportHits, 650);
+    reportHits();
+  }
+  listen("card", ({ payload }) => card(payload));
+
+  // After an update: what's new. The very first time: the welcome tour.
+  (async () => {
+    const mine = await invoke("app_version");
+    const last = store.get("pc-last-version", null);
+    store.set("pc-last-version", mine);
+    if (!last) {
+      if (await invoke("first_run")) { achieve("hello"); setTimeout(() => invoke("open_tour"), 2500); }
+      else showNews(mine, CHANGES.filter(c => c[0] === mine));   // updated from a version without this pop-up
+    } else if (newerVersion(mine, last)) {
+      showNews(mine, CHANGES.filter(c => newerVersion(c[0], last) && !newerVersion(c[0], mine)));
+    }
+  })();
+  function showNews(version, changes) {
+    if (!changes.length) return;
+    achieve("updated");
+    setTimeout(() => card({
+      kind: "news", icon: "ph-sparkle", title: `What's new in Pink Cloud ${version}`, list: changes.flatMap(c => c[1]),
+      buttons: [["See everything", () => invoke("open_settings", { page: "news" }), true], ["Nice!"]],
+    }), 4000);
+  }
+
+  // The last run crashed (see safe start): offer to send the report.
+  invoke("crash_report").then(r => {
+    if (!r) return;
+    setTimeout(() => card({
+      kind: "crash", icon: "ph-warning-circle", title: "Pink Cloud closed unexpectedly",
+      body: "Sorry about that! Your taskbar was put back for you. Sending the report helps get it fixed.",
+      buttons: [["Send report", () => invoke("open_settings", { page: "report" }), true], ["No thanks", () => invoke("dismiss_crash")]],
+      onDismiss: () => invoke("dismiss_crash"),
+    }), 3000);
+  });
+
+  // game mode and focus mode: pop-ups wait until you're done, then the last few come in
   let gaming = false, held = [];
   const quietInGames = () => store.get("pc-game-quiet", true);
-  listen("game-mode", ({ payload }) => {
-    gaming = payload.on;
-    if (!gaming && held.length) {
-      held.slice(-3).forEach((n, i) => setTimeout(() => show(n), 600 + i * 250));
-      held = [];
-    }
-  });
+  const quietInFocus = () => focusState() && store.get("pc-focus-quiet", true);
+  function letThrough() {
+    if (gaming || quietInFocus() || !held.length) return;
+    held.slice(-3).forEach((n, i) => setTimeout(() => show(n), 600 + i * 250));
+    held = [];
+  }
+  listen("game-mode", ({ payload }) => { gaming = payload.on; letThrough(); });
+  addEventListener("pc-focus-change", letThrough);
   invoke("game_state").then(g => gaming = !!g);
 
   listen("notes-new", ({ payload }) => {
     // pop-ups can be switched off, or held back by Do not disturb (they still go to the panel)
     if (!store.get("pc-note-popups", true) || store.get("pc-dnd", false)) return;
-    if (gaming && quietInGames()) { held.push(...payload); return; }
+    if ((gaming && quietInGames()) || quietInFocus()) { held.push(...payload); return; }
     payload.forEach((n, i) => setTimeout(() => show(n), i * 250));
   });
   reportHits();

@@ -484,6 +484,7 @@
     sort = sortFor(path);
     selected.clear(); anchor = null; filter.value = ""; results = null; searchRun++; closeLook();
     if (path) {
+      bump("finder");
       try { entries = await invoke("fs_list", { path }); }
       catch (err) { entries = []; say(String(err).includes("denied") ? "You don't have access to that folder." : "Couldn't open that folder."); }
     } else recent = await invoke("recent_files").catch(() => []);
@@ -1049,6 +1050,7 @@
     const dir = sort.key === key ? -sort.dir : (key === "modified" || key === "size" ? -1 : 1);
     sort = { ...sort, key, dir };
     saveSort();
+    achieve("tidy");
     sfx("tick");
     render(false);
   }

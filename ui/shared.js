@@ -130,6 +130,68 @@ applyTheme();
 darkQuery.addEventListener("change", applyTheme);
 addEventListener("storage", e => { if (["pc-theme", "pc-palette", "pc-custom-colors", "pc-wall-colors"].includes(e.key)) applyTheme(); });
 
+// ---------- achievements ----------
+// [id, name, how to get it, icon, how many times]. Progress and unlocks live in localStorage,
+// so every screen can add to them; an unlock pops a card in the corner.
+const ACHIEVEMENTS = [
+  ["hello", "Hello, Pink Cloud", "Start Pink Cloud for the first time", "ph-hand-waving", 1],
+  ["tour", "Grand tour", "Finish the welcome tour", "ph-map-trifold", 1],
+  ["theme", "Fresh coat", "Switch to another color theme", "ph-palette", 1],
+  ["collector", "Collector", "Try every built-in theme", "ph-swatches", 6],
+  ["artist", "Artist", "Use a theme you made yourself", "ph-paint-brush", 1],
+  ["dj", "DJ", "Listen to 100 songs", "ph-vinyl-record", 100],
+  ["karaoke", "Karaoke star", "Sing along to lyrics in 25 songs", "ph-microphone-stage", 25],
+  ["detective", "Song detective", "Have a song recognized by sound", "ph-ear", 1],
+  ["searcher", "Seeker", "Use quick search 25 times", "ph-magnifying-glass", 25],
+  ["finder", "Explorer", "Open 100 folders in Files", "ph-folder-open", 100],
+  ["tidy", "Tidy", "Sort a folder your way", "ph-sort-ascending", 1],
+  ["gamer", "Player one", "Play a game with game mode on", "ph-game-controller", 1],
+  ["focus", "In the zone", "Finish a focus session", "ph-target", 1],
+  ["deepfocus", "Deep focus", "Spend 5 hours in focus mode", "ph-brain", 300],
+  ["daydream", "Daydreamer", "See the idle screen 10 times", "ph-cloud-moon", 10],
+  ["owl", "Night owl", "Use your PC between 3 and 4 at night", "ph-moon-stars", 1],
+  ["updated", "Up to date", "Install a Pink Cloud update", "ph-sparkle", 1],
+  ["helper", "Bug hunter", "Send a bug report", "ph-bug", 1],
+  ["time", "Time traveler", "A secret: something about the clock…", "ph-clock-countdown", 1],
+];
+const achieved = () => store.get("pc-ach", {});
+function bump(id, by = 1) {
+  const a = ACHIEVEMENTS.find(x => x[0] === id);
+  if (!a || achieved()[id]) return;
+  const prog = store.get("pc-ach-progress", {});
+  prog[id] = (prog[id] || 0) + by;
+  store.set("pc-ach-progress", prog);
+  if (prog[id] < a[4]) return;
+  const got = achieved();
+  got[id] = Date.now();
+  store.set("pc-ach", got);
+  invoke("show_card", { card: { kind: "achievement", icon: a[3], title: a[1], body: a[2] } }).catch(() => {});
+}
+const achieve = id => bump(id, 1e9);
+
+// ---------- focus mode ----------
+// { since, until } in pc-focus while it's on (until 0 = no timer). Every screen reacts to it:
+// notifications wait, lyrics step aside, and the taskbar counts down.
+const focusState = () => { const f = store.get("pc-focus", null); return f && (!f.until || f.until > Date.now()) ? f : null; };
+function startFocus(minutes = store.get("pc-focus-minutes", 25)) {
+  store.set("pc-focus", { since: Date.now(), until: minutes ? Date.now() + minutes * 60000 : 0 });
+  sfx("toggle");
+  dispatchEvent(new Event("pc-focus-change"));
+}
+function stopFocus(finished = false) {
+  const f = store.get("pc-focus", null);
+  if (!f) return;
+  store.set("pc-focus", null);
+  const mins = Math.round((Date.now() - f.since) / 60000);
+  if (mins > 0) bump("deepfocus", mins);
+  if (finished) {
+    achieve("focus");
+    invoke("show_card", { card: { kind: "focus", icon: "ph-target", title: "Focus done 🎉", body: `${mins} minute${mins === 1 ? "" : "s"} in the zone. Time for a break!` } }).catch(() => {});
+  }
+  dispatchEvent(new Event("pc-focus-change"));
+}
+addEventListener("storage", e => { if (e.key === "pc-focus") dispatchEvent(new Event("pc-focus-change")); });
+
 // ---------- Grove glyphs ----------
 // Each glyph is a few strokes picked on a small grid, so every one is different and none of
 // them is real writing. Returns SVG path data centered on (cx, cy), s = grid step.

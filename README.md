@@ -47,6 +47,11 @@ Uninstall it like any app: Windows Settings → Apps → Installed apps → Pink
 | ⚙️ **Settings** | Every Pink Cloud option, plus shortcuts to every Windows settings page. |
 | 🎨 **Themes** | Pink Cloud, Lavender, Mint, Sunset, **Cosmos** 🌌 and **Grove** 🌿 (forest light and glowing jade glyphs), a theme that matches **your wallpaper** (Wallpaper Engine too) or the song's cover, and **your own colors** with a code to share. Each in light and dark. |
 | 🔊 **Sounds** | Soft pops and chimes when things open and notifications arrive (switch off in Settings). |
+| 🎯 **Focus mode** | Notifications wait, lyrics step aside and the taskbar counts down your session (15 min to an hour, or no timer). In quick settings and quick search. |
+| 🏆 **Achievements** | 19 to collect as you use Pink Cloud, including a secret one. See them in Settings. |
+| 🛟 **Safe start** | If Pink Cloud ever crashes, your normal Windows taskbar comes back right away, Pink Cloud starts again, and if a new version won't start you can go back to the one you had. |
+| 🐞 **Something's wrong?** | Settings sends a bug report as an email (Gmail or your mail app) in two clicks, with the technical details filled in. |
+| 👋 **Welcome tour & What's new** | A short tour the first time, and a pop-up with what changed after every update. |
 
 Wallpaper Engine keeps working with Pink Cloud.
 

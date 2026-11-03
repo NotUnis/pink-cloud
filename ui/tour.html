@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Welcome to Pink Cloud</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* The welcome tour: a few friendly steps the first time Pink Cloud runs (and any time
+     from Settings → What's new or quick search). */
+  body { font-size: 14px; }
+  .win { height: 100%; display: flex; flex-direction: column; background: var(--panel); border-radius: 10px; overflow: hidden; position: relative; }
+  .top { height: 40px; display: flex; justify-content: flex-end; flex-shrink: 0; }
+  .top div { width: 46px; display: grid; place-items: center; cursor: pointer; transition: background .15s; }
+  .top div:hover { background: var(--g3); color: #fff; }
+  .steps { flex: 1; position: relative; }
+  .step { position: absolute; inset: 0 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px;
+    opacity: 0; transform: translateX(60px); pointer-events: none; transition: opacity .45s, transform .6s var(--spring); }
+  .step.on { opacity: 1; transform: none; pointer-events: auto; }
+  .step.gone { transform: translateX(-60px); }
+  .step h1 { font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -.5px; }
+  .step p { color: var(--text-2); max-width: 470px; line-height: 1.5; }
+  .hero { width: 96px; height: 96px; border-radius: 28px; display: grid; place-items: center; font-size: 50px; color: #fff;
+    background: linear-gradient(135deg, var(--g1), var(--g2)); box-shadow: 0 14px 40px color-mix(in srgb, var(--g2) 45%, transparent); animation: bob 3s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-8px) rotate(-3deg); } }
+  .dots { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .dots .dot { width: 46px; height: 46px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform .3s var(--spring), border-color .2s;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--shade) 25%, transparent); }
+  .dots .dot:hover { transform: scale(1.12); }
+  .dots .dot.on { border-color: var(--text); transform: scale(1.12); }
+  .opt { display: flex; align-items: center; gap: 14px; width: 420px; padding: 12px 16px; border-radius: 14px; background: var(--hi); border: 1px solid var(--border); text-align: left; }
+  .opt i { font-size: 20px; color: var(--ice-strong); }
+  .opt div { flex: 1; } .opt b { display: block; } .opt small { color: var(--text-2); }
+  .sw { width: 42px; height: 24px; border-radius: 12px; background: var(--border); position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
+  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .3s var(--spring); }
+  .sw.on { background: var(--ice-strong); } .sw.on::after { transform: translateX(18px); }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; text-align: left; align-items: center; }
+  kbd { display: inline-block; min-width: 30px; padding: 4px 9px; border-radius: 8px; background: var(--hi); border: 1px solid var(--border); border-bottom-width: 3px;
+    font: 600 12px "Segoe UI", sans-serif; text-align: center; margin-right: 4px; }
+  .keys span { color: var(--text-2); }
+  .foot { height: 70px; display: flex; align-items: center; padding: 0 28px; gap: 10px; flex-shrink: 0; }
+  .pips { display: flex; gap: 6px; flex: 1; }
+  .pips span { width: 8px; height: 8px; border-radius: 4px; background: var(--border); transition: width .4s var(--spring), background .3s; }
+  .pips span.on { width: 24px; background: var(--ice-strong); }
+  button { height: 38px; padding: 0 20px; border-radius: 19px; border: 1px solid var(--border); background: var(--hi); font: inherit; font-weight: 600; color: var(--text); cursor: pointer;
+    transition: transform .2s var(--spring); }
+  button:hover { transform: scale(1.04); }
+  button.go { background: linear-gradient(120deg, var(--g1), var(--g2)); border: 0; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+</style>
+</head>
+<body>
+<div class="win appwin" id="win">
+  <div class="top" data-tauri-drag-region><div id="closeBtn" title="Skip the tour"><i class="ph ph-x"></i></div></div>
+  <div class="steps" id="steps">
+    <div class="step">
+      <div class="hero"><i class="ph-fill ph-cloud"></i></div>
+      <h1>Welcome to Pink Cloud</h1>
+      <p>Your own taskbar, Start menu, file manager and a lot of little extras. Here's a quick tour, it takes less than a minute.</p>
+    </div>
+    <div class="step">
+      <h1>Pick your look</h1>
+      <p>Every screen follows your theme. Change it any time in quick settings (the Wi-Fi and sound icons) or in Settings.</p>
+      <div class="dots" id="themeDots"></div>
+    </div>
+    <div class="step">
+      <h1>Make it yours</h1>
+      <div class="opt"><i class="ph ph-rocket-launch"></i><div><b>Start with Windows</b><small>Pink Cloud opens by itself when you sign in</small></div><div class="sw" id="autoSw"></div></div>
+      <div class="opt"><i class="ph ph-speaker-simple-high"></i><div><b>Sound effects</b><small>Soft pops and chimes</small></div><div class="sw" id="sfxSw"></div></div>
+      <div class="opt"><i class="ph ph-microphone-stage"></i><div><b>Lyrics</b><small>Synced lyrics on screen while music plays</small></div><div class="sw" id="lyrSw"></div></div>
+    </div>
+    <div class="step">
+      <h1>Handy shortcuts</h1>
+      <div class="keys">
+        <div><kbd>⊞ Win</kbd></div><span>Start: your apps, search and power</span>
+        <div><kbd>Alt</kbd><kbd>Space</kbd></div><span>Quick search: apps, files, settings, sums and more</span>
+        <div><kbd>⊞ Win</kbd><kbd>E</kbd></div><span>Files, Pink Cloud's file manager</span>
+        <div><kbd>Alt</kbd><kbd>G</kbd></div><span>Game overlay while you play</span>
+        <div><kbd>Right-click</kbd></div><span>Most things have extra options, like the music player</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="hero"><i class="ph-fill ph-trophy"></i></div>
+      <h1>You're all set!</h1>
+      <p>There are achievements to collect as you go (one of them is a secret). If something ever goes wrong, Settings → Something's wrong? sends a report in two clicks.</p>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="pips" id="pips"></div>
+    <button id="backBtn">Back</button>
+    <button class="go" id="nextBtn">Next</button>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  const appWindow = window.__TAURI__.window.getCurrentWindow();
+  const steps = [...document.querySelectorAll(".step")];
+  let at = 0;
+  steps.forEach(() => pips.append(document.createElement("span")));
+  function go(i) {
+    at = Math.max(0, Math.min(steps.length - 1, i));
+    steps.forEach((s, k) => { s.classList.toggle("on", k === at); s.classList.toggle("gone", k < at); });
+    [...pips.children].forEach((p, k) => p.classList.toggle("on", k === at));
+    backBtn.style.visibility = at ? "" : "hidden";
+    nextBtn.textContent = at === steps.length - 1 ? "Let's go!" : "Next";
+  }
+  function finish() {
+    store.set("pc-tour-done", true);
+    achieve("tour");
+    closeAppWindow(win, appWindow);
+  }
+  nextBtn.onclick = () => { sfx("tap"); at === steps.length - 1 ? finish() : go(at + 1); };
+  backBtn.onclick = () => { sfx("tap"); go(at - 1); };
+  closeBtn.onclick = () => closeAppWindow(win, appWindow);
+  addEventListener("keydown", e => { if (e.key === "ArrowRight" || e.key === "Enter") nextBtn.click(); if (e.key === "ArrowLeft") backBtn.click(); });
+
+  // themes
+  const THEMES = [["pink", "Pink Cloud", "linear-gradient(135deg, #f2a6c0, #8cc6e6)"], ["lavender", "Lavender", "linear-gradient(135deg, #c4a7f2, #9cc4f2)"],
+    ["mint", "Mint", "linear-gradient(135deg, #8fe0c2, #f6b8cb)"], ["sunset", "Sunset", "linear-gradient(135deg, #ffb38a, #f78bb0)"],
+    ["cosmos", "Cosmos", "radial-gradient(circle at 35% 35%, #a78bfa, #22d3ee 55%, #0b0a24 80%)"],
+    ["grove", "Grove", "radial-gradient(circle at 65% 30%, #f3dd72, #8fdc5a 35%, #1a5a2a 65%, #061a0d)"]];
+  function showThemes() {
+    themeDots.innerHTML = "";
+    THEMES.forEach(([id, name, bg]) => {
+      const d = Object.assign(document.createElement("div"), { className: "dot" + (currentPalette() === id ? " on" : ""), title: name });
+      d.style.background = bg;
+      d.onclick = () => { store.set("pc-palette", id); applyTheme(); sfx("toggle"); showThemes(); };
+      themeDots.append(d);
+    });
+  }
+
+  // switches
+  const sw = (el, on, change) => { el.classList.toggle("on", on); el.onclick = async () => { const want = !el.classList.contains("on"); el.classList.toggle("on", want); sfx("toggle"); if ((await change(want)) === false) el.classList.toggle("on", !want); }; };
+  async function showSwitches() {
+    sw(autoSw, await invoke("get_autostart"), on => invoke("set_autostart", { on }));
+    sw(sfxSw, store.get("pc-sfx", true), on => store.set("pc-sfx", on));
+    sw(lyrSw, store.get("pc-lyrics", true), on => store.set("pc-lyrics", on));
+  }
+
+  listen("tour-open", () => { go(0); showThemes(); showSwitches(); openAppWindow(win); });
+  go(0); showThemes(); showSwitches();
+</script>
+</body>
+</html>

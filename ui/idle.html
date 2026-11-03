@@ -219,6 +219,7 @@
   // ---------- coming and going ----------
   let shownAt = 0, start = null;
   listen("idle-show", () => {
+    bump("daydream");
     missed = 0; chip.classList.remove("on");
     invoke("now_playing").then(showSong);
     document.body.classList.remove("leaving");

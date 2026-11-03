@@ -10,4 +10,9 @@
   StrCmp $0 "PinkCloud" 0 +2
     DeleteRegValue HKCU "Software\Classes\Drive\shell" ""
   nsExec::Exec 'schtasks /delete /tn "Pink Cloud" /f'
+  ; the version kept for going back after a bad update (safe start)
+  Delete "$INSTDIR\pink-cloud-previous.exe"
+  Delete "$INSTDIR\pink-cloud-broken.exe"
+  Delete "$INSTDIR\previous-version.txt"
+  Delete "$INSTDIR\skip-version.txt"
 !macroend

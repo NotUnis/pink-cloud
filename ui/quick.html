@@ -59,6 +59,7 @@
     <div class="qt" id="dark"><div class="ctl"><i class="ph ph-moon-stars"></i></div><span id="darkLbl">Dark mode</span></div>
     <div class="qt" id="lyricsTile" title="Synced lyrics on screen"><div class="ctl"><i class="ph ph-microphone-stage"></i></div><span>Lyrics</span></div>
     <div class="qt" id="npTile" title="Now Playing on the taskbar"><div class="ctl"><i class="ph ph-music-notes"></i></div><span>Player</span></div>
+    <div class="qt" id="focusTile" title="Focus mode: notifications wait and lyrics step aside (set the length in Settings)"><div class="ctl"><i class="ph ph-target"></i></div><span id="focusLbl">Focus</span></div>
     <div class="qt" id="visTile" title="Music visualizer: click to switch between big, huge, subtle and off"><div class="ctl"><i class="ph ph-waveform" id="visIc"></i></div><span id="visLbl">Visualizer</span></div>
   </div>
   <div class="srow stagger"><i class="ph ph-speaker-high" id="volIc"></i><div class="range" id="vol"><div class="fill"></div><div class="knob"></div></div><span class="val" id="volVal"></span></div>
@@ -113,6 +114,16 @@
     visLbl.textContent = VIS_LABEL[m];
     visIc.className = "ph " + (m === "off" ? "ph-waveform-slash" : "ph-waveform");
   }
+  // focus mode
+  function showFocusTile() {
+    const f = focusState();
+    focusTile.classList.toggle("on", !!f);
+    focusLbl.textContent = !f ? "Focus" : f.until ? `Focus · ${Math.max(1, Math.ceil((f.until - Date.now()) / 60000))} min` : "Focus · on";
+  }
+  focusTile.onclick = () => { focusState() ? stopFocus(false) : startFocus(); showFocusTile(); };
+  addEventListener("pc-focus-change", showFocusTile);
+  setInterval(showFocusTile, 15000);
+  showFocusTile();
   visTile.onclick = () => { store.set("pc-vis", VIS_NEXT[store.get("pc-vis", "big")]); showVis(); };
   showVis();
   quit.onclick = () => invoke("quit");

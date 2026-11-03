@@ -120,6 +120,11 @@
   #apps > .btn { transition: transform .3s var(--spring); }
   #apps > .btn.dragging { transition: none; z-index: 5; filter: drop-shadow(0 8px 12px color-mix(in srgb, var(--shade) 35%, transparent)); }
   .np.heard .ctrls:not(:last-child) { display: none; }
+  /* focus mode: a glowing pill counting down your session */
+  .focus { display: none; align-items: center; gap: 6px; height: 32px; padding: 0 12px; margin-right: 4px; border-radius: 16px; font-size: 12px; font-weight: 600;
+    font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--g2) 22%, var(--hi)); border: 1px solid color-mix(in srgb, var(--g2) 55%, transparent); text-shadow: none; }
+  .focus.on { display: flex; animation: dropIn .6s var(--spring); }
+  .focus i { color: var(--ice-strong); animation: earPulse 3s ease-in-out infinite; }
   .np .ear { display: none; width: 30px; height: 30px; place-items: center; font-size: 17px; color: var(--ice-strong); position: relative; animation: earPulse 2.4s ease-in-out infinite; }
   .np.heard .ear { display: grid; }
   @keyframes earPulse { 50% { transform: scale(1.15); opacity: .7; } }
@@ -150,6 +155,7 @@
       <div class="glider" id="glider"></div>
     </div>
     <div class="right" id="right">
+      <div class="focus ctl" id="focusPill" title="Focus mode: click to end it"><i class="ph-fill ph-target"></i><span id="focusLeft"></span></div>
       <div class="chev ctl" id="chev" title="Background apps"><i class="ph ph-caret-up"></i></div>
       <div class="bell ctl" id="bell" title="Notifications"><i class="ph ph-bell" id="bellIc"></i><span class="badge" id="badge"></span></div>
       <div class="tray ctl" id="tray" title="Quick settings"><i class="ph ph-wifi-high" id="wifiIc"></i><i class="ph ph-speaker-high" id="volIc"></i><i class="ph ph-battery-high" id="batIc"></i></div>
@@ -231,8 +237,10 @@
         invoke("app_version"),
         fetch("https://raw.githubusercontent.com/NotUnis/pink-cloud/main/version.json?t=" + Date.now()).then(r => r.json()),
       ]);
-      store.set("pc-update", newer(latest.version, mine) ? latest : null);
-      if (newer(latest.version, mine) && store.get("pc-update-later", "") !== latest.version) {
+      const skipped = await invoke("skipped_version").catch(() => null);
+      const offer = newer(latest.version, mine) && latest.version !== skipped;
+      store.set("pc-update", offer ? latest : null);
+      if (offer && store.get("pc-update-later", "") !== latest.version) {
         invoke("announce_update", { version: latest.version, notes: latest.notes || "" });
       }
     } catch {}
@@ -567,6 +575,8 @@
     const song = s.title + "|" + s.artist;
     if (song !== lastSong) {
       lastSong = song;
+      bump("dj");
+      if (s.app === "heard") achieve("detective");
       npTitle.textContent = s.title;
       npArtist.textContent = s.app === "heard" ? `${s.artist} · heard` : s.artist || s.app.replace(/\.exe$/i, "").split(/[!\\.]/)[0];
       np.title = s.artist ? `${s.title} · ${s.artist}` : s.title;
@@ -702,7 +712,53 @@
   }
   applyShortcuts();
   addEventListener("storage", e => { if (["pc-key-search", "pc-key-overlay", "pc-own-files", "pc-game"].includes(e.key)) applyShortcuts(); });
-  listen("game-mode", ({ payload }) => { if (payload.on) sfx("game"); });
+  listen("game-mode", ({ payload }) => { if (payload.on) { sfx("game"); achieve("gamer"); } });
+
+  // ---------- Discord status (Settings → Look and feel) ----------
+  const applyDiscord = () => invoke("set_discord", { on: store.get("pc-discord", false) });
+  applyDiscord();
+  addEventListener("storage", e => { if (e.key === "pc-discord") applyDiscord(); });
+
+  // ---------- focus mode: the countdown, and the end of the session ----------
+  function showFocus() {
+    const f = focusState();
+    focusPill.classList.toggle("on", !!f);
+    if (!f) return;
+    if (!f.until) { focusLeft.textContent = Math.floor((Date.now() - f.since) / 60000) + " min"; return; }
+    const left = Math.max(0, Math.ceil((f.until - Date.now()) / 1000));
+    focusLeft.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  }
+  setInterval(() => {
+    const f = store.get("pc-focus", null);
+    if (f && f.until && f.until <= Date.now()) stopFocus(true);   // time's up
+    showFocus();
+  }, 1000);
+  addEventListener("pc-focus-change", () => { showFocus(); reportHitRects(); });
+  focusPill.onclick = () => stopFocus(false);
+  showFocus();
+
+  // ---------- achievements the taskbar keeps an eye on ----------
+  // themes (switched in Start, quick settings, Settings or quick search)
+  addEventListener("storage", e => {
+    if (e.key !== "pc-palette") return;
+    const p = currentPalette();
+    achieve("theme");
+    if (p === "custom") achieve("artist");
+    const tried = new Set(store.get("pc-themes-tried", []));
+    if (["pink", "lavender", "mint", "sunset", "cosmos", "grove"].includes(p) && !tried.has(p)) {
+      tried.add(p);
+      store.set("pc-themes-tried", [...tried]);
+      bump("collector");
+    }
+  });
+  // up at 3 at night
+  setInterval(() => { if (new Date().getHours() === 3) achieve("owl"); }, 60000);
+  // the secret: seven quick clicks on the clock
+  let clockClicks = [];
+  clock.addEventListener("click", () => {
+    clockClicks = [...clockClicks.filter(t => Date.now() - t < 3000), Date.now()];
+    if (clockClicks.length >= 7) { achieve("time"); clockClicks = []; }
+  });
 
   // ---------- the "Your wallpaper" theme: colors from the wallpaper or the song's cover ----------
   let wallKey = null, coverKey = null;

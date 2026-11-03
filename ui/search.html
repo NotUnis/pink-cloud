@@ -83,6 +83,12 @@
     ["Idle screen", () => invoke("show_idle"), "ph-moon-stars", "idle screensaver"],
     ...["pink", "lavender", "mint", "sunset", "cosmos", "grove", "wallpaper", "custom"].map(p => [
       `Theme: ${p[0].toUpperCase() + p.slice(1)}`, () => store.set("pc-palette", p), "ph-palette", "theme color colour " + p]),
+    ["Start focus", () => startFocus(), "ph-target", "focus concentrate study work pomodoro timer"],
+    ["End focus", () => stopFocus(false), "ph-target", "focus stop end"],
+    ["Something's wrong? Report a problem", () => invoke("open_settings", { page: "report" }), "ph-bug", "bug report problem help broken crash"],
+    ["Achievements", () => invoke("open_settings", { page: "achievements" }), "ph-trophy", "achievements trophies"],
+    ["What's new", () => invoke("open_settings", { page: "news" }), "ph-sparkle", "whats new changes changelog update"],
+    ["Welcome tour", () => invoke("open_tour"), "ph-map-trifold", "tour welcome help tutorial"],
     ["Dark mode", () => store.set("pc-theme", "dark"), "ph-moon", "dark mode theme"],
     ["Light mode", () => store.set("pc-theme", "light"), "ph-sun", "light mode theme"],
   ];
@@ -303,6 +309,7 @@
   loadApps();
 
   setupPopup("search", async () => {
+    bump("searcher");
     q.value = ""; files = []; sel = 0;
     setTimeout(() => q.focus(), 30);
     wins = await invoke("get_windows").catch(() => []);
