@@ -18,6 +18,13 @@
   :root[data-theme="dark"] .cloud { background: radial-gradient(closest-side, color-mix(in srgb, var(--g1) 22%, transparent), transparent); }
   /* Cosmos: the clouds become glowing nebula wisps, and shooting stars streak by */
   :root[data-palette="cosmos"] .cloud { background: radial-gradient(closest-side, color-mix(in srgb, var(--g1) 30%, transparent), color-mix(in srgb, var(--g2) 8%, transparent) 60%, transparent); filter: blur(18px); }
+  /* ...and the real Milky Way (a photo: ESO/S. Brunier, CC BY 4.0) arcs across the sky,
+     turning ever so slowly. Its black sky is blended away so the nebula glow shows through. */
+  #galaxy { position: absolute; left: 50%; top: 50%; width: max(150vw, 267vh); aspect-ratio: 2600 / 1460; translate: -50% -50%;
+    object-fit: cover; pointer-events: none; display: none; mix-blend-mode: screen; filter: brightness(1.15) contrast(1.1) saturate(1.15);
+    animation: wheel 300s ease-in-out infinite alternate; }
+  :root[data-palette="cosmos"] #galaxy { display: block; }
+  @keyframes wheel { from { transform: rotate(-24deg) scale(1); } to { transform: rotate(-18deg) scale(1.06); } }
   .shoot { position: absolute; width: 180px; height: 2px; border-radius: 2px; pointer-events: none;
     background: linear-gradient(90deg, rgba(255,255,255,0), #fff 70%, var(--g2)); box-shadow: 0 0 10px var(--g2);
     transform: rotate(-28deg); animation: shoot 1.4s var(--ease) forwards; }
@@ -28,6 +35,7 @@
   .c3 { width: 520px; height: 180px; top: 30%; animation: driftA 80s linear infinite -30s; opacity: .7; }
   .c4 { width: 700px; height: 240px; top: 72%; animation: driftA 110s linear infinite -85s; opacity: .8; }
   /* twinkling sparkles */
+  :root[data-palette="cosmos"] .spark { width: 2px; height: 2px; box-shadow: 0 0 5px #fff; }
   .spark { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px #fff; animation: twinkle 3s ease-in-out infinite; }
   @keyframes twinkle { 50% { opacity: .15; transform: scale(.4); } }
 
@@ -49,6 +57,12 @@
   .runes { position: absolute; left: 50%; top: 50%; width: 760px; height: 760px; margin: -400px 0 0 -380px; pointer-events: none; opacity: .5;
     filter: drop-shadow(0 0 6px #3ff0c0) drop-shadow(0 0 18px rgba(63, 240, 192, .5)); animation: spin 180s linear infinite; }
   .runes .in { animation: spin 120s linear infinite reverse; transform-origin: 380px 380px; }
+  /* the ring's glyphs dim and light up again, each in its own time */
+  .runes path.g { animation: flicker 9s ease-in-out infinite; }
+  @keyframes flicker { 0%, 100% { opacity: 1; } 40% { opacity: 1; } 60% { opacity: .08; } 80% { opacity: .9; } }
+  .glyphs { position: absolute; pointer-events: none; opacity: 0; animation: glyph-fade 9s ease-in-out forwards;
+    filter: drop-shadow(0 0 6px #3ff0c0) drop-shadow(0 0 16px rgba(63, 240, 192, .5)); }
+  @keyframes glyph-fade { 0% { opacity: 0; filter: blur(3px) drop-shadow(0 0 6px #3ff0c0); } 30%, 70% { opacity: .65; } 100% { opacity: 0; filter: blur(3px) drop-shadow(0 0 6px #3ff0c0); } }
 
   .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
     text-shadow: 0 4px 24px rgba(120, 60, 120, .35); }
@@ -76,6 +90,7 @@
 </style>
 </head>
 <body>
+  <img id="galaxy" src="img/milky-way.jpg" alt="">
   <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div><div class="cloud c4"></div>
   <canvas id="vis"></canvas>
   <div class="center">
@@ -88,8 +103,8 @@
 
 <script src="shared.js"></script>
 <script>
-  // sparkles scattered over the sky (a whole starfield in Cosmos)
-  for (let i = 0; i < (currentPalette() === "cosmos" ? 140 : 40); i++) {
+  // sparkles scattered over the sky (in Cosmos a few twinkling stars over the real ones)
+  for (let i = 0; i < 40; i++) {
     const s = Object.assign(document.createElement("div"), { className: "spark" });
     Object.assign(s.style, { left: Math.random() * 100 + "vw", top: Math.random() * 70 + "vh", animationDelay: -Math.random() * 3 + "s", animationDuration: 2 + Math.random() * 3 + "s" });
     document.body.insertBefore(s, document.body.firstChild);
@@ -108,19 +123,6 @@
       animationDuration: 12 + Math.random() * 14 + "s", animationDelay: -Math.random() * 26 + "s" });
     document.body.insertBefore(m, document.body.firstChild);
   }
-  // Each glyph is a few strokes picked on a small grid, so every one is different and
-  // none of them is real writing.
-  function glyph(cx, cy, s, rnd) {
-    const pts = [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2], [0, 3], [1, 3], [2, 3]];
-    let d = "";
-    const strokes = 2 + Math.floor(rnd() * 3);
-    for (let k = 0; k < strokes; k++) {
-      const a = pts[Math.floor(rnd() * pts.length)], b = pts[Math.floor(rnd() * pts.length)];
-      if (a === b) { d += `M${cx + (a[0] - 1) * s} ${cy + (a[1] - 1.5) * s}m-1.6 0a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0 -3.2 0`; continue; }
-      d += `M${cx + (a[0] - 1) * s} ${cy + (a[1] - 1.5) * s}L${cx + (b[0] - 1) * s} ${cy + (b[1] - 1.5) * s}`;
-    }
-    return d;
-  }
   (function runeRing() {
     let seed = 7;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -128,7 +130,7 @@
       let d = "";
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2;
-        d += `<path transform="rotate(${(a * 180) / Math.PI + rot} ${C} ${C})" d="${glyph(C, C - r, s, rnd)}"/>`;
+        d += `<path class="g" style="animation-delay:${(-rnd() * 9).toFixed(1)}s;animation-duration:${(6 + rnd() * 6).toFixed(1)}s" transform="rotate(${(a * 180) / Math.PI + rot} ${C} ${C})" d="${glyphPath(C, C - r, s, rnd)}"/>`;
       }
       return d;
     };
@@ -140,6 +142,23 @@
     </svg>`;
     document.body.insertAdjacentHTML("afterbegin", ring);
   })();
+  // ...and lines of bigger glyphs that fade in somewhere on the screen and fade away again
+  setInterval(() => {
+    if (currentPalette() !== "grove" || !document.body.classList.contains("on") || Math.random() < .35) return;
+    const n = 3 + Math.floor(Math.random() * 5), s = 9 + Math.random() * 7, step = s * 3.4, vertical = Math.random() < .5;
+    let paths = "";
+    for (let i = 0; i < n; i++) {
+      const o = 10 + i * step + s * 1.7;
+      paths += `<path d="${vertical ? glyphPath(s * 2 + 6, o, s) : glyphPath(o, s * 2.5 + 6, s)}"/>`;
+    }
+    const len = n * step + 20, [W, H] = vertical ? [s * 4 + 12, len] : [len, s * 5 + 12];
+    document.body.insertAdjacentHTML("afterbegin", `<svg class="glyphs" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" stroke="#7df7d6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`);
+    const el = document.body.firstElementChild, life = 7 + Math.random() * 5;
+    // away from the clock in the middle
+    const side = Math.random() < .5;
+    Object.assign(el.style, { left: (side ? 4 + Math.random() * 20 : 72 + Math.random() * 20) + "vw", top: 6 + Math.random() * 60 + "vh", animationDuration: life + "s" });
+    setTimeout(() => el.remove(), life * 1000 + 100);
+  }, 2600);
 
   // Cosmos: a shooting star every few seconds
   setInterval(() => {

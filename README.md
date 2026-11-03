@@ -63,6 +63,8 @@ Wallpaper Engine keeps working with Pink Cloud.
   ([LRCLIB](https://lrclib.net)), weather ([Open-Meteo](https://open-meteo.com)), update checks (this page),
   and song recognition: when it's on and no app says what's playing, ~10-second clips of your PC's
   sound go to [AudD](https://audd.io). Switch it off in Settings → Look and feel.
+- **Milky Way photo** on the Cosmos idle screen (`ui/img/milky-way.jpg`, cropped): ESO/S. Brunier,
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), from [eso.org](https://www.eso.org/public/images/eso0932a/).
 
 ## Build it yourself
 

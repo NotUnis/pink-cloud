@@ -130,6 +130,66 @@ applyTheme();
 darkQuery.addEventListener("change", applyTheme);
 addEventListener("storage", e => { if (["pc-theme", "pc-palette", "pc-custom-colors", "pc-wall-colors"].includes(e.key)) applyTheme(); });
 
+// ---------- Grove glyphs ----------
+// Each glyph is a few strokes picked on a small grid, so every one is different and none of
+// them is real writing. Returns SVG path data centered on (cx, cy), s = grid step.
+function glyphPath(cx, cy, s, rnd = Math.random) {
+  const pts = [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2], [0, 3], [1, 3], [2, 3]];
+  const at = p => `${cx + (p[0] - 1) * s} ${cy + (p[1] - 1.5) * s}`;
+  let d = "";
+  const strokes = 2 + Math.floor(rnd() * 3);
+  for (let k = 0; k < strokes; k++) {
+    const a = pts[Math.floor(rnd() * pts.length)], b = pts[Math.floor(rnd() * pts.length)];
+    d += a === b ? `M${at(a)}m-1.6 0a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0 -3.2 0` : `M${at(a)}L${at(b)}`;
+  }
+  return d;
+}
+// In Grove, short lines of glowing glyphs now and then fade in somewhere on the panel and
+// fade away again. They sit on top but never catch clicks, and stay faint so text reads.
+(function groveGlyphs() {
+  if (/taskbar|lyrics|toast|idle|overlay/.test(location.pathname)) return;
+  let layer = null;
+  const css = `#pc-glyphs { position: fixed; inset: 0; pointer-events: none; z-index: 2147483000; overflow: hidden; }
+    #pc-glyphs svg { position: absolute; opacity: 0; filter: drop-shadow(0 0 4px #3ff0c0) drop-shadow(0 0 10px rgba(63,240,192,.45));
+      animation: pc-glyph var(--life) ease-in-out forwards; }
+    @keyframes pc-glyph { 0% { opacity: 0; transform: translateY(4px); filter: blur(2px) drop-shadow(0 0 4px #3ff0c0); }
+      30%, 70% { opacity: var(--peak); transform: none; } 100% { opacity: 0; transform: translateY(-4px); filter: blur(2px) drop-shadow(0 0 4px #3ff0c0); } }`;
+  function spawn() {
+    if (currentPalette() !== "grove" || document.hidden || store.get("pc-grove-glyphs", true) === false) return;
+    const panel = document.querySelector(".popup, .win, .w");
+    if (!panel || !panel.offsetWidth) return;
+    if (!layer) {
+      document.head.append(Object.assign(document.createElement("style"), { textContent: css }));
+      layer = Object.assign(document.createElement("div"), { id: "pc-glyphs" });
+      document.body.append(layer);
+    }
+    if (layer.childElementCount >= 4) return;
+    // only the part of the panel you can see
+    const p = panel.getBoundingClientRect(), left = Math.max(0, p.left), top = Math.max(0, p.top);
+    const r = { left, top, width: Math.min(innerWidth, p.right) - left, height: Math.min(innerHeight, p.bottom) - top };
+    if (r.width < 120 || r.height < 60) return;
+    const n = 2 + Math.floor(Math.random() * 5), s = 4 + Math.random() * 2.5, w = n * s * 3.4;
+    const vertical = Math.random() < .35;
+    let paths = "";
+    for (let i = 0; i < n; i++) {
+      const o = 8 + i * s * 3.4 + s * 1.7;
+      paths += `<path d="${vertical ? glyphPath(s * 2 + 4, o, s) : glyphPath(o, s * 2.5 + 4, s)}"/>`;
+    }
+    const [W, H] = vertical ? [s * 4 + 8, w + 16] : [w + 16, s * 5 + 8];
+    const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" stroke="#7df7d6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+    layer.insertAdjacentHTML("beforeend", svg);
+    const el = layer.lastElementChild, life = 5 + Math.random() * 4;
+    Object.assign(el.style, {
+      left: r.left + 10 + Math.random() * Math.max(0, r.width - W - 20) + "px",
+      top: r.top + 10 + Math.random() * Math.max(0, r.height - H - 20) + "px",
+    });
+    el.style.setProperty("--life", life + "s");
+    el.style.setProperty("--peak", (.3 + Math.random() * .2).toFixed(2));
+    setTimeout(() => el.remove(), life * 1000 + 100);
+  }
+  setInterval(() => { if (Math.random() < .5) spawn(); }, 1800);
+})();
+
 // ---------- sound effects: tiny synthesized pops and chimes (no sound files) ----------
 let audioCtx = null;
 const SOUNDS = {
