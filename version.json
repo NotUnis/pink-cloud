@@ -1,4 +1,4 @@
 {
-  "version": "1.6.1",
-  "notes": "Start with Windows works reliably now: Pink Cloud opens right when you sign in instead of waiting behind your other startup apps."
+  "version": "1.7.0",
+  "notes": "Game mode with an Alt+G overlay, quick search on Alt+Space, a theme from your wallpaper, your own themes, sound effects, and a much better Files (tabs, easy sorting, quick look). Fullscreen YouTube no longer gets covered, and lyrics keep time better."
 }

@@ -17,7 +17,9 @@
     "toast",
     "widgets",
     "idle",
-    "notes"
+    "notes",
+    "search",
+    "overlay"
   ],
   "permissions": [
     "core:default",

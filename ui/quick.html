@@ -97,6 +97,8 @@
     lyricsTile.classList.toggle("on", store.get("pc-lyrics", true));
     npTile.classList.toggle("on", store.get("pc-np", true));
   }
+  // a little blip for every tile you switch
+  document.addEventListener("click", e => { if (e.target.closest(".opt, .tile, .dot")) sfx("toggle"); }, true);
   lyricsTile.onclick = () => { store.set("pc-lyrics", !store.get("pc-lyrics", true)); showMusicTiles(); };
   npTile.onclick = () => { store.set("pc-np", !store.get("pc-np", true)); showMusicTiles(); };
   addEventListener("storage", e => { if (e.key === "pc-lyrics" || e.key === "pc-np") showMusicTiles(); });
@@ -121,7 +123,8 @@
     ["cosmos", "Cosmos", "radial-gradient(circle at 35% 35%, #a78bfa, #22d3ee 55%, #0b0a24 80%)"]];
   function showDots() {
     dots.innerHTML = "";
-    DOTS.forEach(([id, name, bg]) => {
+    const made = (key, name) => { const c = store.get(key, DEFAULT_CUSTOM); return `linear-gradient(135deg, ${c.g1}, ${c.g3} 55%, ${c.g2})`; };
+    [...DOTS, ["wallpaper", "Your wallpaper", made("pc-wall-colors")], ["custom", "Your own colors", made("pc-custom-colors")]].forEach(([id, name, bg]) => {
       const d = Object.assign(document.createElement("div"), { className: "dot" + (currentPalette() === id ? " on" : ""), title: name });
       d.style.background = bg;
       d.onclick = () => { store.set("pc-palette", id); applyTheme(); showDots(); showTheme(); };

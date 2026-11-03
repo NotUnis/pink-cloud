@@ -246,10 +246,10 @@
   function now() {
     if (!song) return 0;
     if (!song.stamp && !song.position) {
-      return Date.now() - heardAt - pausedFor - (pausedAt ? Date.now() - pausedAt : 0) + 150 + nudge;
+      return Date.now() - heardAt - pausedFor - (pausedAt ? Date.now() - pausedAt : 0) + nudge;
     }
     const since = song.stamp ? Date.now() - song.stamp : 0;
-    return song.position + (song.playing ? Math.max(0, since) : 0) + 150 + nudge;   // a hair early reads better
+    return song.position + (song.playing ? Math.max(0, since) : 0) + nudge;
   }
 
   // ---------- where lines appear ----------
@@ -259,8 +259,16 @@
   let place = store.get("pc-lyrics-place", "edges");
   addEventListener("storage", e => { if (e.key === "pc-lyrics-place") place = store.get("pc-lyrics-place", "edges"); });
 
+  // game mode: lyrics stay small along the top edge (or go away), clear of the action
+  let gaming = false;
+  const gameLyrics = () => store.get("pc-game-lyrics", "small");
+  const small = () => gaming && gameLyrics() === "small";
+  listen("game-mode", ({ payload }) => { gaming = payload.on; clearLines(); shownIdx = -2; });
+  invoke("game_state").then(g => gaming = !!g);
+
   function spot() {
     const W = innerWidth, H = innerHeight;
+    if (small()) return { x: W * (.04 + Math.random() * .55), y: H * (.015 + Math.random() * .04) };
     if (place === "bottom") return { x: null, y: H * .86 };
     const pickPoint = place === "edges"
       ? () => ({ x: W * (.03 + Math.random() * .62), y: Math.random() < .5 ? H * (.03 + Math.random() * .1) : H * (.78 + Math.random() * .1) })
@@ -321,6 +329,7 @@
     el.className = "line cur" + (text === "♪" ? " note" : "");
     // smaller and calmer unless you chose "anywhere"
     let size = place === "anywhere" ? 30 + Math.random() * 26 : place === "bottom" ? 34 : 24 + Math.random() * 14;
+    if (small()) size = 17 + Math.random() * 4;
     el.style.setProperty("--r", place === "bottom" ? "0deg" : ((Math.random() - .5) * (place === "edges" ? 6 : 12)).toFixed(1) + "deg");
     document.body.appendChild(el);
     // long lines become 2 or 3 rows; if even that doesn't fit, the text gets smaller
@@ -349,7 +358,7 @@
   }
 
   function update() {
-    const show = enabled && song && song.playing && lines.length > 0;
+    const show = enabled && song && song.playing && lines.length > 0 && !(gaming && gameLyrics() === "off");
     document.body.classList.toggle("hidden", !show);
     if (!show) return;
     const t = now();
@@ -362,9 +371,11 @@
     // karaoke: letters light up one by one as the line is sung (only the changes are touched)
     if (curEl && i >= 0 && curEl._chars) {
       const start = lines[i].t, gap = (lines[i + 1] ? lines[i + 1].t : start + 6000) - start;
-      // A line is sung at roughly 14 letters a second, not stretched over a pause that may
-      // follow it, but it never takes longer than the time until the next line.
-      const sing = Math.min(gap * .95, Math.max(700, curEl._chars.length * 70 + 250));
+      // Most lines are sung over nearly all the time until the next one, so the fill follows
+      // that. Only when a long pause follows (an instrumental bit) does it stop at singing
+      // speed, about 10 letters a second, instead of crawling through the pause.
+      const natural = curEl._chars.length * 95 + 350;
+      const sing = gap <= natural * 1.5 ? gap * .9 : natural;
       const p = Math.min(1, Math.max(0, (t - start) / sing));
       const chars = curEl._chars, lit = Math.round(p * chars.length);
       if (lit !== curEl._lit) {

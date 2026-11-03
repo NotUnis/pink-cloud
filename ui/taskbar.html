@@ -457,6 +457,7 @@
   // no window: open the app; one window: bring it up (or minimize it if it's already in front);
   // several windows: pick one from a list. Shift+click always opens a new window.
   function onAppClick(g, b, e) {
+    sfx("tap");
     if (!g.wins.length || (e && e.shiftKey)) { bounce(b); return openPath(g.pin ? g.pin.path : g.wins[0].exe); }
     if (g.wins.length === 1) return invoke("activate_window", { hwnd: g.wins[0].hwnd, minimizeIfActive: g.wins[0].active });
     popupMenu([
@@ -692,6 +693,42 @@
   let target = new Float32Array(BANDS), level = new Float32Array(BANDS);
   let mode = store.get("pc-vis", "big");
   let drawing = false;
+
+  // ---------- shortcuts and game mode: Settings choices go to the keyboard hook ----------
+  function applyShortcuts() {
+    invoke("set_shortcuts", { search: store.get("pc-key-search", true), overlay: store.get("pc-key-overlay", true), files: store.get("pc-own-files", true) });
+    invoke("set_game_off", { off: !store.get("pc-game", true) });
+  }
+  applyShortcuts();
+  addEventListener("storage", e => { if (["pc-key-search", "pc-key-overlay", "pc-own-files", "pc-game"].includes(e.key)) applyShortcuts(); });
+  listen("game-mode", ({ payload }) => { if (payload.on) sfx("game"); });
+
+  // ---------- the "Your wallpaper" theme: colors from the wallpaper or the song's cover ----------
+  let wallKey = null, coverKey = null;
+  async function matchWallpaper() {
+    if (currentPalette() !== "wallpaper") return;
+    let colors = null;
+    if (store.get("pc-wall-source", "wallpaper") === "cover") {
+      const art = lastNP && lastNP.art;
+      if (!art || art === coverKey) return;
+      coverKey = art;
+      colors = await colorsFromPicture(art);
+    } else {
+      const key = await invoke("wallpaper_key").catch(() => null);
+      if (!key || key === wallKey) return;
+      wallKey = key;
+      const data = await invoke("wallpaper_data").catch(() => null);
+      if (data) colors = await colorsFromPicture(data);
+    }
+    if (colors && JSON.stringify(colors) !== JSON.stringify(store.get("pc-wall-colors", null))) {
+      store.set("pc-wall-colors", colors);
+      applyTheme();
+    }
+  }
+  setInterval(matchWallpaper, 30000);
+  setTimeout(matchWallpaper, 1500);
+  addEventListener("storage", e => { if (e.key === "pc-palette" || e.key === "pc-wall-source") { wallKey = coverKey = null; matchWallpaper(); } });
+  listen("now-playing", () => setTimeout(matchWallpaper, 300));
 
   function applyMode() {
     mode = store.get("pc-vis", "big");

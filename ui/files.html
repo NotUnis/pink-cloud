@@ -10,10 +10,22 @@
   @keyframes winIn { from { opacity: 0; transform: translateY(14px) scale(.97); filter: blur(6px); } }
   .win.open { animation: winIn .45s var(--smooth); }
 
-  /* title bar */
-  .title { display: flex; align-items: center; height: 42px; padding-left: 14px; flex-shrink: 0; }
-  .title .name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; pointer-events: none; }
-  .title .name .glyph { width: 24px; height: 24px; border-radius: 7px; font-size: 14px; }
+  /* title bar with tabs */
+  .title { display: flex; align-items: center; height: 42px; padding-left: 12px; flex-shrink: 0; gap: 8px; }
+  .title .name { display: flex; align-items: center; pointer-events: none; }
+  .tabs { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; align-self: stretch; padding-top: 6px; }
+  .tab { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 6px 0 12px; border-radius: 10px 10px 0 0; max-width: 200px; min-width: 90px;
+    cursor: default; position: relative; transition: background .15s; animation: tabIn .4s var(--spring); }
+  @keyframes tabIn { from { opacity: 0; transform: translateY(8px) scale(.9); } }
+  .tab:hover { background: var(--panel-hover); }
+  .tab.on { background: var(--hi); box-shadow: 0 -1px 0 var(--border) inset; }
+  .tab i.ic { color: var(--g1); font-size: 15px; flex-shrink: 0; }
+  .tab span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab .x { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; opacity: 0; flex-shrink: 0; }
+  .tab:hover .x, .tab.on .x { opacity: .7; }
+  .tab .x:hover { background: var(--panel-hover); opacity: 1; }
+  .tab.drop { background: var(--ice); }
+  .newtab { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; flex-shrink: 0; font-size: 15px; color: var(--text-2); }
   .title .grow { flex: 1; align-self: stretch; }
   .wb { display: flex; align-self: stretch; }
   .wb div { width: 46px; display: grid; place-items: center; font-size: 15px; cursor: pointer; transition: background .15s; }
@@ -21,13 +33,14 @@
   .wb .close:hover { background: var(--g3); color: #fff; }
 
   /* navigation row */
-  .navrow { display: flex; align-items: center; gap: 4px; padding: 0 10px 8px; flex-shrink: 0; }
+  .navrow { display: flex; align-items: center; gap: 4px; padding: 8px 10px; flex-shrink: 0; background: var(--hi); }
   .nb { width: 34px; height: 34px; display: grid; place-items: center; font-size: 16px; color: var(--text-2); }
   .nb.off { opacity: .35; pointer-events: none; }
   .crumbs { flex: 1; min-width: 0; height: 34px; display: flex; align-items: center; gap: 2px; padding: 0 6px; border-radius: 17px; overflow: hidden;
-    background: var(--hi); border: 1px solid var(--border); cursor: text; }
+    background: var(--panel); border: 1px solid var(--border); cursor: text; }
   .crumbs .seg { padding: 4px 8px; border-radius: 12px; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
   .crumbs .seg:hover { background: var(--panel-hover); }
+  .crumbs .seg.drop { background: var(--ice); }
   .crumbs .seg:last-child { font-weight: 600; }
   .crumbs > i { color: var(--text-2); font-size: 11px; flex-shrink: 0; }
   .crumbs input { flex: 1; border: 0; outline: none; background: none; font: inherit; color: var(--text); padding: 0 8px; }
@@ -35,7 +48,7 @@
   .navrow .field { height: 34px; width: 230px; flex-shrink: 0; }
 
   /* command bar */
-  .cmd { display: flex; align-items: center; gap: 2px; padding: 0 10px 8px; flex-shrink: 0; }
+  .cmd { display: flex; align-items: center; gap: 2px; padding: 0 10px 8px; flex-shrink: 0; background: var(--hi); }
   .cmd .ctl { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; white-space: nowrap; }
   .cmd .ctl i { font-size: 17px; }
   .cmd .ctl.primary { background: var(--pink); }
@@ -50,9 +63,11 @@
   .side { width: 200px; flex-shrink: 0; padding: 8px; overflow-y: auto; border-right: 1px solid var(--border); }
   .side .ctl { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; position: relative; white-space: nowrap; overflow: hidden; }
   .side .ctl i { font-size: 17px; color: var(--text-2); }
+  .side .ctl span { overflow: hidden; text-overflow: ellipsis; }
   .side .ctl.on { background: var(--ice); }
   .side .ctl.on::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: var(--ice-strong); }
   .side .ctl.on i { color: var(--ice-strong); }
+  .side .ctl.drop { background: var(--ice); box-shadow: inset 0 0 0 1px var(--ice-strong); }
   .side .lbl { font-size: 11px; font-weight: 600; color: var(--text-2); padding: 12px 10px 4px; }
   .side .drive { flex-direction: column; align-items: stretch; height: auto; padding: 7px 10px; gap: 5px; }
   .side .drive .top { display: flex; align-items: center; gap: 10px; }
@@ -60,29 +75,53 @@
   .usage span { display: block; height: 100%; background: var(--ice-strong); border-radius: 2px; }
   .usage.full span { background: #e0708f; }
 
-  .main { flex: 1; min-width: 0; overflow-y: auto; padding: 10px 14px 20px; position: relative; outline: none; }
+  .main { flex: 1; min-width: 0; overflow-y: auto; padding: 0 14px 20px; position: relative; outline: none; user-select: none; }
   .main::-webkit-scrollbar, .side::-webkit-scrollbar { width: 8px; }
   .main::-webkit-scrollbar-thumb, .side::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   @keyframes fadeSlide { from { opacity: 0; transform: translateX(var(--from, 0)); } }
-  .main.nav { animation: fadeSlide .35s var(--smooth); }
+  .main.nav .content { animation: fadeSlide .35s var(--smooth); }
+
+  /* sort bar: always there, one click to sort, again to flip */
+  .sortbar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 10px 14px 8px; margin: 0 -14px;
+    background: color-mix(in srgb, var(--g1-soft) 14%, rgba(255, 250, 252, .97)); box-shadow: 0 6px 12px -8px color-mix(in srgb, var(--shade) 40%, transparent); }
+  :root[data-theme="dark"] .sortbar { background: color-mix(in srgb, var(--g1-soft) 18%, rgba(22, 15, 28, .97)); }
+  .sortbar .chip { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid var(--border); background: var(--panel);
+    font-size: 12px; cursor: pointer; transition: background .15s, transform .25s var(--spring), border-color .15s; white-space: nowrap; }
+  .sortbar .chip:hover { background: var(--panel-hover); }
+  .sortbar .chip:active { transform: scale(.94); }
+  .sortbar .chip.on { background: var(--ice); border-color: color-mix(in srgb, var(--ice-strong) 55%, transparent); color: var(--ice-strong); font-weight: 600; }
+  .sortbar .chip i { font-size: 13px; transition: transform .35s var(--spring); }
+  .sortbar .chip.down i.dir { transform: rotate(180deg); }
+  .sortbar .sp { flex: 1; }
+  .sortbar .chip.opt { color: var(--text-2); }
+  .sortbar .chip.opt.on { color: var(--ice-strong); }
+
+  /* groups: Today, Yesterday… or Folders, Pictures, Videos… */
+  .ghead { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-2); margin: 12px 2px 6px; cursor: pointer; }
+  .ghead::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .ghead small { font-weight: 400; }
+  .ghead i { transition: transform .3s var(--spring); }
+  .ghead.shut i { transform: rotate(-90deg); }
 
   /* grid view */
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile, 112px), 1fr)); gap: 6px; }
   .tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px 8px; border-radius: 12px; text-align: center; position: relative; }
-  .tile .pic { width: 64px; height: 64px; display: grid; place-items: center; }
-  .tile .pic img { max-width: 64px; max-height: 64px; object-fit: contain; }
-  .tile .pic img.thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; box-shadow: 0 2px 8px color-mix(in srgb, var(--shade) 25%, transparent); }
+  .tile .pic { width: calc(var(--tile, 112px) * .57); height: calc(var(--tile, 112px) * .57); display: grid; place-items: center; }
+  .tile .pic img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .tile .pic img.thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; box-shadow: 0 2px 8px color-mix(in srgb, var(--shade) 25%, transparent); }
   .tile .name { width: 100%; font-size: 12px; line-height: 1.3; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .folder { width: 58px; height: 48px; display: grid; place-items: center; font-size: 52px; color: var(--g1); filter: drop-shadow(0 3px 5px color-mix(in srgb, var(--g1) 35%, transparent)); transition: transform .35s var(--spring); }
+  .folder { width: 90%; height: 80%; display: grid; place-items: center; font-size: calc(var(--tile, 112px) * .46); color: var(--g1); filter: drop-shadow(0 3px 5px color-mix(in srgb, var(--g1) 35%, transparent)); transition: transform .35s var(--spring); }
   .folder i { background: linear-gradient(160deg, var(--g1-soft), var(--g1) 55%, var(--g3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .tile:hover .folder, .row:hover .folder { transform: translateY(-2px) rotate(-3deg) scale(1.05); }
+  .item.drop .folder { transform: scale(1.18) rotate(-6deg); }
 
   /* list view */
   .list { display: flex; flex-direction: column; }
   .lhead, .row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 130px 90px; align-items: center; gap: 10px; }
-  .lhead { height: 30px; padding: 0 10px; font-size: 12px; color: var(--text-2); position: sticky; top: -10px; background: var(--hi); z-index: 2; }
+  .lhead { height: 28px; padding: 0 10px; font-size: 12px; color: var(--text-2); }
   .lhead span { cursor: pointer; }
   .lhead span:hover { color: var(--text); }
+  .lhead span.on { color: var(--ice-strong); font-weight: 600; }
   .row { height: 34px; padding: 0 10px; border-radius: 8px; }
   .row .nm { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .row .nm span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -95,29 +134,57 @@
   .item { cursor: default; transition: background .12s; }
   .item:hover { background: var(--panel-hover); }
   .item.sel { background: var(--ice); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ice-strong) 45%, transparent); }
+  .item.drop { background: var(--ice); box-shadow: inset 0 0 0 2px var(--ice-strong); }
   .item.hid { opacity: .55; }
   .item.cutting { opacity: .45; }
+  .item.dragging { opacity: .4; }
   .item.landed { animation: landed .7s var(--spring); }
   @keyframes landed { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.08); background: var(--ice); } }
-  .item input.rename { width: 100%; font: inherit; color: var(--text); background: var(--hi); border: 1px solid var(--ice-strong); border-radius: 6px; padding: 2px 6px; outline: none; text-align: inherit; }
+  .item input.rename { width: 100%; font: inherit; color: var(--text); background: var(--hi); border: 1px solid var(--ice-strong); border-radius: 6px; padding: 2px 6px; outline: none; text-align: inherit; user-select: text; }
   .main.enter .item { animation: rise .4s var(--smooth) backwards; animation-delay: calc(var(--i) * 12ms); }
 
+  /* drag a box to select */
+  .band { position: absolute; z-index: 4; border: 1px solid var(--ice-strong); background: color-mix(in srgb, var(--ice-strong) 14%, transparent); border-radius: 4px; pointer-events: none; }
+
   /* home page */
-  .h2 { font-size: 13px; font-weight: 600; margin: 8px 4px 10px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 22px; }
+  .h2 { font-size: 13px; font-weight: 600; margin: 14px 4px 10px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 18px; }
   .card { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); cursor: pointer;
-    transition: transform .3s var(--spring), box-shadow .2s, background .15s; }
+    transition: transform .3s var(--spring), box-shadow .2s, background .15s; min-width: 0; }
   .card:hover { transform: translateY(-3px); box-shadow: 0 10px 22px color-mix(in srgb, var(--shade) 18%, transparent); background: var(--panel-hover); }
-  .card .glyph { width: 40px; height: 40px; font-size: 21px; }
+  .card .glyph { width: 40px; height: 40px; font-size: 21px; flex-shrink: 0; }
+  .card > div:last-child { min-width: 0; }
+  .card b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card.drive { flex-direction: column; align-items: stretch; }
   .card.drive .top { display: flex; align-items: center; gap: 12px; }
-  .card small { display: block; color: var(--text-2); font-size: 12px; margin-top: 2px; }
+  .card small { display: block; color: var(--text-2); font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card img.thumb { width: 40px; height: 40px; border-radius: 9px; object-fit: cover; flex-shrink: 0; }
+  .card img.ico { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; margin: 3px; }
   .main.enter .card { animation: rise .45s var(--smooth) backwards; animation-delay: calc(var(--i) * 30ms); }
 
   .empty { padding: 60px 20px; text-align: center; color: var(--text-2); }
   .empty i { font-size: 44px; display: block; margin-bottom: 10px; opacity: .6; }
 
   .status { display: flex; justify-content: space-between; padding: 6px 14px; font-size: 12px; color: var(--text-2); border-top: 1px solid var(--border); background: var(--hi); flex-shrink: 0; }
+
+  /* quick look (Space) */
+  .look { position: absolute; inset: 0; z-index: 25; display: grid; place-items: center; background: rgba(30, 15, 35, .35); backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .look.on { opacity: 1; pointer-events: auto; }
+  .look .box { max-width: 86%; max-height: 82%; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: var(--panel-solid, var(--panel)); border: 1px solid var(--border);
+    box-shadow: 0 24px 60px rgba(40, 20, 60, .45); transform: scale(.92); transition: transform .4s var(--spring); }
+  :root[data-theme="dark"] .look .box { background: rgba(24, 16, 30, .96); }
+  :root:not([data-theme="dark"]) .look .box { background: rgba(255, 250, 252, .97); }
+  .look.on .box { transform: none; }
+  .look .head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .look .head b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .look .head small { color: var(--text-2); }
+  .look .view { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; }
+  .look img, .look video { max-width: 100%; max-height: 70vh; display: block; }
+  .look pre { margin: 0; padding: 14px 18px; width: min(820px, 80vw); max-height: 70vh; overflow: auto; font: 12px/1.5 Consolas, monospace; white-space: pre-wrap; word-break: break-word; user-select: text; }
+  .look audio { margin: 30px 40px; width: 420px; }
+  .look iframe { width: min(900px, 80vw); height: 70vh; border: 0; background: #fff; }
+  .look .info { padding: 30px 50px; text-align: center; }
+  .look .info img { width: 96px; height: 96px; margin: 0 auto 12px; object-fit: contain; }
 
   /* confirm dialog and toast */
   .shade { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(60, 30, 60, .18); opacity: 0; pointer-events: none; transition: opacity .2s; }
@@ -141,7 +208,9 @@
 <body>
 <div class="win appwin" id="win">
   <div class="title" data-tauri-drag-region>
-    <div class="name"><img id="appIcon" alt="" style="width:20px;height:20px">Files</div>
+    <div class="name"><img id="appIcon" alt="" style="width:20px;height:20px"></div>
+    <div class="tabs" id="tabsEl"></div>
+    <div class="newtab ctl" id="newTabBtn" title="New tab (Ctrl+T)"><i class="ph ph-plus"></i></div>
     <div class="grow" data-tauri-drag-region></div>
     <div class="wb">
       <div id="minBtn" title="Minimize"><i class="ph ph-minus"></i></div>
@@ -156,7 +225,7 @@
     <div class="nb ctl" id="upBtn" title="Up (Backspace)"><i class="ph ph-arrow-up"></i></div>
     <div class="nb ctl" id="refreshBtn" title="Refresh (F5)"><i class="ph ph-arrow-clockwise"></i></div>
     <div class="crumbs" id="crumbs"></div>
-    <label class="field"><i class="ph ph-magnifying-glass"></i><input id="filter" placeholder="Search this folder" spellcheck="false"></label>
+    <label class="field"><i class="ph ph-magnifying-glass"></i><input id="filter" placeholder="Search (Enter: subfolders too)" spellcheck="false"></label>
   </div>
 
   <div class="cmd">
@@ -169,9 +238,9 @@
     <div class="ctl" id="renameBtn" title="Rename (F2)"><i class="ph ph-textbox"></i>Rename</div>
     <div class="ctl" id="copyBtn" title="Copy path (Ctrl+Shift+C)"><i class="ph ph-link"></i>Copy path</div>
     <div class="ctl" id="deleteBtn" title="Move to Recycle Bin (Delete)"><i class="ph ph-trash"></i>Delete</div>
+    <div class="ctl" id="lookBtn" title="Quick look (Space)"><i class="ph ph-eye"></i></div>
     <div class="ctl" id="propsBtn" title="Properties"><i class="ph ph-info"></i></div>
     <div class="grow"></div>
-    <div class="ctl" id="sortBtn"><i class="ph ph-arrows-down-up"></i><span id="sortLbl">Name</span></div>
     <div class="ctl" id="hiddenBtn" title="Show hidden items"><i class="ph ph-eye-slash"></i></div>
     <div class="ctl" id="viewBtn" title="Switch view"><i class="ph ph-squares-four"></i></div>
   </div>
@@ -190,6 +259,7 @@
     <div class="acts"><button class="btn" id="dlgNo">Cancel</button><button class="btn danger" id="dlgYes">Move to Recycle Bin</button></div>
   </div>
 </div>
+<div class="look" id="look"><div class="box"><div class="head"><b id="lookName"></b><small id="lookInfo"></small></div><div class="view" id="lookView"></div></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="shared.js"></script>
@@ -197,18 +267,53 @@
   const appWindow = window.__TAURI__.window.getCurrentWindow();
   const { convertFileSrc } = window.__TAURI__.core;
   const IMAGE = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif", "ico", "svg"]);
+  const VIDEO = new Set(["mp4", "webm", "mov", "m4v", "mkv"]);
+  const AUDIO = new Set(["mp3", "wav", "ogg", "m4a", "flac", "aac", "opus"]);
+  const TEXT = new Set(["txt", "md", "log", "json", "js", "ts", "css", "html", "htm", "xml", "csv", "ini", "cfg", "yml", "yaml", "toml", "py", "rs", "lua", "luau", "c", "cpp", "h", "cs", "java", "bat", "cmd", "ps1", "sh", "gitignore", "env"]);
   const OWN_ICON = new Set(["exe", "lnk", "url", "ico", "msi", "appref-ms"]);
+  const KINDS = [
+    ["Pictures", IMAGE], ["Videos", VIDEO], ["Music", AUDIO],
+    ["Documents", new Set(["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "rtf", "txt", "md", "csv"])],
+    ["Archives", new Set(["zip", "rar", "7z", "tar", "gz", "iso"])],
+    ["Apps", new Set(["exe", "msi", "lnk", "url", "bat", "cmd", "appref-ms"])],
+  ];
 
+  // ---------- tabs: each keeps its own folder and history ----------
+  let tabs = store.get("files-tabs", null) || [{ path: null }];
+  tabs = tabs.map(t => ({ path: t.path ?? null, back: [], fwd: [] }));
+  let cur = Math.min(store.get("files-tab", 0), tabs.length - 1);
   let path = null;              // null = the Home page
   let back = [], fwd = [];
   let entries = [];
   let shown = [];
   const selected = new Set();
   let anchor = null;
-  let places = [], drives = [];
+  let places = [], drives = [], recent = [];
   let view = store.get("files-view", "grid");
-  let sort = store.get("files-sort", { key: "name", dir: 1 });
   let showHidden = store.get("files-hidden", false);
+  let tile = store.get("files-tile", 112);
+  const ownFiles = () => store.get("pc-own-files", true);
+
+  // ---------- sorting: remembered per folder (Downloads starts newest first) ----------
+  const folderKey = p => (p || "").toLowerCase().replace(/\\+$/, "");
+  const isDownloads = p => /\\downloads$/i.test((p || "").replace(/\\+$/, ""));
+  function sortFor(p) {
+    const own = store.get("files-sorts", {})[folderKey(p)];
+    if (own) return own;
+    if (isDownloads(p)) return { key: "modified", dir: -1, group: true, foldersFirst: false };
+    return { foldersFirst: true, group: false, ...store.get("files-sort", { key: "name", dir: 1 }) };
+  }
+  let sort = sortFor(null);
+  function saveSort(everywhere) {
+    if (everywhere) {
+      store.set("files-sort", sort);
+      store.set("files-sorts", {});
+      return;
+    }
+    const all = store.get("files-sorts", {});
+    all[folderKey(path)] = sort;
+    store.set("files-sorts", all);
+  }
 
   // ---------- helpers ----------
   const extOf = n => { const i = n.lastIndexOf("."); return i > 0 ? n.slice(i + 1).toLowerCase() : ""; };
@@ -222,7 +327,9 @@
   }
   const when = ms => ms ? new Date(ms).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
   const typeOf = e => e.dir ? "Folder" : (extOf(e.name) ? extOf(e.name).toUpperCase() + " file" : "File");
+  const kindOf = e => e.dir ? "Folders" : (KINDS.find(([, set]) => set.has(extOf(e.name))) || ["Other"])[0];
   function niceName(p) {
+    if (!p) return "Home";
     const place = places.find(x => x.path.toLowerCase() === p.toLowerCase());
     if (place) return place.name;
     const d = drives.find(x => x.path.toLowerCase() === p.toLowerCase());
@@ -232,10 +339,10 @@
   let toastTimer;
   function say(msg) { toast.textContent = msg; toast.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("on"), 2600); }
 
-  function picture(e, big) {
+  function picture(e) {
     if (e.dir) return Object.assign(document.createElement("div"), { className: "folder", innerHTML: '<i class="ph-fill ph-folder-simple"></i>' });
     const img = document.createElement("img");
-    img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+    img.alt = ""; img.loading = "lazy"; img.decoding = "async"; img.draggable = false;
     const ext = extOf(e.name);
     if (IMAGE.has(ext) && e.size < 40 * 1024 * 1024) {
       img.className = "thumb";
@@ -247,20 +354,74 @@
     return img;
   }
 
+  // ---------- tabs ----------
+  function saveTabs() {
+    tabs[cur] = { path, back, fwd };
+    store.set("files-tabs", tabs.map(t => ({ path: t.path })));
+    store.set("files-tab", cur);
+  }
+  function renderTabs() {
+    tabsEl.innerHTML = "";
+    tabs.forEach((t, i) => {
+      const el = document.createElement("div");
+      el.className = "tab" + (i === cur ? " on" : "");
+      el.innerHTML = `<i class="ph-fill ${t.path ? "ph-folder-simple" : "ph-cloud"} ic"></i><span></span><div class="x" title="Close tab (Ctrl+W)"><i class="ph ph-x"></i></div>`;
+      el.querySelector("span").textContent = niceName(i === cur ? path : t.path);
+      el.title = (i === cur ? path : t.path) || "Home";
+      el.onclick = () => switchTab(i);
+      el.onauxclick = e => { if (e.button === 1) closeTab(i); };
+      el.querySelector(".x").onclick = e => { e.stopPropagation(); closeTab(i); };
+      dropTarget(el, () => i === cur ? path : tabs[i].path);
+      tabsEl.appendChild(el);
+    });
+  }
+  function switchTab(i) {
+    if (i === cur) return;
+    tabs[cur] = { path, back, fwd };
+    cur = i;
+    back = tabs[i].back || []; fwd = tabs[i].fwd || [];
+    go(tabs[i].path, "tab");
+  }
+  function newTab(p = null) {
+    tabs[cur] = { path, back, fwd };
+    tabs.push({ path: p, back: [], fwd: [] });
+    cur = tabs.length - 1;
+    back = []; fwd = [];
+    go(p, "tab");
+    sfx("tap");
+  }
+  function closeTab(i) {
+    if (tabs.length === 1) return closeAppWindow(win, appWindow);
+    tabs[cur] = { path, back, fwd };
+    tabs.splice(i, 1);
+    if (cur >= i && cur > 0) cur--;
+    back = tabs[cur].back || []; fwd = tabs[cur].fwd || [];
+    go(tabs[cur].path, "tab");
+  }
+  newTabBtn.onclick = () => newTab();
+
   // ---------- sidebar ----------
+  const pins = () => store.get("files-pins", []);
   function renderSide() {
     side.innerHTML = "";
-    const add = (label, icon, target, extra) => {
+    const add = (label, icon, target, menu) => {
       const el = document.createElement("div");
       el.className = "ctl" + ((target || null) === path || (target && path && target.toLowerCase() === path.toLowerCase()) ? " on" : "");
       el.innerHTML = `<i class="ph ${icon}"></i><span></span>`;
       el.querySelector("span").textContent = label;
+      el.title = target || "Home";
       el.onclick = () => go(target);
-      if (extra) el.appendChild(extra);
+      el.onauxclick = e => { if (e.button === 1 && target) newTab(target); };
+      el.oncontextmenu = e => { e.preventDefault(); menu ? menu() : target && placeMenu(target); };
+      if (target) dropTarget(el, () => target);
       side.appendChild(el);
       return el;
     };
     add("Home", "ph-cloud", null);
+    if (pins().length) {
+      side.appendChild(Object.assign(document.createElement("div"), { className: "lbl", textContent: "Pinned" }));
+      pins().forEach(p => add(p.split("\\").filter(Boolean).pop() || p, "ph-push-pin", p, () => placeMenu(p)));
+    }
     side.appendChild(Object.assign(document.createElement("div"), { className: "lbl", textContent: "Folders" }));
     places.forEach(p => add(p.name, p.icon, p.path));
     if (drives.length) side.appendChild(Object.assign(document.createElement("div"), { className: "lbl", textContent: "Drives" }));
@@ -271,6 +432,12 @@
       el.innerHTML = `<div class="top">${el.innerHTML}</div><div class="usage${used > .9 ? " full" : ""}"><span style="width:${Math.round(used * 100)}%"></span></div>`;
     });
   }
+  const isPinned = p => pins().some(x => x.toLowerCase() === p.toLowerCase());
+  function togglePin(p) {
+    store.set("files-pins", isPinned(p) ? pins().filter(x => x.toLowerCase() !== p.toLowerCase()) : [...pins(), p]);
+    renderSide();
+    say(isPinned(p) ? "Pinned to the sidebar" : "Unpinned");
+  }
 
   // ---------- address bar ----------
   function renderCrumbs() {
@@ -279,6 +446,7 @@
     const seg = (label, target) => {
       const s = Object.assign(document.createElement("span"), { className: "seg", textContent: label });
       s.onclick = e => { e.stopPropagation(); go(target); };
+      if (target) dropTarget(s, () => target);
       crumbs.appendChild(s);
     };
     seg("Home", null);
@@ -311,12 +479,15 @@
     if (how === "new" && target !== path) { if (path !== undefined) back.push(path); fwd = []; }
     const dir = how === "back" ? "-30px" : "30px";
     path = target;
-    selected.clear(); anchor = null; filter.value = ""; results = null; searchRun++;
+    sort = sortFor(path);
+    selected.clear(); anchor = null; filter.value = ""; results = null; searchRun++; closeLook();
     if (path) {
       try { entries = await invoke("fs_list", { path }); }
       catch (err) { entries = []; say(String(err).includes("denied") ? "You don't have access to that folder." : "Couldn't open that folder."); }
-    }
+    } else recent = await invoke("recent_files").catch(() => []);
     renderCrumbs(); renderSide(); render(true, dir);
+    main.scrollTop = 0;
+    saveTabs(); renderTabs();
   }
   function goBack() { if (back.length) { fwd.push(path); go(back.pop(), "back"); } }
   function goFwd() { if (fwd.length) { back.push(path); go(fwd.pop(), "fwd"); } }
@@ -324,66 +495,152 @@
   async function refresh() {
     if (path) { try { entries = await invoke("fs_list", { path }); } catch { entries = []; } }
     else { drives = await invoke("fs_drives"); renderSide(); }
-    const keep = new Set(selected);
+    const keep = new Set(selected), top = main.scrollTop;
     render(false);
     keep.forEach(p => { if (shown.some(e => e.path === p)) selected.add(p); });
     paintSelection();
+    main.scrollTop = top;
   }
 
   // ---------- main area ----------
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
   function sorted(list) {
     const k = sort.key, d = sort.dir;
     return [...list].sort((a, b) => {
-      if (a.dir !== b.dir) return a.dir ? -1 : 1;
+      if (sort.foldersFirst !== false && a.dir !== b.dir) return a.dir ? -1 : 1;
       let r = 0;
       if (k === "modified") r = a.modified - b.modified;
-      else if (k === "size") r = a.size - b.size;
-      else if (k === "type") r = typeOf(a).localeCompare(typeOf(b));
-      if (!r) r = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+      else if (k === "size") r = (a.dir ? -1 : a.size) - (b.dir ? -1 : b.size);
+      else if (k === "type") r = (a.dir ? "" : extOf(a.name)).localeCompare(b.dir ? "" : extOf(b.name));
+      if (!r) return byName(a, b) * (k === "name" ? d : 1);
       return r * d;
     });
   }
+  // the group each item falls in, for the current sort
+  function groupOf(e) {
+    if (sort.key === "modified") {
+      const day = 864e5, now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const t = e.modified;
+      if (t >= today) return "Today";
+      if (t >= today - day) return "Yesterday";
+      if (t >= today - ((now.getDay() + 6) % 7) * day) return "Earlier this week";
+      if (t >= today - ((now.getDay() + 6) % 7 + 7) * day) return "Last week";
+      if (t >= new Date(now.getFullYear(), now.getMonth(), 1).getTime()) return "Earlier this month";
+      if (t >= new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime()) return "Last month";
+      if (t >= new Date(now.getFullYear(), 0, 1).getTime()) return "Earlier this year";
+      return String(new Date(t).getFullYear());
+    }
+    if (sort.key === "size") return e.dir ? "Folders" : e.size >= 1 << 30 ? "Huge (over 1 GB)" : e.size >= 128 << 20 ? "Big (128 MB to 1 GB)" : e.size >= 1 << 20 ? "Medium (1 to 128 MB)" : "Small (under 1 MB)";
+    if (sort.key === "type") return kindOf(e);
+    const c = e.name[0]?.toUpperCase() || "#";
+    return /[A-Z]/.test(c) ? c : /[0-9]/.test(c) ? "0–9" : "#";
+  }
+  const shutGroups = new Set();
+
+  function sortBar() {
+    const bar = Object.assign(document.createElement("div"), { className: "sortbar" });
+    const chip = (label, icon, on, click, extra = "") => {
+      const c = Object.assign(document.createElement("div"), { className: "chip" + (on ? " on" : "") + extra });
+      c.innerHTML = `<i class="ph ${icon}"></i><span></span>`;
+      c.querySelector("span").textContent = label;
+      c.onclick = click;
+      bar.appendChild(c);
+      return c;
+    };
+    [["name", "Name", "ph-text-aa"], ["modified", "Date", "ph-calendar-blank"], ["size", "Size", "ph-ruler"], ["type", "Type", "ph-shapes"]].forEach(([k, l, ic]) => {
+      const on = sort.key === k;
+      const c = chip(l, ic, on, () => setSort(k), on && sort.dir < 0 ? " down" : "");
+      if (on) c.insertAdjacentHTML("beforeend", '<i class="ph ph-arrow-up dir"></i>');
+    });
+    bar.appendChild(Object.assign(document.createElement("div"), { className: "sp" }));
+    chip("Groups", "ph-rows", sort.group, () => { sort = { ...sort, group: !sort.group }; saveSort(); render(false); }, " opt");
+    chip("Folders first", "ph-folder-simple", sort.foldersFirst !== false, () => { sort = { ...sort, foldersFirst: sort.foldersFirst === false }; saveSort(); render(false); }, " opt");
+    const more = chip("", "ph-dots-three", false, () => popupMenu([
+      { text: "Use this sort in every folder", icon: "ph-check-circle", action: () => { saveSort(true); say("Every folder now sorts like this"); } },
+      { text: "Reset this folder's sort", icon: "ph-arrow-counter-clockwise", action: () => { const all = store.get("files-sorts", {}); delete all[folderKey(path)]; store.set("files-sorts", all); sort = sortFor(path); render(false); } },
+    ]), " opt");
+    more.title = "More";
+    return bar;
+  }
 
   function render(animate, from) {
+    // remember where items were, so re-sorting glides them to their new spots
+    const before = new Map();
+    if (!animate && shown.length < 400) main.querySelectorAll(".item").forEach(el => before.set(el._e.path, el.getBoundingClientRect()));
+
     main.innerHTML = "";
+    main.style.setProperty("--tile", tile + "px");
     main.classList.remove("enter", "nav");
     if (animate) { main.style.setProperty("--from", from || "0px"); void main.offsetWidth; main.classList.add("nav", "enter"); }
     hiddenBtn.classList.toggle("on", showHidden);
     hiddenBtn.innerHTML = `<i class="ph ${showHidden ? "ph-eye" : "ph-eye-slash"}"></i>`;
     viewBtn.innerHTML = `<i class="ph ${view === "grid" ? "ph-list" : "ph-squares-four"}"></i>`;
-    sortLbl.textContent = { name: "Name", modified: "Date", size: "Size", type: "Type" }[sort.key];
     backBtn.classList.toggle("off", !back.length);
     fwdBtn.classList.toggle("off", !fwd.length);
     upBtn.classList.toggle("off", !path);
     newBtn.classList.toggle("off", !path);
 
     if (!path) return renderHome();
+    const content = Object.assign(document.createElement("div"), { className: "content" });
     const q = results ? "" : filter.value.trim().toLowerCase();
     shown = sorted((results || entries).filter(e => (showHidden || !e.hidden) && (!q || e.name.toLowerCase().includes(q))));
+    main.appendChild(sortBar());
     if (!shown.length && results) {
-      main.innerHTML = `<div class="empty"><i class="ph ph-magnifying-glass"></i>Nothing in here or its subfolders matches “${resultsQuery.replace(/</g, "&lt;")}”</div>`;
+      content.innerHTML = `<div class="empty"><i class="ph ph-magnifying-glass"></i>Nothing in here or its subfolders matches “${resultsQuery.replace(/</g, "&lt;")}”</div>`;
     } else if (!shown.length) {
-      main.innerHTML = q
+      content.innerHTML = q
         ? `<div class="empty"><i class="ph ph-magnifying-glass"></i>Nothing here matches “${q.replace(/</g, "&lt;")}”</div>`
         : `<div class="empty"><i class="ph ph-cloud"></i>This folder is empty</div>`;
-    } else if (view === "grid") {
-      const grid = Object.assign(document.createElement("div"), { className: "grid" });
-      shown.forEach((e, i) => grid.appendChild(item(e, i, "tile")));
-      main.appendChild(grid);
     } else {
-      const list = Object.assign(document.createElement("div"), { className: "list" });
-      const head = Object.assign(document.createElement("div"), { className: "lhead" });
-      [["name", "Name"], ["modified", "Date modified"], ["type", results ? "Location" : "Type"], ["size", "Size"]].forEach(([k, l]) => {
-        const s = Object.assign(document.createElement("span"), { textContent: l + (sort.key === k ? (sort.dir > 0 ? " ↑" : " ↓") : "") });
-        if (k === "size") s.style.textAlign = "right";
-        s.onclick = () => setSort(k, sort.key === k ? -sort.dir : 1);
-        head.appendChild(s);
+      // with groups on, items are split under headers; folders-first keeps folders on top
+      const groups = [];
+      if (sort.group) {
+        for (const e of shown) {
+          const g = sort.foldersFirst !== false && e.dir ? "Folders" : groupOf(e);
+          if (!groups.length || groups[groups.length - 1].name !== g) groups.push({ name: g, items: [] });
+          groups[groups.length - 1].items.push(e);
+        }
+      } else groups.push({ name: null, items: shown });
+      if (view === "list") {
+        const head = Object.assign(document.createElement("div"), { className: "lhead" });
+        [["name", "Name"], ["modified", "Date modified"], ["type", results ? "Location" : "Type"], ["size", "Size"]].forEach(([k, l]) => {
+          const s = Object.assign(document.createElement("span"), { textContent: l + (sort.key === k ? (sort.dir > 0 ? " ↑" : " ↓") : ""), className: sort.key === k ? "on" : "" });
+          if (k === "size") s.style.textAlign = "right";
+          s.onclick = () => setSort(k);
+          head.appendChild(s);
+        });
+        content.appendChild(head);
+      }
+      let n = 0;
+      // shown follows the screen order, so Shift+click and the arrow keys go the way you see
+      shown = [];
+      groups.forEach(g => {
+        if (g.name) {
+          const h = Object.assign(document.createElement("div"), { className: "ghead" + (shutGroups.has(g.name) ? " shut" : "") });
+          h.innerHTML = `<i class="ph ph-caret-down"></i><span></span><small>${g.items.length}</small>`;
+          h.querySelector("span").textContent = g.name;
+          h.onclick = () => { shutGroups.has(g.name) ? shutGroups.delete(g.name) : shutGroups.add(g.name); render(false); };
+          content.appendChild(h);
+          if (shutGroups.has(g.name)) return;
+        }
+        const box = Object.assign(document.createElement("div"), { className: view === "grid" ? "grid" : "list" });
+        g.items.forEach(e => { shown.push(e); box.appendChild(item(e, n++, view === "grid" ? "tile" : "row")); });
+        content.appendChild(box);
       });
-      list.appendChild(head);
-      shown.forEach((e, i) => list.appendChild(item(e, i, "row")));
-      main.appendChild(list);
     }
+    main.appendChild(content);
     updateStatus();
+
+    if (before.size) {
+      main.querySelectorAll(".item").forEach(el => {
+        const was = before.get(el._e.path);
+        if (!was) return;
+        const now = el.getBoundingClientRect();
+        const dx = was.left - now.left, dy = was.top - now.top;
+        if (!dx && !dy) return;
+        el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(.16, 1, .3, 1)" });
+      });
+    }
   }
 
   function item(e, i, kind) {
@@ -405,30 +662,74 @@
         Object.assign(document.createElement("span"), { textContent: results ? parentOf(e.path).slice((path || "").replace(/\\+$/, "").length).replace(/^\\/, "") || "(here)" : typeOf(e) }),
         Object.assign(document.createElement("span"), { className: "size", textContent: e.dir ? "" : size(e.size) }));
     }
-    el.title = e.name;
+    el.title = e.name + (e.dir ? "" : `\n${typeOf(e)} · ${size(e.size)}`) + `\nModified ${when(e.modified)}`;
+    el.onmousedown = ev => { if (ev.button === 0) ev.stopPropagation(); };
     el.onclick = ev => { ev.stopPropagation(); select(e, ev); };
     el.ondblclick = () => openEntry(e);
+    el.onauxclick = ev => { if (ev.button === 1 && e.dir) newTab(e.path); };
     el.oncontextmenu = ev => { ev.preventDefault(); ev.stopPropagation(); if (!selected.has(e.path)) select(e, {}); itemMenu(e); };
+    // drag items onto a folder to move them there (hold Ctrl to copy)
+    el.draggable = true;
+    el.ondragstart = ev => {
+      if (!selected.has(e.path)) select(e, {});
+      dragging = selectedEntries().map(x => x.path);
+      ev.dataTransfer.effectAllowed = "copyMove";
+      ev.dataTransfer.setData("text/plain", dragging.join("\n"));
+      main.querySelectorAll(".item.sel").forEach(x => x.classList.add("dragging"));
+    };
+    el.ondragend = () => { dragging = null; main.querySelectorAll(".dragging").forEach(x => x.classList.remove("dragging")); };
+    if (e.dir) dropTarget(el, () => e.path);
     return el;
   }
 
+  // ---------- drag and drop ----------
+  let dragging = null;
+  function dropTarget(el, dest) {
+    el.addEventListener("dragover", ev => {
+      const d = dest();
+      if (!dragging || !d || dragging.some(p => p.toLowerCase() === d.toLowerCase())) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = ev.ctrlKey ? "copy" : "move";
+      el.classList.add("drop");
+    });
+    el.addEventListener("dragleave", () => el.classList.remove("drop"));
+    el.addEventListener("drop", async ev => {
+      ev.preventDefault();
+      el.classList.remove("drop");
+      const d = dest(), list = dragging, copy = ev.ctrlKey;
+      if (!list || !d) return;
+      try {
+        await invoke("fs_move", { paths: list, dest: d, copy });
+        sfx("toggle");
+        say(`${list.length === 1 ? "1 item" : list.length + " items"} ${copy ? "copied" : "moved"} to “${niceName(d)}”`);
+      } catch (err) { say(String(err)); }
+      refresh();
+    });
+  }
+
+  // ---------- home page ----------
   function renderHome() {
     shown = [];
+    const content = Object.assign(document.createElement("div"), { className: "content" });
     const add = (title, list) => {
-      main.appendChild(Object.assign(document.createElement("div"), { className: "h2", textContent: title }));
+      if (!list.length) return;
+      content.appendChild(Object.assign(document.createElement("div"), { className: "h2", textContent: title }));
       const box = Object.assign(document.createElement("div"), { className: "cards" });
       list.forEach((c, i) => { c.style.setProperty("--i", i); box.appendChild(c); });
-      main.appendChild(box);
+      content.appendChild(box);
     };
-    add("Folders", places.map(p => {
+    const folderCard = (name, icon, p, sub) => {
       const c = Object.assign(document.createElement("div"), { className: "card tilt" });
-      c.innerHTML = `<div class="glyph"><i class="ph-fill ${p.icon}"></i></div><div><b></b><small></small></div>`;
-      c.querySelector("b").textContent = p.name;
-      c.querySelector("small").textContent = p.path.split("\\").slice(-2).join("\\");
-      c.onclick = () => go(p.path);
-      c.oncontextmenu = e => { e.preventDefault(); placeMenu(p.path); };
+      c.innerHTML = `<div class="glyph"><i class="ph-fill ${icon}"></i></div><div><b></b><small></small></div>`;
+      c.querySelector("b").textContent = name;
+      c.querySelector("small").textContent = sub;
+      c.onclick = () => go(p);
+      c.onauxclick = e => { if (e.button === 1) newTab(p); };
+      c.oncontextmenu = e => { e.preventDefault(); placeMenu(p); };
       return c;
-    }));
+    };
+    add("Pinned", pins().map(p => folderCard(p.split("\\").filter(Boolean).pop() || p, "ph-push-pin", p, p.split("\\").slice(-2, -1)[0] || p)));
+    add("Folders", places.map(p => folderCard(p.name, p.icon, p.path, p.path.split("\\").slice(-2).join("\\"))));
     add("Drives", drives.map(d => {
       const used = d.total ? (d.total - d.free) / d.total : 0;
       const c = Object.assign(document.createElement("div"), { className: "card drive tilt" });
@@ -438,9 +739,27 @@
       c.oncontextmenu = e => { e.preventDefault(); placeMenu(d.path); };
       return c;
     }));
+    // recently used files, one click to open
+    add("Recent files", recent.slice(0, 8).map(f => {
+      const c = Object.assign(document.createElement("div"), { className: "card tilt" });
+      const pic = picture(f);
+      if (!pic.classList.contains("thumb")) pic.classList.add("ico");
+      const t = document.createElement("div");
+      t.append(Object.assign(document.createElement("b"), { textContent: f.name }), Object.assign(document.createElement("small"), { textContent: parentOf(f.path) }));
+      c.append(pic, t);
+      c.title = f.path;
+      c.onclick = () => invoke("fs_action", { action: "open", path: f.path });
+      c.oncontextmenu = e => { e.preventDefault(); popupMenu([
+        { text: "Open", icon: "ph-arrow-square-out", action: () => c.onclick() },
+        { text: "Open file location", icon: "ph-folder-open", action: () => go(parentOf(f.path)) },
+        { text: "Copy path", icon: "ph-link", action: () => navigator.clipboard.writeText(f.path).then(() => say("Path copied")) },
+      ]); };
+      return c;
+    }));
+    main.appendChild(content);
     statusL.textContent = `${places.length} folders · ${drives.length} drives`;
     statusR.textContent = "";
-    [renameBtn, copyBtn, deleteBtn, propsBtn].forEach(b => b.classList.add("off"));
+    [renameBtn, copyBtn, deleteBtn, propsBtn, lookBtn, cutBtn, copyFilesBtn, pasteBtn].forEach(b => b.classList.add("off"));
   }
 
   // ---------- selection ----------
@@ -456,6 +775,7 @@
       selected.clear(); selected.add(e.path); anchor = e.path;
     }
     paintSelection();
+    if (look.classList.contains("on")) openLook(e);
   }
   function paintSelection() {
     main.querySelectorAll(".item").forEach(el => el.classList.toggle("sel", selected.has(el._e.path)));
@@ -470,10 +790,90 @@
     const bytes = sel.filter(e => !e.dir).reduce((s, e) => s + e.size, 0);
     statusR.textContent = bytes ? size(bytes) : "";
     renameBtn.classList.toggle("off", sel.length !== 1);
+    lookBtn.classList.toggle("off", sel.length !== 1 || sel[0].dir);
     [copyBtn, deleteBtn, propsBtn, cutBtn, copyFilesBtn].forEach(b => b.classList.toggle("off", !sel.length));
     pasteBtn.classList.toggle("off", !path || !!results);
   }
-  main.onclick = () => { selected.clear(); paintSelection(); };
+
+  // drag a box over empty space to select everything in it (Ctrl adds to the selection)
+  main.addEventListener("mousedown", ev => {
+    if (ev.button !== 0 || !path || ev.target.closest(".sortbar, .ghead, .lhead, input")) return;
+    const box = main.getBoundingClientRect();
+    const sx = ev.clientX - box.left + main.scrollLeft, sy = ev.clientY - box.top + main.scrollTop;
+    const keep = ev.ctrlKey ? new Set(selected) : new Set();
+    let band = null;
+    const move = e => {
+      const x = e.clientX - box.left + main.scrollLeft, y = e.clientY - box.top + main.scrollTop;
+      if (!band && Math.hypot(x - sx, y - sy) < 5) return;
+      if (!band) { band = Object.assign(document.createElement("div"), { className: "band" }); main.appendChild(band); }
+      const l = Math.min(x, sx), t = Math.min(y, sy), w = Math.abs(x - sx), h = Math.abs(y - sy);
+      Object.assign(band.style, { left: l + "px", top: t + "px", width: w + "px", height: h + "px" });
+      const r = band.getBoundingClientRect();
+      selected.clear(); keep.forEach(p => selected.add(p));
+      main.querySelectorAll(".item").forEach(el => {
+        const b = el.getBoundingClientRect();
+        if (b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom) selected.add(el._e.path);
+      });
+      paintSelection();
+      // scroll when dragging past the edge
+      if (e.clientY > box.bottom - 20) main.scrollTop += 14; else if (e.clientY < box.top + 20) main.scrollTop -= 14;
+    };
+    const up = () => {
+      removeEventListener("mousemove", move); removeEventListener("mouseup", up);
+      if (band) { band.remove(); suppressClick = true; setTimeout(() => suppressClick = false, 0); }
+    };
+    addEventListener("mousemove", move); addEventListener("mouseup", up);
+  });
+  let suppressClick = false;
+  main.onclick = () => { if (suppressClick) return; selected.clear(); paintSelection(); };
+
+  // Ctrl+wheel: bigger or smaller tiles
+  main.addEventListener("wheel", e => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    if (view !== "grid") { view = "grid"; store.set("files-view", view); }
+    tile = Math.max(76, Math.min(220, tile - Math.sign(e.deltaY) * 16));
+    store.set("files-tile", tile);
+    main.style.setProperty("--tile", tile + "px");
+  }, { passive: false });
+
+  // ---------- quick look ----------
+  let lookPath = null;
+  async function openLook(e) {
+    if (!e || e.dir) return closeLook();
+    lookPath = e.path;
+    const ext = extOf(e.name);
+    lookName.textContent = e.name;
+    lookInfo.textContent = `${typeOf(e)} · ${size(e.size)} · ${when(e.modified)}`;
+    lookView.innerHTML = "";
+    const src = convertFileSrc(e.path);
+    if (IMAGE.has(ext)) lookView.appendChild(Object.assign(document.createElement("img"), { src }));
+    else if (VIDEO.has(ext)) lookView.appendChild(Object.assign(document.createElement("video"), { src, controls: true, autoplay: true }));
+    else if (AUDIO.has(ext)) lookView.appendChild(Object.assign(document.createElement("audio"), { src, controls: true, autoplay: true }));
+    else if (ext === "pdf") lookView.appendChild(Object.assign(document.createElement("iframe"), { src }));
+    else if (TEXT.has(ext) || e.size < 64 * 1024) {
+      try {
+        const text = await invoke("fs_read_text", { path: e.path });
+        if (lookPath !== e.path) return;
+        lookView.appendChild(Object.assign(document.createElement("pre"), { textContent: text }));
+      } catch { info(e); }
+    } else info(e);
+    look.classList.add("on");
+    function info(e) {
+      const d = Object.assign(document.createElement("div"), { className: "info" });
+      const img = picture(e); img.className = "";
+      d.append(img, Object.assign(document.createElement("div"), { textContent: "No preview for this kind of file. Press Enter to open it." }));
+      lookView.innerHTML = ""; lookView.appendChild(d);
+    }
+  }
+  function closeLook() {
+    if (!look.classList.contains("on")) return;
+    look.classList.remove("on");
+    lookPath = null;
+    setTimeout(() => { if (!lookPath) lookView.innerHTML = ""; }, 250);
+  }
+  look.onclick = e => { if (e.target === look) closeLook(); };
+  lookBtn.onclick = () => openLook(selectedEntries()[0]);
 
   // ---------- actions ----------
   function openEntry(e) {
@@ -489,6 +889,7 @@
     const label = el.querySelector(".name") || el.querySelector(".nm span:last-child");
     const inp = Object.assign(document.createElement("input"), { className: "rename", value: e.name, spellcheck: false });
     label.replaceWith(inp);
+    el.draggable = false;
     inp.focus();
     const dot = e.dir ? -1 : e.name.lastIndexOf(".");
     inp.setSelectionRange(0, dot > 0 ? dot : e.name.length);
@@ -503,6 +904,7 @@
     };
     inp.onkeydown = ev => { ev.stopPropagation(); if (ev.key === "Enter") finish(true); if (ev.key === "Escape") finish(false); };
     inp.onclick = ev => ev.stopPropagation();
+    inp.onmousedown = ev => ev.stopPropagation();
     inp.onblur = () => finish(true);
   }
   async function newFolder() {
@@ -516,7 +918,7 @@
       if (e) startRename(e);
     } catch (err) { say(String(err)); }
   }
-  // ---------- copy, cut and paste (shared with Explorer and other apps) ----------
+  // ---------- copy, cut and paste (shared with other apps) ----------
   const cutPaths = new Set();
   let landed = new Set();
   async function clip(list, cut) {
@@ -579,7 +981,7 @@
   dlgYes.onclick = async () => {
     shade.classList.remove("on");
     const list = pendingDelete; pendingDelete = null;
-    try { await invoke("fs_recycle", { paths: list.map(e => e.path) }); say(list.length === 1 ? "Moved to the Recycle Bin" : `${list.length} items moved to the Recycle Bin`); }
+    try { await invoke("fs_recycle", { paths: list.map(e => e.path) }); sfx("close"); say(list.length === 1 ? "Moved to the Recycle Bin" : `${list.length} items moved to the Recycle Bin`); }
     catch (err) { say(String(err)); }
     selected.clear(); refresh(); main.focus();
   };
@@ -589,7 +991,9 @@
     const sel = selectedEntries();
     const one = sel.length === 1;
     popupMenu([
-      { text: e.dir ? "Open" : "Open", icon: "ph-arrow-square-out", action: () => openEntry(e) },
+      { text: "Open", icon: "ph-arrow-square-out", action: () => openEntry(e) },
+      e.dir && one ? { text: "Open in new tab", icon: "ph-browsers", action: () => newTab(e.path) } : undefined,
+      !e.dir && one ? { text: "Quick look", icon: "ph-eye", action: () => openLook(e) } : undefined,
       !e.dir && one ? { text: "Open with…", icon: "ph-app-window", action: () => invoke("fs_action", { action: "openwith", path: e.path }) } : undefined,
       results && one ? { text: "Open containing folder", icon: "ph-folder-open", action: () => go(parentOf(e.path)) } : undefined,
       null,
@@ -599,7 +1003,8 @@
       null,
       one ? { text: "Rename", icon: "ph-textbox", action: () => startRename(e) } : undefined,
       { text: one ? "Copy path" : "Copy paths", icon: "ph-link", action: () => copyPaths(sel) },
-      one ? { text: "Show in Windows Explorer", icon: "ph-folder-open", action: () => invoke("fs_action", { action: "explorer", path: e.path }) } : undefined,
+      e.dir && one ? { text: isPinned(e.path) ? "Unpin from sidebar" : "Pin to sidebar", icon: "ph-push-pin", action: () => togglePin(e.path) } : undefined,
+      one && !ownFiles() ? { text: "Show in Windows Explorer", icon: "ph-folder-open", action: () => invoke("fs_action", { action: "explorer", path: e.path }) } : undefined,
       null,
       { text: one ? "Move to Recycle Bin" : `Move ${sel.length} items to Recycle Bin`, icon: "ph-trash", danger: true, action: () => askDelete(sel) },
       one ? { text: "Properties", icon: "ph-info", action: () => invoke("fs_action", { action: "properties", path: e.path }) } : undefined,
@@ -608,6 +1013,8 @@
   function placeMenu(p) {
     popupMenu([
       { text: "Open", icon: "ph-arrow-square-out", action: () => go(p) },
+      { text: "Open in new tab", icon: "ph-browsers", action: () => newTab(p) },
+      { text: isPinned(p) ? "Unpin from sidebar" : "Pin to sidebar", icon: "ph-push-pin", action: () => togglePin(p) },
       { text: "Copy path", icon: "ph-link", action: () => navigator.clipboard.writeText(p).then(() => say("Path copied")) },
       { text: "Properties", icon: "ph-info", action: () => invoke("fs_action", { action: "properties", path: p }) },
     ]);
@@ -621,15 +1028,27 @@
       { text: "New folder", icon: "ph-folder-plus", action: newFolder },
       { text: "Refresh", icon: "ph-arrow-clockwise", action: refresh },
       null,
+      ...[["name", "Name"], ["modified", "Date modified"], ["size", "Size"], ["type", "Type"]].map(([k, l]) =>
+        ({ text: "Sort by " + l.toLowerCase() + (sort.key === k ? (sort.dir > 0 ? "  ↑" : "  ↓") : ""), icon: "ph-arrows-down-up", action: () => setSort(k) })),
+      null,
       { text: view === "grid" ? "List view" : "Grid view", icon: view === "grid" ? "ph-list" : "ph-squares-four", action: toggleView },
       { text: showHidden ? "Hide hidden items" : "Show hidden items", icon: showHidden ? "ph-eye-slash" : "ph-eye", action: toggleHidden },
+      { text: isPinned(path) ? "Unpin this folder" : "Pin this folder to the sidebar", icon: "ph-push-pin", action: () => togglePin(path) },
       null,
-      { text: "Open in Windows Explorer", icon: "ph-folder-open", action: () => invoke("launch", { path }) },
+      !ownFiles() ? { text: "Open in Windows Explorer", icon: "ph-folder-open", action: () => invoke("fs_action", { action: "explorer", path }) } : undefined,
       { text: "Properties", icon: "ph-info", action: () => invoke("fs_action", { action: "properties", path }) },
-    ]);
+    ].filter(x => x !== undefined));
   };
 
-  function setSort(key, dir) { sort = { key, dir }; store.set("files-sort", sort); render(false); }
+  // a click on the sorted column flips it; a new column starts the natural way
+  // (names A to Z; dates and sizes newest and biggest first)
+  function setSort(key) {
+    const dir = sort.key === key ? -sort.dir : (key === "modified" || key === "size" ? -1 : 1);
+    sort = { ...sort, key, dir };
+    saveSort();
+    sfx("tick");
+    render(false);
+  }
   function toggleView() { view = view === "grid" ? "list" : "grid"; store.set("files-view", view); render(true); }
   function toggleHidden() { showHidden = !showHidden; store.set("files-hidden", showHidden); render(false); }
 
@@ -642,10 +1061,6 @@
   propsBtn.onclick = () => { const s = selectedEntries(); if (s[0]) invoke("fs_action", { action: "properties", path: s[0].path }); };
   viewBtn.onclick = toggleView;
   hiddenBtn.onclick = toggleHidden;
-  sortBtn.onclick = () => popupMenu([
-    ["name", "Name", "ph-text-aa"], ["modified", "Date modified", "ph-calendar-blank"], ["size", "Size", "ph-ruler"], ["type", "Type", "ph-shapes"],
-  ].map(([k, l, ic]) => ({ text: l + (sort.key === k ? (sort.dir > 0 ? "  ↑" : "  ↓") : ""), icon: ic, action: () => setSort(k, sort.key === k ? -sort.dir : (k === "modified" || k === "size" ? -1 : 1)) })));
-  filter.placeholder = "Search (Enter: subfolders too)";
   filter.addEventListener("input", () => { if (results) { results = null; searchRun++; } render(false); });
   filter.addEventListener("keydown", e => {
     if (e.key === "Enter") deepSearch();
@@ -656,35 +1071,51 @@
   copyFilesBtn.onclick = () => clip(selectedEntries(), false);
   pasteBtn.onclick = () => pasteInto();
 
+  // type a few letters to jump to the first item that starts with them
+  let typed = "", typedTimer;
+  function typeJump(ch) {
+    typed += ch.toLowerCase();
+    clearTimeout(typedTimer); typedTimer = setTimeout(() => typed = "", 800);
+    const hit = shown.find(e => e.name.toLowerCase().startsWith(typed));
+    if (hit) { select(hit, {}); [...main.querySelectorAll(".item")].find(x => x._e === hit)?.scrollIntoView({ block: "nearest" }); }
+  }
+
   addEventListener("keydown", e => {
     if (shade.classList.contains("on")) { if (e.key === "Escape") dlgNo.onclick(); if (e.key === "Enter") dlgYes.onclick(); return; }
     if (e.target.tagName === "INPUT") return;
     const sel = selectedEntries();
-    if (e.altKey && e.key === "ArrowLeft") goBack();
+    const k = e.key.toLowerCase();
+    if (look.classList.contains("on") && (e.key === "Escape" || e.key === " ")) { e.preventDefault(); return closeLook(); }
+    if (e.ctrlKey && k === "t") { e.preventDefault(); newTab(); }
+    else if (e.ctrlKey && k === "w") { e.preventDefault(); closeTab(cur); }
+    else if (e.ctrlKey && e.key === "Tab") { e.preventDefault(); switchTab((cur + (e.shiftKey ? tabs.length - 1 : 1)) % tabs.length); }
+    else if (e.altKey && e.key === "ArrowLeft") goBack();
     else if (e.altKey && e.key === "ArrowRight") goFwd();
     else if (e.key === "Backspace" || (e.altKey && e.key === "ArrowUp")) goUp();
     else if (e.key === "F5") refresh();
     else if (e.key === "F2" && sel.length === 1) startRename(sel[0]);
     else if (e.key === "Delete") askDelete(sel);
+    else if (e.key === " " && sel.length === 1) { e.preventDefault(); openLook(sel[0]); }
     else if (e.key === "Enter" && sel.length) sel.forEach(openEntry);
-    else if (e.ctrlKey && e.key.toLowerCase() === "a") { e.preventDefault(); shown.forEach(x => selected.add(x.path)); paintSelection(); }
-    else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n") { e.preventDefault(); newFolder(); }
-    else if (e.ctrlKey && e.key.toLowerCase() === "l") { e.preventDefault(); editAddress(); }
-    else if (e.ctrlKey && e.key.toLowerCase() === "f") { e.preventDefault(); filter.focus(); }
-    else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "c" && sel.length) copyPaths(sel);
-    else if (e.ctrlKey && e.key.toLowerCase() === "c" && sel.length) clip(sel, false);
-    else if (e.ctrlKey && e.key.toLowerCase() === "x" && sel.length) clip(sel, true);
-    else if (e.ctrlKey && e.key.toLowerCase() === "v") pasteInto();
+    else if (e.ctrlKey && k === "a") { e.preventDefault(); shown.forEach(x => selected.add(x.path)); paintSelection(); }
+    else if (e.ctrlKey && e.shiftKey && k === "n") { e.preventDefault(); newFolder(); }
+    else if (e.ctrlKey && k === "l") { e.preventDefault(); editAddress(); }
+    else if (e.ctrlKey && k === "f") { e.preventDefault(); filter.focus(); }
+    else if (e.ctrlKey && e.shiftKey && k === "c" && sel.length) copyPaths(sel);
+    else if (e.ctrlKey && k === "c" && sel.length) clip(sel, false);
+    else if (e.ctrlKey && k === "x" && sel.length) clip(sel, true);
+    else if (e.ctrlKey && k === "v") pasteInto();
     else if (e.key === "Escape") { selected.clear(); paintSelection(); }
     else if (["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(e.key) && shown.length) {
       e.preventDefault();
-      const cur = anchor ? shown.findIndex(x => x.path === anchor) : -1;
-      const cols = view === "grid" ? Math.max(1, Math.floor((main.clientWidth - 28) / 118)) : 1;
-      const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols }[e.key];
-      const next = shown[Math.min(shown.length - 1, Math.max(0, cur + step))];
+      const curI = anchor ? shown.findIndex(x => x.path === anchor) : -1;
+      const cols = view === "grid" && !sort.group ? Math.max(1, Math.floor((main.clientWidth - 28) / (tile + 6))) : view === "grid" ? 1 : 1;
+      const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: view === "grid" ? cols : 1, ArrowUp: view === "grid" ? -cols : -1 }[e.key];
+      const next = shown[Math.min(shown.length - 1, Math.max(0, curI + step))];
       select(next, { shiftKey: e.shiftKey });
       [...main.querySelectorAll(".item")].find(x => x._e === next)?.scrollIntoView({ block: "nearest" });
     }
+    else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey && path) typeJump(e.key);
   });
   // mouse back/forward buttons
   addEventListener("mouseup", e => { if (e.button === 3) goBack(); if (e.button === 4) goFwd(); });
@@ -697,9 +1128,14 @@
   appWindow.onResized(syncMax);
   appWindow.onFocusChanged(({ payload: focused }) => { if (focused && path) refresh(); });
 
+  // a folder opened from elsewhere gets its own tab (unless this one is still on Home)
   listen("files-open", ({ payload }) => {
     openAppWindow(win);
-    if (payload) go(payload);
+    if (!payload) return;
+    const same = tabs.findIndex((t, i) => folderKey(i === cur ? path : t.path) === folderKey(payload));
+    if (same >= 0) { switchTab(same); if (same === cur) refresh(); }
+    else if (path === null && !back.length) go(payload);
+    else newTab(payload);
   });
 
   iconFor("C:\\Windows\\explorer.exe").then(u => { if (u) appIcon.src = u; });
@@ -709,7 +1145,8 @@
     // your user folder goes by its own name, so it isn't confused with the Home page
     places = places.map(p => p.icon === "ph-house-line" ? { ...p, name: p.path.split("\\").pop() } : p);
     path = undefined;
-    await go(null, "init");
+    back = []; fwd = [];
+    await go(tabs[cur].path, "init");
     back = [];
     main.focus();
   })();

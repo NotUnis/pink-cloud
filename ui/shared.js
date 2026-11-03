@@ -29,10 +29,97 @@ function readThemeColors() {
   const cs = getComputedStyle(document.documentElement);
   for (const k of ["g1", "g2", "g3", "text", "ice-strong"]) themeColors[k] = cs.getPropertyValue("--" + k).trim();
 }
+// ---------- themes made from three colors: your own ("custom") or your wallpaper's ----------
+const hexRgb = h => { const n = parseInt(h.replace("#", ""), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const rgbHex = c => "#" + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+// a share of color a mixed into b (0 = all b, 1 = all a)
+const mixRgb = (a, b, t) => a.map((v, i) => v * t + b[i] * (1 - t));
+const WHITE = [255, 255, 255], BLACK = [0, 0, 0], NIGHT = [14, 9, 20];
+const MADE_VARS = ["--panel", "--panel-hover", "--pink", "--pink-deep", "--ice", "--ice-strong", "--ice-hover", "--on-ice", "--text", "--text-2", "--border",
+  "--g1", "--g2", "--g3", "--g1-soft", "--g2-soft", "--shade", "--lyric-sung", "--lyric-now", "--sky", "--tint"];
+function madePalette(colors, dark) {
+  const [a, b, c] = [colors.g1, colors.g2, colors.g3].map(hexRgb);
+  const rgba = (x, al) => `rgba(${x.map(Math.round).join(", ")}, ${al})`;
+  const hex = rgbHex;
+  if (!dark) return {
+    "--panel": rgba(mixRgb(a, WHITE, .12), .55), "--panel-hover": rgba(mixRgb(a, WHITE, .4), .5),
+    "--pink": hex(mixRgb(a, WHITE, .45)), "--pink-deep": hex(mixRgb(a, WHITE, .65)),
+    "--ice": hex(mixRgb(b, WHITE, .3)), "--ice-strong": hex(mixRgb(b, BLACK, .62)), "--ice-hover": hex(mixRgb(b, BLACK, .52)), "--on-ice": "#fff",
+    "--text": hex(mixRgb(c, BLACK, .3)), "--text-2": hex(mixRgb(c, BLACK, .55)), "--border": rgba(mixRgb(a, WHITE, .6), .55),
+    "--g1": hex(a), "--g2": hex(b), "--g3": hex(c), "--g1-soft": hex(mixRgb(a, WHITE, .45)), "--g2-soft": hex(mixRgb(b, WHITE, .4)),
+    "--shade": hex(mixRgb(c, BLACK, .7)), "--lyric-sung": hex(mixRgb(a, WHITE, .1)), "--lyric-now": hex(mixRgb(b, WHITE, .4)),
+    "--sky": `radial-gradient(120% 90% at 20% 10%, ${hex(mixRgb(a, WHITE, .35))} 0%, ${hex(mixRgb(a, WHITE, .7))} 30%, ${hex(mixRgb(c, WHITE, .6))} 62%, ${hex(mixRgb(b, WHITE, .7))} 100%)`,
+    "--tint": mixRgb(a, WHITE, .12).map(Math.round).join(", ") + ", 110",
+  };
+  return {
+    "--panel": rgba(mixRgb(a, NIGHT, .14), .45), "--panel-hover": rgba(a, .16),
+    "--pink": hex(mixRgb(a, NIGHT, .35)), "--pink-deep": hex(mixRgb(a, NIGHT, .5)),
+    "--ice": rgba(b, .2), "--ice-strong": hex(mixRgb(b, WHITE, .85)), "--ice-hover": hex(mixRgb(b, WHITE, .65)), "--on-ice": hex(mixRgb(b, BLACK, .12)),
+    "--text": hex(mixRgb(a, WHITE, .1)), "--text-2": hex(mixRgb(a, WHITE, .4)), "--border": rgba(a, .22),
+    "--g1": hex(a), "--g2": hex(b), "--g3": hex(c), "--g1-soft": hex(mixRgb(a, NIGHT, .45)), "--g2-soft": hex(mixRgb(b, NIGHT, .35)),
+    "--shade": "#000", "--lyric-sung": hex(mixRgb(a, WHITE, .1)), "--lyric-now": hex(mixRgb(b, WHITE, .4)),
+    "--sky": `radial-gradient(120% 90% at 20% 10%, ${hex(mixRgb(a, NIGHT, .4))} 0%, ${hex(mixRgb(c, NIGHT, .28))} 40%, ${hex(mixRgb(b, NIGHT, .2))} 75%, ${hex(mixRgb(b, NIGHT, .1))} 100%)`,
+    "--tint": mixRgb(a, NIGHT, .14).map(Math.round).join(", ") + ", 170",
+  };
+}
+const DEFAULT_CUSTOM = { g1: "#f2a6c0", g2: "#8cc6e6", g3: "#e7799c" };
+function madeColors() {
+  const p = currentPalette();
+  if (p === "custom") return store.get("pc-custom-colors", DEFAULT_CUSTOM);
+  if (p === "wallpaper") return store.get("pc-wall-colors", DEFAULT_CUSTOM);
+  return null;
+}
+
+// Picks three nice theme colors from a picture (a wallpaper or album art): the most common
+// colorful hue, a second one that's clearly different, and a stronger accent.
+function colorsFromPicture(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const N = 48, cv = Object.assign(document.createElement("canvas"), { width: N, height: N });
+      const cx = cv.getContext("2d", { willReadFrequently: true });
+      cx.drawImage(img, 0, 0, N, N);
+      const px = cx.getImageData(0, 0, N, N).data;
+      const bins = Array.from({ length: 24 }, () => ({ w: 0, s: 0, l: 0 }));
+      for (let i = 0; i < px.length; i += 4) {
+        const [h, s, l] = rgbHsl(px[i], px[i + 1], px[i + 2]);
+        if (l < .08 || l > .96) continue;
+        const w = s * s + .02;
+        const bin = bins[Math.floor(h * 24) % 24];
+        bin.w += w; bin.s += s * w; bin.l += l * w;
+      }
+      const ranked = bins.map((b, i) => ({ h: (i + .5) / 24, w: b.w, s: b.w ? b.s / b.w : 0, l: b.w ? b.l / b.w : 0 })).sort((x, y) => y.w - x.w);
+      const first = ranked[0];
+      const far = (x, y) => Math.min(Math.abs(x - y), 1 - Math.abs(x - y));
+      const second = ranked.find(r => r.w > first.w * .08 && far(r.h, first.h) > .1) || { h: (first.h + .14) % 1, s: first.s, l: first.l };
+      // keep them soft and bright enough to look good as a theme
+      const soft = (r, light) => hslHex(r.h, Math.min(.85, Math.max(.45, r.s)), light);
+      resolve({ g1: soft(first, .72), g2: soft(second, .74), g3: hslHex(first.h, Math.min(.9, Math.max(.55, first.s + .15)), .6) });
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+function rgbHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function hslHex(h, s, l) {
+  const f = n => { const k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); return 255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))); };
+  return rgbHex([f(0), f(8), f(4)]);
+}
+
 function applyTheme() {
   const t = currentTheme();
   document.documentElement.dataset.theme = t;
   document.documentElement.dataset.palette = currentPalette();
+  const made = madeColors();
+  const vars = made ? madePalette(made, t === "dark") : {};
+  MADE_VARS.forEach(k => vars[k] ? document.documentElement.style.setProperty(k, vars[k]) : document.documentElement.style.removeProperty(k));
   readThemeColors();
   // the frosted glass behind popups takes the theme's tint
   const tint = getComputedStyle(document.documentElement).getPropertyValue("--tint").split(",").map(v => parseInt(v));
@@ -41,7 +128,39 @@ function applyTheme() {
 }
 applyTheme();
 darkQuery.addEventListener("change", applyTheme);
-addEventListener("storage", e => { if (e.key === "pc-theme" || e.key === "pc-palette") applyTheme(); });
+addEventListener("storage", e => { if (["pc-theme", "pc-palette", "pc-custom-colors", "pc-wall-colors"].includes(e.key)) applyTheme(); });
+
+// ---------- sound effects: tiny synthesized pops and chimes (no sound files) ----------
+let audioCtx = null;
+const SOUNDS = {
+  open: [[520, 880, .09, "sine", .07]],
+  close: [[700, 420, .08, "sine", .05]],
+  tap: [[1400, 1100, .025, "triangle", .035]],
+  tick: [[1800, 1800, .015, "square", .012]],
+  toggle: [[660, 990, .05, "sine", .05]],
+  note: [[880, 880, .12, "sine", .06], [1320, 1320, .18, "sine", .05, .09]],
+  game: [[440, 660, .08, "triangle", .05], [660, 990, .12, "triangle", .05, .08]],
+};
+function sfx(name) {
+  if (!store.get("pc-sfx", true) || !SOUNDS[name]) return;
+  const vol = store.get("pc-sfx-vol", .6);
+  try {
+    audioCtx = audioCtx || new AudioContext();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const now = audioCtx.currentTime;
+    for (const [f0, f1, len, type, gain, delay = 0] of SOUNDS[name]) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(f0, now + delay);
+      o.frequency.exponentialRampToValueAtTime(f1, now + delay + len);
+      g.gain.setValueAtTime(0, now + delay);
+      g.gain.linearRampToValueAtTime(gain * vol, now + delay + .008);
+      g.gain.exponentialRampToValueAtTime(.0001, now + delay + len + .08);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(now + delay); o.stop(now + delay + len + .1);
+    }
+  } catch {}
+}
 
 // Icons are fetched once per path and shared.
 const iconCache = new Map();
@@ -67,10 +186,12 @@ document.addEventListener("pointerleave", () => { untilt(tilted); tilted = null;
 
 // Files and Settings windows: animate in when shown, animate out and then hide when closed.
 function openAppWindow(el) {
+  sfx("open");
   el.classList.remove("closing", "opening"); void el.offsetWidth; el.classList.add("opening");
   setTimeout(() => el.classList.remove("opening"), 1400);
 }
 function closeAppWindow(el, tauriWindow) {
+  sfx("close");
   el.classList.remove("opening"); el.classList.add("closing");
   setTimeout(() => { tauriWindow.hide(); el.classList.remove("closing"); }, 320);
 }
@@ -85,6 +206,7 @@ function setupPopup(name, onOpen) {
   const panel = document.querySelector(".popup");
   listen("opened", () => {
     panel.classList.remove("open"); void panel.offsetWidth; panel.classList.add("open");
+    sfx("open");
     stagger(document);
     onOpen && onOpen();
   });

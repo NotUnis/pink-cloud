@@ -35,5 +35,12 @@ while (($s = [PinkCloud.Taskbar]::FindWindowEx([IntPtr]::Zero, $s, 'Shell_Second
 $taskbarCreated = [PinkCloud.Taskbar]::RegisterWindowMessage('TaskbarCreated')
 [void][PinkCloud.Taskbar]::SendNotifyMessage([IntPtr]0xffff, $taskbarCreated, [IntPtr]::Zero, [IntPtr]::Zero)
 
+# folders open in Explorer again (Pink Cloud Files was opening them)
+foreach ($kind in 'Directory', 'Drive') {
+    Remove-Item "HKCU:\Software\Classes\$kind\shell\PinkCloud" -Recurse -ErrorAction SilentlyContinue
+    $shell = "HKCU:\Software\Classes\$kind\shell"
+    if ((Get-ItemProperty $shell -ErrorAction SilentlyContinue).'(default)' -eq 'PinkCloud') { Remove-ItemProperty $shell -Name '(default)' -ErrorAction SilentlyContinue }
+}
+
 if (Test-Path $stateFile) { Remove-Item $stateFile }
 Write-Host "The Windows taskbar is back."

@@ -3,6 +3,7 @@
 
 mod audio;
 mod files;
+mod folders;
 mod keys;
 mod media;
 mod notify;
@@ -22,7 +23,7 @@ const GAP: f64 = 10.0;
 /// Extra see-through room above the taskbar where the music visualizer can rise into.
 /// Clicks there go straight through to whatever is underneath.
 const VIS_HEIGHT: f64 = 340.0;
-const POPUPS: [&str; 5] = ["start", "quick", "calendar", "tray", "notes"];
+const POPUPS: [&str; 6] = ["start", "quick", "calendar", "tray", "notes", "search"];
 
 #[derive(Default)]
 struct AppState {
@@ -52,6 +53,10 @@ struct AppState {
     switcher: Mutex<Switcher>,
     /// last picture of each window, for previews of minimized windows
     snaps: Mutex<HashMap<i64, String>>,
+    /// the game you're playing (its exe name), while game mode is on
+    game: Mutex<Option<String>>,
+    /// game mode switched off in Settings
+    game_off: std::sync::atomic::AtomicBool,
 }
 
 /// Keeps a recent picture of every open window, so a minimized window's preview still shows
@@ -158,6 +163,18 @@ fn switcher_key(app: &AppHandle, key: keys::Key) {
             switcher_close(app, &mut sw);
         }
         keys::Key::SwitchCancel => switcher_close(app, &mut sw),
+        keys::Key::Search => {
+            drop(sw);
+            toggle(app, "search");
+        }
+        keys::Key::Overlay => {
+            drop(sw);
+            toggle_overlay(app.clone());
+        }
+        keys::Key::Files => {
+            drop(sw);
+            open_files(app.clone(), None);
+        }
     }
 }
 
@@ -276,6 +293,10 @@ fn cleanup(app: &AppHandle) {
     }
     tray::stop();
     shell::restore_taskbar();
+    // folders open in Explorer again while Pink Cloud isn't running
+    if folders::ON.load(std::sync::atomic::Ordering::SeqCst) {
+        folders::register(false);
+    }
 }
 
 fn any_popup_open(app: &AppHandle) -> bool {
@@ -343,6 +364,7 @@ fn hit_watcher(app: AppHandle) {
     let pid = std::process::id();
     let mut catching = true;
     let mut hidden = false;
+    let mut tick = 0u32;
     loop {
         std::thread::sleep(Duration::from_millis(30));
         let Some(bar) = app.get_webview_window("taskbar") else { continue };
@@ -351,7 +373,13 @@ fn hit_watcher(app: AppHandle) {
         if fullscreen != hidden {
             hidden = fullscreen;
             let _ = if hidden { bar.hide() } else { bar.show() };
+            tick = 0;
         }
+        // game mode: checked a couple of times a second, and right away when fullscreen changes
+        if tick % 16 == 0 {
+            check_game(&app);
+        }
+        tick = tick.wrapping_add(1);
         if hidden {
             continue;
         }
@@ -387,6 +415,86 @@ fn hit_watcher(app: AppHandle) {
             }
         }
     }
+}
+
+/// Game mode turns on while a game fills the screen (videos in a browser don't count) and
+/// every screen hears about it: pop-ups wait, lyrics get small, the overlay is ready.
+fn check_game(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let off = state.game_off.load(std::sync::atomic::Ordering::SeqCst);
+    // while the overlay is up, the game isn't in front, but you're still playing
+    if visible(app, "overlay") {
+        return;
+    }
+    let now = if off { None } else { shell::fullscreen_game(std::process::id()) };
+    let mut game = state.game.lock().unwrap();
+    if *game != now {
+        *game = now.clone();
+        drop(game);
+        let msg = serde_json::json!({ "on": now.is_some(), "app": now.unwrap_or_default() });
+        for target in ["taskbar", "toast", "lyrics", "widgets", "overlay", "quick", "settings"] {
+            let _ = app.emit_to(target, "game-mode", msg.clone());
+        }
+    }
+}
+
+#[tauri::command]
+async fn wallpaper_key() -> Option<String> {
+    files::wallpaper_key()
+}
+
+#[tauri::command]
+async fn wallpaper_data() -> Option<String> {
+    files::wallpaper_data()
+}
+
+#[tauri::command]
+fn game_state(state: State<AppState>) -> Option<String> {
+    state.game.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn set_game_off(state: State<AppState>, off: bool) {
+    state.game_off.store(off, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// Which extra shortcuts are on: Alt+Space (search), Alt+G (game overlay), Win+E (Files).
+#[tauri::command]
+fn set_shortcuts(search: bool, overlay: bool, files: bool) {
+    use std::sync::atomic::Ordering::SeqCst;
+    keys::SEARCH_KEY.store(search, SeqCst);
+    keys::OVERLAY_KEY.store(overlay, SeqCst);
+    keys::FILES_KEY.store(files, SeqCst);
+    // Pink Cloud Files as the folder app (not in preview mode, which changes nothing)
+    if !preview() && folders::ON.load(SeqCst) != files {
+        std::thread::spawn(move || folders::register(files));
+    }
+}
+
+/// The game overlay (Alt+G): a little card in the top right corner with the time, your song
+/// and volume. It never takes focus, so the game keeps your keyboard and mouse.
+#[tauri::command]
+fn toggle_overlay(app: AppHandle) {
+    let Some(win) = window_or_rebuild(&app, "overlay") else { return };
+    if win.is_visible().unwrap_or(false) {
+        let _ = app.emit_to("overlay", "overlay-close", ());
+        return;
+    }
+    let (x, y, w, _, sf) = screen(&win);
+    let size = win.outer_size().unwrap_or(PhysicalSize::new(400, 300));
+    let _ = win.set_position(PhysicalPosition::new(x + w - size.width as i32 - (18.0 * sf) as i32, y + (18.0 * sf) as i32));
+    shell::round_corners(hwnd(&win));
+    let _ = win.show();
+    shell::no_activate(hwnd(&win));
+    let _ = app.emit_to("overlay", "opened", ());
+}
+
+/// Quick search grows and shrinks with its results; its top stays put.
+#[tauri::command]
+fn fit_search(window: WebviewWindow, height: f64) {
+    let (_, _, _, _, sf) = screen(&window);
+    let w = window.outer_size().map(|s| s.width).unwrap_or(680);
+    let _ = window.set_size(PhysicalSize::new(w, (height * sf) as u32));
 }
 
 /// See-through layers that catch the mouse only over their visible parts.
@@ -575,12 +683,12 @@ fn toggle(app: &AppHandle, name: &str) {
     let size = win.outer_size().unwrap_or(PhysicalSize::new(400, 400));
     let (bh, gap) = ((BAR_HEIGHT * sf) as i32, (GAP * sf) as i32);
     let px = match name.as_str() {
-        "start" => x + (w - size.width as i32) / 2,
+        "start" | "search" => x + (w - size.width as i32) / 2,
         // the tray opens right above the ^ button
         "tray" => (shell::cursor().0 - size.width as i32 / 2).clamp(x + gap, x + w - size.width as i32 - gap),
         _ => x + w - size.width as i32 - gap,
     };
-    let py = y + h - bottom_offset(sf) - bh - gap - size.height as i32;
+    let py = if name == "search" { y + h / 5 } else { y + h - bottom_offset(sf) - bh - gap - size.height as i32 };
     let _ = win.set_position(PhysicalPosition::new(px, py));
     let _ = win.show();
     let _ = win.set_focus();
@@ -833,7 +941,7 @@ fn combine(real: Option<media::NowPlaying>, heard: Option<media::NowPlaying>) ->
 }
 
 fn tell_now_playing(app: &AppHandle, np: Option<media::NowPlaying>) {
-    for target in ["taskbar", "lyrics", "idle", "widgets"] {
+    for target in ["taskbar", "lyrics", "idle", "widgets", "overlay"] {
         let _ = app.emit_to(target, "now-playing", np.clone());
     }
 }
@@ -1024,6 +1132,16 @@ async fn fs_paste(dest: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn fs_move(paths: Vec<String>, dest: String, copy: bool) -> Result<(), String> {
+    files::transfer(&paths, &dest, copy)
+}
+
+#[tauri::command]
+async fn fs_read_text(path: String) -> Result<String, String> {
+    files::read_text(&path)
+}
+
+#[tauri::command]
 async fn fs_search(root: String, query: String) -> Vec<files::Entry> {
     files::search(&root, &query)
 }
@@ -1036,6 +1154,11 @@ fn quit(app: AppHandle) {
 
 fn main() {
     // Developer check: `pink-cloud --icon-test <out dir> <path>...` saves each icon as a PNG and exits.
+    // sound effects play without a click first (Tauri's own WebView2 flags are kept)
+    std::env::set_var(
+        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required",
+    );
     let args: Vec<String> = std::env::args().collect();
     // Developer check: `pink-cloud --now-playing` prints what the Now Playing pill would show.
     if args.get(1).map(String::as_str) == Some("--now-playing") {
@@ -1162,8 +1285,19 @@ fn main() {
         return;
     }
 
-    // Only one Pink Cloud at a time (e.g. autostart plus a double-click).
+    // `--open <folder>`: opening a folder anywhere in Windows starts this (see folders.rs).
+    // A drive comes in as `C:"` (the quote after "C:\" gets read as part of it).
+    let open_folder = args.iter().position(|a| a == "--open").and_then(|i| args.get(i + 1)).map(|p| {
+        let p = p.trim_end_matches('"').to_string();
+        if p.ends_with(':') { p + "\\" } else { p }
+    });
+
+    // Only one Pink Cloud at a time (e.g. autostart plus a double-click); a folder goes to the
+    // one that's running.
     if !shell::first_instance() {
+        if let Some(p) = &open_folder {
+            folders::forward(p);
+        }
         return;
     }
 
@@ -1205,6 +1339,15 @@ fn main() {
             app_exe,
             get_autostart,
             set_autostart,
+            game_state,
+            set_game_off,
+            set_shortcuts,
+            toggle_overlay,
+            fit_search,
+            fs_move,
+            fs_read_text,
+            wallpaper_key,
+            wallpaper_data,
             set_visualizer,
             show_preview,
             hide_preview,
@@ -1234,7 +1377,7 @@ fn main() {
             fs_search,
             quit
         ])
-        .setup(|app| {
+        .setup(move |app| {
             for p in POPUPS.iter().chain(&["menu", "files", "settings"]) {
                 if let Some(w) = app.get_webview_window(p) {
                     shell::round_corners(hwnd(&w));
@@ -1258,6 +1401,19 @@ fn main() {
             bar.show()?;
             let handle = app.handle().clone();
             std::thread::spawn(move || hit_watcher(handle));
+
+            // folders opened anywhere come to Pink Cloud Files
+            let handle = app.handle().clone();
+            folders::listen(move |p| open_files(handle.clone(), Some(p)));
+            let handle = app.handle().clone();
+            folders::watch_explorer(move |p| open_files(handle.clone(), Some(p)));
+            if let Some(p) = open_folder.clone() {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(1500));
+                    open_files(handle, Some(p));
+                });
+            }
             let handle = app.handle().clone();
             std::thread::spawn(move || snapshot_watcher(handle));
             let handle = app.handle().clone();

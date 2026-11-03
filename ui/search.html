@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Search</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Alt+Space: one bar for apps, open windows, files, settings, sums, units and the weather.
+     The window grows with the results; its top stays where it is. */
+  body { font-size: 13px; }
+  .popup { display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 20px; flex-shrink: 0; }
+  .bar > i { font-size: 24px; color: var(--g3); transition: transform .4s var(--spring); }
+  .bar:focus-within > i { transform: rotate(-12deg) scale(1.1); }
+  #q { flex: 1; border: 0; outline: none; background: none; font: inherit; font-size: 21px; font-weight: 600; color: var(--text); }
+  #q::placeholder { color: var(--text-2); font-weight: 400; }
+  .kbd { font-size: 11px; color: var(--text-2); padding: 3px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--hi); white-space: nowrap; }
+
+  .list { flex: 1; overflow-y: auto; padding: 0 8px 8px; border-top: 1px solid var(--border); }
+  .list:empty { display: none; }
+  .list::-webkit-scrollbar { width: 8px; }
+  .list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .sec { font-size: 11px; font-weight: 600; color: var(--text-2); padding: 10px 12px 4px; }
+  .it { display: flex; align-items: center; gap: 12px; height: 46px; padding: 0 12px; border-radius: 10px; cursor: pointer; position: relative;
+    animation: popIn .45s var(--spring) backwards; animation-delay: calc(var(--i) * 18ms); }
+  .it.on { background: var(--ice); }
+  .it.on::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 2px; background: var(--ice-strong); }
+  .it .pic { width: 30px; height: 30px; flex-shrink: 0; display: grid; place-items: center; border-radius: 9px; font-size: 18px; }
+  .it .pic img { width: 28px; height: 28px; object-fit: contain; }
+  .it .pic img.thumb { object-fit: cover; border-radius: 6px; }
+  .it .pic.g { background: linear-gradient(140deg, var(--g1-soft), var(--g2-soft)); color: var(--text); }
+  .it .txt { flex: 1; min-width: 0; }
+  .it b, .it small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .it b { font-weight: 600; }
+  .it small { color: var(--text-2); font-size: 12px; }
+  .it .go { color: var(--text-2); font-size: 11px; opacity: 0; }
+  .it.on .go { opacity: 1; }
+  /* answers (sums, units, weather) get a big friendly card */
+  .answer { margin: 10px 4px 4px; padding: 14px 16px; border-radius: 14px; display: flex; align-items: center; gap: 14px; cursor: pointer;
+    background: linear-gradient(120deg, color-mix(in srgb, var(--g1) 30%, transparent), color-mix(in srgb, var(--g2) 30%, transparent)); border: 1px solid var(--border);
+    animation: popIn .5s var(--spring) backwards; }
+  .answer.on { box-shadow: 0 0 0 2px var(--ice-strong); }
+  .answer .big { font-size: 28px; font-weight: 800; letter-spacing: -.5px; }
+  .answer small { color: var(--text-2); display: block; }
+  .answer .emoji { font-size: 34px; }
+  .foot { display: flex; gap: 14px; padding: 8px 18px; font-size: 11px; color: var(--text-2); border-top: 1px solid var(--border); flex-shrink: 0; }
+  .foot:empty { display: none; }
+</style>
+</head>
+<body>
+<div class="popup" id="panel">
+  <div class="bar"><i class="ph ph-sparkle"></i><input id="q" placeholder="Search apps, files, settings… or try 5 km in miles" autocomplete="off" spellcheck="false"><span class="kbd">Esc</span></div>
+  <div class="list" id="list"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<script src="shared.js"></script>
+<script>
+  const IMG = /\.(png|jpe?g|gif|webp|bmp|avif)$/i;
+  let apps = [], wins = [], files = [], items = [], sel = 0, fileRun = 0, fileTimer, answer = null, weather = null;
+
+  // ---------- Windows settings pages and Pink Cloud actions ----------
+  const SETTINGS = [
+    ["Wi-Fi", "ms-settings:network-wifi", "ph-wifi-high"], ["Bluetooth & devices", "ms-settings:bluetooth", "ph-bluetooth"],
+    ["Display", "ms-settings:display", "ph-monitor"], ["Sound", "ms-settings:sound", "ph-speaker-high"], ["Windows Update", "ms-settings:windowsupdate", "ph-arrows-clockwise"],
+    ["Installed apps", "ms-settings:appsfeatures", "ph-squares-four"], ["Default apps", "ms-settings:defaultapps", "ph-check-square"], ["Mouse", "ms-settings:mousetouchpad", "ph-mouse"],
+    ["Keyboard & typing", "ms-settings:typing", "ph-keyboard"], ["Power & battery", "ms-settings:powersleep", "ph-battery-charging"], ["Storage", "ms-settings:storagesense", "ph-hard-drives"],
+    ["Notifications", "ms-settings:notifications", "ph-bell"], ["Accounts", "ms-settings:yourinfo", "ph-user-circle"], ["Privacy & security", "ms-settings:privacy", "ph-shield-check"],
+    ["Date & time", "ms-settings:dateandtime", "ph-clock"], ["Language & region", "ms-settings:regionlanguage", "ph-translate"], ["Graphics", "ms-settings:display-advancedgraphics", "ph-cpu"],
+    ["Printers & scanners", "ms-settings:printers", "ph-printer"], ["Startup apps", "ms-settings:startupapps", "ph-rocket-launch"], ["VPN", "ms-settings:network-vpn", "ph-lock-key"],
+    ["About this PC", "ms-settings:about", "ph-info"], ["Task Manager", "taskmgr.exe", "ph-chart-line"], ["Control Panel", "control.exe", "ph-sliders"],
+  ];
+  const ACTIONS = [
+    ["Pink Cloud Settings", () => invoke("open_settings"), "ph-gear-six", "settings preferences pink cloud"],
+    ["Files", () => invoke("open_files"), "ph-folder-simple", "explorer folders"],
+    ["Lock", () => invoke("power", { action: "lock" }), "ph-lock", "lock screen"],
+    ["Sleep", () => invoke("power", { action: "sleep" }), "ph-moon", "sleep"],
+    ["Restart", () => invoke("power", { action: "restart" }), "ph-arrow-clockwise", "restart reboot"],
+    ["Shut down", () => invoke("power", { action: "shutdown" }), "ph-power", "shut down shutdown off"],
+    ["Sign out", () => invoke("power", { action: "signout" }), "ph-sign-out", "sign out log out logout"],
+    ["Recycle Bin", () => invoke("launch", { path: "shell:RecycleBinFolder" }), "ph-trash", "recycle bin trash"],
+    ["Game overlay", () => invoke("toggle_overlay"), "ph-game-controller", "game overlay"],
+    ["Idle screen", () => invoke("show_idle"), "ph-moon-stars", "idle screensaver"],
+    ...["pink", "lavender", "mint", "sunset", "cosmos", "wallpaper", "custom"].map(p => [
+      `Theme: ${p[0].toUpperCase() + p.slice(1)}`, () => store.set("pc-palette", p), "ph-palette", "theme color colour " + p]),
+    ["Dark mode", () => store.set("pc-theme", "dark"), "ph-moon", "dark mode theme"],
+    ["Light mode", () => store.set("pc-theme", "light"), "ph-sun", "light mode theme"],
+  ];
+
+  // ---------- sums ----------
+  // a tiny calculator: + - * / ^ % ( ), sqrt, sin, cos, tan, log, ln, pi, e; "x" and "," also work
+  function calc(src) {
+    const s = src.replace(/×/g, "*").replace(/÷/g, "/").replace(/(\d),(\d)/g, "$1.$2").replace(/(\d)\s*x\s*(\d)/gi, "$1*$2").toLowerCase();
+    // only things that look like a sum: an operator or a function, and no other words
+    if (!/[\d)]\s*[-+*/^%(]|sqrt|sin|cos|tan|log|ln|abs|\bpi\b/.test(s) || /[a-z]/.test(s.replace(/sqrt|sin|cos|tan|log|ln|abs|pi|\be\b/g, ""))) return null;
+    let i = 0;
+    const peek = () => { while (s[i] === " ") i++; return s[i]; };
+    const FN = { sqrt: Math.sqrt, sin: Math.sin, cos: Math.cos, tan: Math.tan, log: Math.log10, ln: Math.log, abs: Math.abs };
+    function atom() {
+      const c = peek();
+      if (c === "(") { i++; const v = expr(); if (peek() === ")") i++; return v; }
+      if (c === "-") { i++; return -atom(); }
+      if (c === "+") { i++; return atom(); }
+      const num = /^\d*\.?\d+(e[-+]?\d+)?/.exec(s.slice(i));
+      if (num) { i += num[0].length; return parseFloat(num[0]); }
+      const word = /^[a-z]+/.exec(s.slice(i));
+      if (word) {
+        i += word[0].length;
+        if (word[0] === "pi") return Math.PI;
+        if (word[0] === "e") return Math.E;
+        if (FN[word[0]]) return FN[word[0]](atom());
+      }
+      throw 0;
+    }
+    function power() { let v = atom(); if (peek() === "^") { i++; v = Math.pow(v, power()); } if (peek() === "%") { i++; v = v / 100; } return v; }
+    function term() { let v = power(); for (;;) { const c = peek(); if (c === "*") { i++; v *= power(); } else if (c === "/") { i++; v /= power(); } else if (c === "(") v *= power(); else return v; } }
+    function expr() { let v = term(); for (;;) { const c = peek(); if (c === "+") { i++; v += term(); } else if (c === "-") { i++; v -= term(); } else return v; } }
+    try { const v = expr(); if (peek() !== undefined || !isFinite(v)) return null; return v; } catch { return null; }
+  }
+  const nice = v => Math.abs(v) >= 1e15 || (Math.abs(v) < 1e-6 && v !== 0) ? v.toExponential(6) : String(+v.toPrecision(12));
+
+  // ---------- units ----------
+  const UNITS = {
+    length: { m: 1, meter: 1, meters: 1, km: 1000, cm: .01, mm: .001, mi: 1609.344, mile: 1609.344, miles: 1609.344, ft: .3048, feet: .3048, foot: .3048, in: .0254, inch: .0254, inches: .0254, yd: .9144, yard: .9144, yards: .9144 },
+    mass: { kg: 1, g: .001, gram: .001, grams: .001, mg: 1e-6, lb: .45359237, lbs: .45359237, pound: .45359237, pounds: .45359237, oz: .028349523, ounce: .028349523, ounces: .028349523, ton: 1000, st: 6.35029318, stone: 6.35029318 },
+    volume: { l: 1, liter: 1, liters: 1, litre: 1, litres: 1, ml: .001, cl: .01, dl: .1, gal: 3.785411784, gallon: 3.785411784, gallons: 3.785411784, cup: .2365882365, cups: .2365882365, floz: .0295735296 },
+    speed: { "km/h": 1, kmh: 1, kph: 1, mph: 1.609344, "m/s": 3.6, knot: 1.852, knots: 1.852 },
+    data: { b: 1, byte: 1, bytes: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4 },
+    time: { s: 1, sec: 1, second: 1, seconds: 1, min: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hour: 3600, hours: 3600, day: 86400, days: 86400, week: 604800, weeks: 604800, year: 31557600, years: 31557600 },
+  };
+  const TEMP = { c: "c", "°c": "c", celsius: "c", f: "f", "°f": "f", fahrenheit: "f", k: "k", kelvin: "k" };
+  function convert(src) {
+    const m = /^\s*(-?[\d.,]+)\s*([a-z°/]+)\s+(?:to|in|into|=)\s+([a-z°/]+)\s*$/i.exec(src);
+    if (!m) return null;
+    const v = parseFloat(m[1].replace(",", ".")), from = m[2].toLowerCase(), to = m[3].toLowerCase();
+    if (TEMP[from] && TEMP[to]) {
+      const c = { c: v, f: (v - 32) * 5 / 9, k: v - 273.15 }[TEMP[from]];
+      const out = { c, f: c * 9 / 5 + 32, k: c + 273.15 }[TEMP[to]];
+      return { value: out, text: `${nice(+out.toFixed(2))} °${TEMP[to].toUpperCase()}`, sub: `${m[1]} °${TEMP[from].toUpperCase()}` };
+    }
+    for (const table of Object.values(UNITS)) {
+      if (table[from] && table[to]) {
+        const out = v * table[from] / table[to];
+        return { value: out, text: `${nice(+out.toPrecision(6))} ${m[3]}`, sub: `${m[1]} ${m[2]}` };
+      }
+    }
+    return null;
+  }
+
+  // ---------- weather ----------
+  const WCODES = [[0, "☀️", "Clear"], [2, "⛅", "Partly cloudy"], [3, "☁️", "Cloudy"], [48, "🌫️", "Fog"], [57, "🌦️", "Drizzle"], [67, "🌧️", "Rain"], [77, "❄️", "Snow"], [82, "🌧️", "Showers"], [86, "🌨️", "Snow showers"], [99, "⛈️", "Thunderstorm"]];
+  async function loadWeather() {
+    const city = store.get("pc-weather-city", null);
+    if (!city) return weather = { none: true };
+    try {
+      const r = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`)).json();
+      const [, icon, desc] = WCODES.find(([max]) => r.current.weather_code <= max) || WCODES[WCODES.length - 1];
+      weather = { icon, text: `${Math.round(r.current.temperature_2m)}° · ${desc}`, sub: `${city.name} · ${Math.round(r.daily.temperature_2m_max[0])}° / ${Math.round(r.daily.temperature_2m_min[0])}° today` };
+    } catch { weather = null; }
+    if (/^weather|^forecast|^temp/i.test(q.value.trim())) build();
+  }
+
+  // ---------- results ----------
+  const score = (name, t) => { const n = name.toLowerCase(); return n === t ? -1 : n.startsWith(t) ? 0 : n.split(/[\s\-_.]+/).some(w => w.startsWith(t)) ? 1 : n.includes(t) ? 2 : 9; };
+  const top = (list, t, nameOf, max) => list.map(x => [score(nameOf(x), t), x]).filter(([s]) => s < 9).sort((a, b) => a[0] - b[0]).slice(0, max).map(([, x]) => x);
+  const folderOf = p => p.slice(0, p.lastIndexOf("\\"));
+  const close = () => invoke("popup_blurred", { name: "search" });
+
+  function build() {
+    const raw = q.value, t = raw.trim().toLowerCase();
+    items = []; answer = null;
+    if (!t) {
+      // nothing typed yet: your open windows, then a hint
+      wins.slice(0, 6).forEach(w => items.push({ sec: "Open windows", name: w.title, sub: appName(w), icon: w.exe || w.app_id, run: () => invoke("activate_window", { hwnd: w.hwnd, minimizeIfActive: false }) }));
+      return paint();
+    }
+    const sum = calc(raw);
+    const conv = convert(raw);
+    if (conv) answer = { big: conv.text, sub: conv.sub + " =", copy: nice(+conv.value.toPrecision(10)) };
+    else if (sum !== null) answer = { big: "= " + nice(sum), sub: raw.trim(), copy: nice(sum) };
+    else if (/^(weather|forecast|temp)/.test(t)) {
+      if (weather?.none) answer = { emoji: "🌤️", big: "Weather", sub: "Pick your city in Settings → Widgets", run: () => invoke("open_settings", { page: "widgets" }) };
+      else if (weather) answer = { emoji: weather.icon, big: weather.text, sub: weather.sub };
+      else loadWeather();
+    }
+    if (answer) items.push({ answer: true, ...answer, run: answer.run || (() => navigator.clipboard.writeText(answer.copy || answer.big).then(() => close())) });
+
+    top(apps, t, a => a.name, 6).forEach(a => items.push({ sec: "Apps", name: a.name, sub: "App", icon: a.icon || a.path, run: () => openApp(a) }));
+    top(wins, t, w => w.title + " " + appName(w), 4).forEach(w => items.push({ sec: "Open windows", name: w.title, sub: appName(w), icon: w.exe || w.app_id, run: () => invoke("activate_window", { hwnd: w.hwnd, minimizeIfActive: false }) }));
+    top(ACTIONS, t, a => a[0] + " " + a[3], 4).forEach(([name, run, glyph]) => items.push({ sec: "Pink Cloud", name, sub: "Action", glyph, run }));
+    top(SETTINGS, t, s => s[0], 4).forEach(([name, path, glyph]) => items.push({ sec: "Settings", name, sub: "Windows settings", glyph, run: () => invoke("launch", { path }) }));
+    files.slice(0, 8).forEach(f => items.push({ sec: "Files", name: f.name, sub: folderOf(f.path), file: f, run: () => invoke("launch", { path: f.path }), alt: () => invoke("open_files", { path: folderOf(f.path) }) }));
+    // anything else: look it up on the web
+    if (!answer) items.push({ sec: "Web", name: `Search the web for “${raw.trim()}”`, sub: "Opens your browser", glyph: "ph-globe-hemisphere-west", run: () => invoke("launch", { path: "https://www.google.com/search?q=" + encodeURIComponent(raw.trim()) }) });
+    // sums and conversions jump to the top; otherwise the first app or window
+    sel = 0;
+    paint();
+  }
+
+  const appName = w => (w.exe || "").split("\\").pop().replace(/\.exe$/i, "").replace(/\b\w/g, c => c.toUpperCase()) || "Window";
+  function openApp(a) {
+    if (a.path === "pinkcloud:files") invoke("open_files");
+    else if (a.path === "pinkcloud:settings") invoke("open_settings");
+    else invoke("launch", { path: a.path });
+  }
+
+  function picture(it) {
+    const pic = document.createElement("div");
+    pic.className = "pic";
+    if (it.glyph) { pic.classList.add("g"); pic.innerHTML = `<i class="ph ${it.glyph}"></i>`; return pic; }
+    const img = document.createElement("img"); img.alt = "";
+    if (it.file && IMG.test(it.file.name)) { img.className = "thumb"; img.src = window.__TAURI__.core.convertFileSrc(it.file.path); }
+    else if (it.file) iconFor("type:" + ((it.file.name.match(/\.[^.]+$/) || [".file"])[0].toLowerCase())).then(u => { if (u) img.src = u; });
+    else if (it.icon) iconFor(it.icon).then(u => { if (u) img.src = u; });
+    pic.appendChild(img);
+    return pic;
+  }
+
+  function paint() {
+    list.innerHTML = "";
+    let sec = null;
+    items.forEach((it, i) => {
+      let el;
+      if (it.answer) {
+        el = document.createElement("div");
+        el.className = "answer";
+        el.innerHTML = `${it.emoji ? `<div class="emoji">${it.emoji}</div>` : ""}<div><small></small><div class="big"></div></div>`;
+        el.querySelector("small").textContent = it.sub;
+        el.querySelector(".big").textContent = it.big;
+      } else {
+        if (it.sec !== sec) { sec = it.sec; list.appendChild(Object.assign(document.createElement("div"), { className: "sec", textContent: sec })); }
+        el = document.createElement("div");
+        el.className = "it";
+        const txt = document.createElement("div"); txt.className = "txt";
+        txt.append(Object.assign(document.createElement("b"), { textContent: it.name }), Object.assign(document.createElement("small"), { textContent: it.sub }));
+        el.append(picture(it), txt, Object.assign(document.createElement("span"), { className: "go", textContent: "Enter ↵" }));
+      }
+      el.style.setProperty("--i", Math.min(i, 12));
+      el.onmouseenter = () => { sel = i; mark(); };
+      el.onclick = () => go(i);
+      el.oncontextmenu = e => {
+        e.preventDefault();
+        if (it.file) popupMenu([
+          { text: "Open", icon: "ph-arrow-square-out", action: () => go(i) },
+          { text: "Open file location", icon: "ph-folder-open", action: () => { it.alt(); close(); } },
+          { text: "Copy path", icon: "ph-link", action: () => navigator.clipboard.writeText(it.file.path) },
+        ]);
+      };
+      list.appendChild(el);
+    });
+    foot.innerHTML = items.length ? `<span>↑↓ to choose</span><span>Enter to open</span>${items.some(x => x.file) ? "<span>Ctrl+Enter: file location</span>" : ""}${answer ? "<span>Enter copies the answer</span>" : ""}` : "";
+    mark();
+    fit();
+  }
+  function mark() {
+    const els = [...list.querySelectorAll(".it, .answer")];
+    els.forEach((el, i) => el.classList.toggle("on", i === sel));
+    els[sel]?.scrollIntoView({ block: "nearest" });
+  }
+  function fit() {
+    requestAnimationFrame(() => {
+      const h = 64 + (items.length ? Math.min(list.scrollHeight + 2, 470) + foot.offsetHeight : 0);
+      invoke("fit_search", { height: h });
+    });
+  }
+  function go(i, alt) {
+    const it = items[i];
+    if (!it) return;
+    sfx("tap");
+    if (alt && it.alt) it.alt(); else it.run();
+    if (!it.answer || !it.run) close();
+    else setTimeout(close, 50);
+  }
+
+  q.addEventListener("input", () => {
+    build();
+    // files take a moment, so they come in after the rest
+    clearTimeout(fileTimer);
+    const run = ++fileRun, t = q.value.trim();
+    files = [];
+    if (t.length < 2 || calc(t) !== null || convert(t)) return;
+    fileTimer = setTimeout(async () => {
+      const r = await invoke("start_search", { query: t }).catch(() => []);
+      if (run !== fileRun) return;
+      files = r;
+      const keep = items[sel];
+      build();
+      const again = items.findIndex(x => x.name === keep?.name);
+      if (again >= 0) { sel = again; mark(); }
+    }, 200);
+  });
+  q.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown") { e.preventDefault(); sel = Math.min(items.length - 1, sel + 1); mark(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); sel = Math.max(0, sel - 1); mark(); }
+    else if (e.key === "Enter") go(sel, e.ctrlKey);
+  });
+
+  async function loadApps() {
+    apps = (await invoke("list_apps")).map(a => a.path === "ms-settings:" ? { ...a, name: "Windows Settings", icon: "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe" } : a);
+    apps.unshift({ name: "Files", path: "pinkcloud:files", icon: "C:\\Windows\\explorer.exe" }, { name: "Settings", path: "pinkcloud:settings", icon: "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe" });
+  }
+  loadApps();
+
+  setupPopup("search", async () => {
+    q.value = ""; files = []; sel = 0;
+    setTimeout(() => q.focus(), 30);
+    wins = await invoke("get_windows").catch(() => []);
+    build();
+    loadApps(); loadWeather();
+  });
+</script>
+</body>
+</html>

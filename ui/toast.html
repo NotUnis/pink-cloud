@@ -74,6 +74,7 @@
   }
 
   function show(n) {
+    sfx("note");
     const t = document.createElement("div");
     t.className = "toast";
     t.style.setProperty("--life", LIFE + "ms");
@@ -127,9 +128,22 @@
     reportHits();
   });
 
+  // game mode: pop-ups wait until you stop playing, then the last few come in
+  let gaming = false, held = [];
+  const quietInGames = () => store.get("pc-game-quiet", true);
+  listen("game-mode", ({ payload }) => {
+    gaming = payload.on;
+    if (!gaming && held.length) {
+      held.slice(-3).forEach((n, i) => setTimeout(() => show(n), 600 + i * 250));
+      held = [];
+    }
+  });
+  invoke("game_state").then(g => gaming = !!g);
+
   listen("notes-new", ({ payload }) => {
     // pop-ups can be switched off, or held back by Do not disturb (they still go to the panel)
     if (!store.get("pc-note-popups", true) || store.get("pc-dnd", false)) return;
+    if (gaming && quietInGames()) { held.push(...payload); return; }
     payload.forEach((n, i) => setTimeout(() => show(n), i * 250));
   });
   reportHits();

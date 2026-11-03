@@ -313,31 +313,53 @@ pub fn list_windows(own_pid: u32) -> Vec<WinInfo> {
 
 /// True when the app in front covers the whole screen (games, videos, F11).
 pub fn foreground_is_fullscreen(own_pid: u32) -> bool {
+    fullscreen_window(own_pid).is_some()
+}
+
+/// The foreground window if it covers its whole screen (a game, or a video in fullscreen).
+fn fullscreen_window(own_pid: u32) -> Option<HWND> {
     unsafe {
         let fg = GetForegroundWindow();
         if fg.is_invalid() || pid_of(fg) == own_pid {
-            return false;
+            return None;
         }
         let class = class_of(fg);
         if class == "Progman" || class == "WorkerW" {
-            return false;
+            return None;
         }
-        // a maximized window also fills the screen now that the taskbar floats; that's not fullscreen
-        if IsZoomed(fg).as_bool() {
-            return false;
+        // A maximized window also fills the screen now that the taskbar floats; that's not
+        // fullscreen. But browsers keep the "maximized" flag when a video goes fullscreen from a
+        // maximized window, so what tells them apart is the title bar: fullscreen drops it.
+        let style = GetWindowLongW(fg, GWL_STYLE) as u32;
+        if IsZoomed(fg).as_bool() && style & WS_CAPTION.0 == WS_CAPTION.0 {
+            return None;
         }
         let mut r = RECT::default();
-        if GetWindowRect(fg, &mut r).is_err() {
-            return false;
-        }
+        GetWindowRect(fg, &mut r).ok()?;
         let mon = MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST);
         let mut mi = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
         if !GetMonitorInfoW(mon, &mut mi).as_bool() {
-            return false;
+            return None;
         }
         let m = mi.rcMonitor;
-        r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom
+        (r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom).then_some(fg)
     }
+}
+
+/// Apps that go fullscreen for videos rather than games.
+const VIDEO_APPS: [&str; 16] = [
+    "chrome.exe", "msedge.exe", "firefox.exe", "opera.exe", "brave.exe", "vivaldi.exe", "avgbrowser.exe", "arc.exe",
+    "vlc.exe", "mpc-hc64.exe", "mpc-be64.exe", "potplayermini64.exe", "video.ui.exe", "applicationframehost.exe",
+    "powerpnt.exe", "mpv.exe",
+];
+
+/// The game you're playing: the exe name of a fullscreen window that isn't a browser or a
+/// video player.
+pub fn fullscreen_game(own_pid: u32) -> Option<String> {
+    let fg = fullscreen_window(own_pid)?;
+    let exe = exe_of(pid_of(fg));
+    let name = exe.rsplit('\\').next().unwrap_or(&exe).to_lowercase();
+    (!name.is_empty() && !VIDEO_APPS.contains(&name.as_str())).then_some(name)
 }
 
 // ---------- live window previews ----------

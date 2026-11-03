@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pink Cloud Game Overlay</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Alt+G: a card in the top right corner over your game. It never takes focus, so the game
+     keeps your keyboard; it goes away by itself after a few seconds. */
+  body { font-size: 13px; overflow: hidden; }
+  .card { position: absolute; inset: 0; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; background: var(--panel); border-radius: 14px; }
+  .card.open { animation: dropIn .55s var(--spring); }
+  .card.out { animation: liftOut .3s var(--ease) forwards; }
+  @keyframes dropIn { from { opacity: 0; transform: translateY(-24px) scale(.94); filter: blur(6px); } }
+  @keyframes liftOut { to { opacity: 0; transform: translateY(-16px) scale(.96); filter: blur(4px); } }
+
+  .top { display: flex; align-items: baseline; justify-content: space-between; }
+  .clock { font-size: 38px; font-weight: 800; letter-spacing: -1px; line-height: 1;
+    background: linear-gradient(120deg, var(--g1), var(--g2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .date { color: var(--text-2); font-size: 12px; text-align: right; line-height: 1.4; }
+  .game { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text); }
+  .game i { color: var(--g3); }
+
+  .song { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 12px; background: var(--hi); border: 1px solid var(--border); }
+  .song img { width: 54px; height: 54px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--pink); }
+  .song .txt { flex: 1; min-width: 0; }
+  .song b, .song small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .song small { color: var(--text-2); margin-top: 1px; }
+  .bar { height: 4px; border-radius: 2px; background: var(--pink); margin-top: 7px; overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--g1), var(--g2)); border-radius: 2px; }
+  .ctrls { display: flex; gap: 2px; }
+  .b { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 16px; cursor: pointer; transition: background .15s, transform .25s var(--spring); }
+  .b:hover { background: var(--panel-hover); }
+  .b:active { transform: scale(.88); }
+  .nosong { color: var(--text-2); padding: 6px 2px; }
+
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row .b { flex-shrink: 0; }
+  input[type=range] { flex: 1; accent-color: var(--g3); }
+  .stats { display: flex; gap: 8px; }
+  .stat { flex: 1; padding: 8px 10px; border-radius: 10px; background: var(--hi); border: 1px solid var(--border); }
+  .stat small { color: var(--text-2); font-size: 11px; display: block; }
+  .stat b { font-size: 15px; }
+  .hint { color: var(--text-2); font-size: 11px; text-align: center; margin-top: auto; }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="top">
+    <div>
+      <div class="clock" id="clock"></div>
+      <div class="game" id="game"></div>
+    </div>
+    <div class="date" id="date"></div>
+  </div>
+  <div id="songBox"></div>
+  <div class="row">
+    <div class="b" id="muteBtn" title="Mute"><i class="ph ph-speaker-high"></i></div>
+    <input type="range" id="vol" min="0" max="100">
+  </div>
+  <div class="stats">
+    <div class="stat"><small>CPU</small><b id="cpu">–</b></div>
+    <div class="stat"><small>Memory</small><b id="ram">–</b></div>
+  </div>
+  <div class="hint">Alt+G to close</div>
+</div>
+<script src="shared.js"></script>
+<script>
+  const win = window.__TAURI__.window.getCurrentWindow();
+  let song = null, closeTimer, statTimer, muted = false;
+
+  const pretty = exe => exe.replace(/\.exe$/i, "").replace(/(beta|launcher|win64|shipping|-win64-shipping)$/i, "").replace(/[-_.]+/g, " ").trim()
+    .replace(/^roblox ?player.*$/i, "Roblox").replace(/\b\w/g, c => c.toUpperCase());
+
+  function clock() {
+    const d = new Date();
+    document.getElementById("clock").textContent = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    document.getElementById("date").innerHTML = d.toLocaleDateString([], { weekday: "long" }) + "<br>" + d.toLocaleDateString([], { day: "numeric", month: "long" });
+  }
+
+  function paintSong() {
+    const box = document.getElementById("songBox");
+    if (!song || !song.title) { box.innerHTML = `<div class="nosong"><i class="ph ph-music-notes"></i> Nothing playing</div>`; return; }
+    box.innerHTML = `<div class="song"><img alt=""><div class="txt"><b></b><small></small><div class="bar"><span></span></div></div>
+      <div class="ctrls"><div class="b" data-a="previous"><i class="ph-fill ph-skip-back"></i></div><div class="b" data-a="playpause"><i class="ph-fill ${song.playing ? "ph-pause" : "ph-play"}"></i></div><div class="b" data-a="next"><i class="ph-fill ph-skip-forward"></i></div></div></div>`;
+    box.querySelector("b").textContent = song.title;
+    box.querySelector("small").textContent = song.artist || "";
+    const img = box.querySelector("img");
+    if (song.art) img.src = song.art; else img.style.visibility = "hidden";
+    box.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { invoke("media_control", { action: b.dataset.a }); keepOpen(); });
+    progress();
+  }
+  function progress() {
+    const bar = document.querySelector(".bar span");
+    if (!bar || !song || !song.duration) return;
+    const pos = song.position + (song.playing && song.stamp ? Date.now() - song.stamp : 0);
+    bar.style.width = Math.min(100, pos / song.duration * 100) + "%";
+  }
+
+  async function stats() {
+    const u = await invoke("sys_usage");
+    document.getElementById("cpu").textContent = Math.round(u.cpu) + "%";
+    document.getElementById("ram").textContent = Math.round(u.ram) + "%";
+  }
+
+  async function volume() {
+    const s = await invoke("get_status", { withWifi: false });
+    muted = s.muted;
+    if (s.volume != null) vol.value = Math.round(s.volume * 100);
+    muteBtn.innerHTML = `<i class="ph ${muted ? "ph-speaker-slash" : "ph-speaker-high"}"></i>`;
+  }
+  vol.oninput = () => { invoke("set_volume", { value: vol.value / 100 }); keepOpen(); };
+  muteBtn.onclick = () => { muted = !muted; invoke("set_mute", { muted }); muteBtn.innerHTML = `<i class="ph ${muted ? "ph-speaker-slash" : "ph-speaker-high"}"></i>`; keepOpen(); };
+
+  // goes away by itself after a while, but not while the mouse is on it
+  function keepOpen() { clearTimeout(closeTimer); closeTimer = setTimeout(close, 9000); }
+  card.onmouseenter = () => clearTimeout(closeTimer);
+  card.onmouseleave = keepOpen;
+  function close() {
+    clearTimeout(closeTimer); clearInterval(statTimer);
+    card.classList.remove("open"); card.classList.add("out");
+    setTimeout(() => { win.hide(); card.classList.remove("out"); }, 280);
+  }
+
+  listen("opened", async () => {
+    card.classList.remove("out", "open"); void card.offsetWidth; card.classList.add("open");
+    clock(); volume(); stats();
+    clearInterval(statTimer); statTimer = setInterval(() => { clock(); stats(); progress(); }, 1000);
+    const g = await invoke("game_state");
+    document.getElementById("game").innerHTML = g ? `<i class="ph-fill ph-game-controller"></i><span></span>` : "";
+    if (g) document.querySelector("#game span").textContent = pretty(g);
+    song = await invoke("now_playing"); paintSong();
+    sfx("open");
+    keepOpen();
+  });
+  listen("overlay-close", close);
+  listen("now-playing", ({ payload }) => { song = payload; paintSong(); });
+</script>
+</body>
+</html>

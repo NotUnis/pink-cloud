@@ -35,15 +35,18 @@ Uninstall it like any app: Windows Settings → Apps → Installed apps → Pink
 | 🌈 **Music visualizer** | Bars that dance to whatever's playing, tinted by the album art. |
 | 🎤 **Synced lyrics** | Lines pop up around your screen as the song is sung, letter by letter with a little wave. |
 | 👂 **Song recognition** | In games (and players that don't say what's playing) Pink Cloud recognizes the song by sound, so you still get the song, art and lyrics. |
+| 🎮 **Game mode** | While a game fills your screen, pop-ups wait, lyrics shrink to the top edge, and **Alt+G** shows an overlay with the time, your song, volume and PC stats. |
+| ✨ **Quick search** | **Alt+Space**: apps, open windows, files, settings, sums (`12*7`), units (`5 km in miles`) and the weather from one bar. |
 | 🔄 **Updates** | Pink Cloud tells you when there's a new version and updates itself in one click. |
 | 🪟 **Live previews & Alt+Tab** | Hover an app to see its windows; Alt+Tab opens a frosted switcher with live views. |
 | 🔎 **Start menu** | All your apps (Store apps too), recent files, search through apps and files, a power panel with a cancellable countdown. |
 | 🔔 **Notifications** | Pink pop-ups and a notification panel behind the bell, with Do not disturb. |
 | 🌤️ **Desktop widgets** | Clock, calendar, weather, PC stats, music and a note, right on your wallpaper. Drag them anywhere. |
 | 🌙 **Idle screen** | Step away and a dreamy clock with your song fades in. Never over videos or games. |
-| 🗂️ **Files** | A cute file manager with thumbnails, search through subfolders, and copy/paste that works with Explorer. |
+| 🗂️ **Files** | Tabs, one-click sorting remembered per folder (with groups like *Today* and *Yesterday*), Quick Look (Space), drag to move, box select, pinned folders. Folders you open anywhere (and Win+E) open here. |
 | ⚙️ **Settings** | Every Pink Cloud option, plus shortcuts to every Windows settings page. |
-| 🎨 **Themes** | Pink Cloud, Lavender, Mint, Sunset and **Cosmos** 🌌 (deep space, with stars and shooting stars), each in light and dark. |
+| 🎨 **Themes** | Pink Cloud, Lavender, Mint, Sunset and **Cosmos** 🌌, a theme that matches **your wallpaper** (Wallpaper Engine too) or the song's cover, and **your own colors** with a code to share. Each in light and dark. |
+| 🔊 **Sounds** | Soft pops and chimes when things open and notifications arrive (switch off in Settings). |
 
 Wallpaper Engine keeps working with Pink Cloud.
 
@@ -51,7 +54,8 @@ Wallpaper Engine keeps working with Pink Cloud.
 
 - **What it changes while it runs:** it hides the Windows taskbar (switching it to auto-hide, and
   saving your original setting first), makes a tap of the Windows key open Pink Cloud's Start menu,
-  and shows the background apps' tray icons itself. Everything goes back when you close Pink Cloud.
+  shows the background apps' tray icons itself, and makes folders open in Pink Cloud Files.
+  Everything goes back when you close Pink Cloud.
 - **If something ever gets stuck,** right-click `restore-windows-taskbar.ps1` from this repo →
   *Run with PowerShell* and the normal taskbar comes back.
 - **Your data stays on your PC.** The visualizer listens to your speakers' output but records nothing.

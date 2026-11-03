@@ -253,6 +253,38 @@ pub fn clipboard_get() -> (Vec<String>, bool) {
 
 /// Copies or moves files into `dest`. Windows shows its own progress window for big jobs,
 /// and pasting into the same folder makes "name - Copy" instead of overwriting.
+/// Moves (or copies) items into a folder, like dragging them there; Windows shows its
+/// progress and "replace?" questions, and Ctrl+Z in Explorer can undo it.
+pub fn transfer(paths: &[String], dest: &str, copy: bool) -> Result<(), String> {
+    if paths.is_empty() {
+        return Ok(());
+    }
+    let from = double_null(paths);
+    let to = double_null(&[dest.to_string()]);
+    let mut op = SHFILEOPSTRUCTW {
+        wFunc: if copy { FO_COPY } else { FO_MOVE },
+        pFrom: PCWSTR(from.as_ptr()),
+        pTo: PCWSTR(to.as_ptr()),
+        fFlags: (FOF_ALLOWUNDO | FOF_RENAMEONCOLLISION).0 as u16,
+        ..Default::default()
+    };
+    if unsafe { SHFileOperationW(&mut op) } != 0 {
+        return Err(if copy { "Some items couldn't be copied." } else { "Some items couldn't be moved." }.into());
+    }
+    Ok(())
+}
+
+/// The start of a text file, for the quick look preview.
+pub fn read_text(path: &str) -> Result<String, String> {
+    use std::io::Read;
+    let mut buf = Vec::new();
+    std::fs::File::open(path).and_then(|f| f.take(200_000).read_to_end(&mut buf)).map_err(|e| e.to_string())?;
+    if buf.iter().take(4000).filter(|b| **b == 0).count() > 4 {
+        return Err("This doesn't look like text.".into());
+    }
+    Ok(String::from_utf8_lossy(&buf).to_string())
+}
+
 pub fn paste(paths: &[String], dest: &str, cut: bool) -> Result<(), String> {
     if paths.is_empty() {
         return Ok(());
@@ -425,4 +457,84 @@ pub fn recycle(paths: &[String]) -> Result<(), String> {
         return Err("Some items couldn't be moved to the Recycle Bin.".into());
     }
     Ok(())
+}
+
+// ---------- the wallpaper, for the theme that takes its colors from it ----------
+
+fn quiet(cmd: &str, args: &[&str]) -> String {
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new(cmd)
+        .args(args)
+        .creation_flags(0x0800_0000)
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default()
+}
+
+/// Wallpaper Engine's picture of the wallpaper it's showing (on the first screen), if it runs.
+fn wallpaper_engine_preview() -> Option<PathBuf> {
+    let running = quiet("tasklist", &["/FI", "IMAGENAME eq wallpaper64.exe", "/NH"]).contains("wallpaper64")
+        || quiet("tasklist", &["/FI", "IMAGENAME eq wallpaper32.exe", "/NH"]).contains("wallpaper32");
+    if !running {
+        return None;
+    }
+    // Steam libraries: the main one, plus any listed in libraryfolders.vdf
+    let mut libs = vec![PathBuf::from(r"C:\Program Files (x86)\Steam")];
+    if let Ok(vdf) = std::fs::read_to_string(r"C:\Program Files (x86)\Steam\steamapps\libraryfolders.vdf") {
+        for line in vdf.lines().filter(|l| l.trim_start().starts_with("\"path\"")) {
+            if let Some(p) = line.split('"').nth(3) {
+                libs.push(PathBuf::from(p.replace("\\\\", "\\")));
+            }
+        }
+    }
+    let config = libs.iter().map(|l| l.join(r"steamapps\common\wallpaper_engine\config.json")).find(|p| p.exists())?;
+    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(config).ok()?).ok()?;
+    // config.json holds one section per Windows user; find whichever has the selected wallpapers
+    let selected = json.as_object()?.values().find_map(|u| u.pointer("/general/wallpaperconfig/selectedwallpapers"))?.as_object()?;
+    let first = selected.get("Monitor0").or_else(|| selected.values().next())?;
+    let file = PathBuf::from(first.get("file")?.as_str()?);
+    let dir = file.parent()?;
+    let project: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.join("project.json")).ok()?).ok()?;
+    let preview = dir.join(project.get("preview")?.as_str()?);
+    preview.exists().then_some(preview)
+}
+
+/// The picture on your desktop: Wallpaper Engine's current wallpaper, or the Windows one.
+pub fn wallpaper_path() -> Option<PathBuf> {
+    if let Some(p) = wallpaper_engine_preview() {
+        return Some(p);
+    }
+    let out = quiet("reg", &["query", r"HKCU\Control Panel\Desktop", "/v", "WallPaper"]);
+    let set = out.lines().find(|l| l.contains("REG_SZ")).and_then(|l| l.split("REG_SZ").nth(1)).map(|s| PathBuf::from(s.trim()));
+    if let Some(p) = set.filter(|p| p.exists()) {
+        return Some(p);
+    }
+    // Windows keeps a copy of the wallpaper it shows here
+    let copy = PathBuf::from(std::env::var("APPDATA").ok()?).join(r"Microsoft\Windows\Themes\TranscodedWallpaper");
+    copy.exists().then_some(copy)
+}
+
+/// A key that changes when the wallpaper changes (its path and when it was saved).
+pub fn wallpaper_key() -> Option<String> {
+    let p = wallpaper_path()?;
+    let modified = std::fs::metadata(&p).and_then(|m| m.modified()).ok()?.duration_since(UNIX_EPOCH).ok()?.as_secs();
+    Some(format!("{}|{modified}", p.to_string_lossy()))
+}
+
+/// The wallpaper as a data URL, so the screens can read its colors.
+pub fn wallpaper_data() -> Option<String> {
+    use base64::Engine;
+    let p = wallpaper_path()?;
+    let bytes = std::fs::read(&p).ok()?;
+    if bytes.len() > 40_000_000 {
+        return None;
+    }
+    let mime = match p.extension().and_then(|e| e.to_str()).map(|e| e.to_lowercase()).as_deref() {
+        Some("gif") => "image/gif",
+        Some("png") => "image/png",
+        Some("webp") => "image/webp",
+        Some("bmp") => "image/bmp",
+        _ => "image/jpeg",
+    };
+    Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
 }

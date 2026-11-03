@@ -71,7 +71,7 @@
     requestAnimationFrame(() => ring && (ring.style.transition = ""));
     panel.classList.remove("open"); void panel.offsetWidth; panel.classList.add("open");
   });
-  listen("switcher-select", ({ payload }) => moveRing(payload));
+  listen("switcher-select", ({ payload }) => { moveRing(payload); sfx("tick"); });
 </script>
 </body>
 </html>

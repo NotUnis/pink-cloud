@@ -11,7 +11,7 @@ use windows::Win32::Foundation::*;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Key {
     /// the Windows key was tapped on its own
     WinTap,
@@ -23,7 +23,21 @@ pub enum Key {
     SwitchCommit,
     /// Esc: close the switcher without switching
     SwitchCancel,
+    /// Alt+Space: quick search
+    Search,
+    /// Alt+G: the game overlay
+    Overlay,
+    /// Win+E: Pink Cloud Files instead of Explorer
+    Files,
 }
+
+/// Which of the extra shortcuts are switched on (Settings).
+pub static SEARCH_KEY: AtomicBool = AtomicBool::new(true);
+pub static OVERLAY_KEY: AtomicBool = AtomicBool::new(true);
+pub static FILES_KEY: AtomicBool = AtomicBool::new(true);
+const VK_E: VIRTUAL_KEY = VIRTUAL_KEY(0x45);
+const VK_G: VIRTUAL_KEY = VIRTUAL_KEY(0x47);
+static SWALLOW_UP: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
 
 // Events are handled in order on another thread; the hook itself must return quickly.
 static EVENTS: OnceLock<Mutex<Sender<Key>>> = OnceLock::new();
@@ -65,6 +79,34 @@ unsafe extern "system" fn hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT {
         let vk = VIRTUAL_KEY(k.vkCode as u16);
         let alt = k.flags.0 & LLKHF_ALTDOWN.0 != 0;
         if !injected {
+            // ----- Alt+Space, Alt+G, Win+E (AltGr is Ctrl+Alt, so Ctrl must be up) -----
+            if !down && SWALLOW_UP.load(Ordering::SeqCst) == vk.0 {
+                SWALLOW_UP.store(0, Ordering::SeqCst);
+                return LRESULT(1);
+            }
+            if down && !SWITCHING.load(Ordering::SeqCst) {
+                let plain_alt = alt && !held(VK_CONTROL) && !WIN_DOWN.load(Ordering::SeqCst);
+                let pick = if plain_alt && vk == VK_SPACE && SEARCH_KEY.load(Ordering::SeqCst) {
+                    Some(Key::Search)
+                } else if plain_alt && vk == VK_G && OVERLAY_KEY.load(Ordering::SeqCst) {
+                    Some(Key::Overlay)
+                } else if WIN_DOWN.load(Ordering::SeqCst) && vk == VK_E && FILES_KEY.load(Ordering::SeqCst) {
+                    USED_IN_SHORTCUT.store(true, Ordering::SeqCst);
+                    Some(Key::Files)
+                } else {
+                    None
+                };
+                if let Some(k) = pick {
+                    SWALLOW_UP.store(vk.0, Ordering::SeqCst);
+                    // so letting go of Alt doesn't open the app's menu bar
+                    if k != Key::Files {
+                        tap_unused();
+                    }
+                    send(k);
+                    return LRESULT(1);
+                }
+            }
+
             // ----- Alt+Tab -----
             if vk == VK_TAB && (alt || SWITCHING.load(Ordering::SeqCst)) {
                 if down {
