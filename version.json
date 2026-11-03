@@ -1,4 +1,4 @@
 {
-  "version": "1.7.0",
-  "notes": "Game mode with an Alt+G overlay, quick search on Alt+Space, a theme from your wallpaper, your own themes, sound effects, and a much better Files (tabs, easy sorting, quick look). Fullscreen YouTube no longer gets covered, and lyrics keep time better."
+  "version": "1.7.1",
+  "notes": "Fixes the taskbar disappearing while apps like ChatGPT or Discord are maximized (or open on another screen), and quick search (Alt+Space) not opening."
 }

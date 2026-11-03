@@ -161,7 +161,7 @@
 
   // ---------- results ----------
   const score = (name, t) => { const n = name.toLowerCase(); return n === t ? -1 : n.startsWith(t) ? 0 : n.split(/[\s\-_.]+/).some(w => w.startsWith(t)) ? 1 : n.includes(t) ? 2 : 9; };
-  const top = (list, t, nameOf, max) => list.map(x => [score(nameOf(x), t), x]).filter(([s]) => s < 9).sort((a, b) => a[0] - b[0]).slice(0, max).map(([, x]) => x);
+  const best = (list, t, nameOf, max) => list.map(x => [score(nameOf(x), t), x]).filter(([s]) => s < 9).sort((a, b) => a[0] - b[0]).slice(0, max).map(([, x]) => x);
   const folderOf = p => p.slice(0, p.lastIndexOf("\\"));
   const close = () => invoke("popup_blurred", { name: "search" });
 
@@ -184,10 +184,10 @@
     }
     if (answer) items.push({ answer: true, ...answer, run: answer.run || (() => navigator.clipboard.writeText(answer.copy || answer.big).then(() => close())) });
 
-    top(apps, t, a => a.name, 6).forEach(a => items.push({ sec: "Apps", name: a.name, sub: "App", icon: a.icon || a.path, run: () => openApp(a) }));
-    top(wins, t, w => w.title + " " + appName(w), 4).forEach(w => items.push({ sec: "Open windows", name: w.title, sub: appName(w), icon: w.exe || w.app_id, run: () => invoke("activate_window", { hwnd: w.hwnd, minimizeIfActive: false }) }));
-    top(ACTIONS, t, a => a[0] + " " + a[3], 4).forEach(([name, run, glyph]) => items.push({ sec: "Pink Cloud", name, sub: "Action", glyph, run }));
-    top(SETTINGS, t, s => s[0], 4).forEach(([name, path, glyph]) => items.push({ sec: "Settings", name, sub: "Windows settings", glyph, run: () => invoke("launch", { path }) }));
+    best(apps, t, a => a.name, 6).forEach(a => items.push({ sec: "Apps", name: a.name, sub: "App", icon: a.icon || a.path, run: () => openApp(a) }));
+    best(wins, t, w => w.title + " " + appName(w), 4).forEach(w => items.push({ sec: "Open windows", name: w.title, sub: appName(w), icon: w.exe || w.app_id, run: () => invoke("activate_window", { hwnd: w.hwnd, minimizeIfActive: false }) }));
+    best(ACTIONS, t, a => a[0] + " " + a[3], 4).forEach(([name, run, glyph]) => items.push({ sec: "Pink Cloud", name, sub: "Action", glyph, run }));
+    best(SETTINGS, t, s => s[0], 4).forEach(([name, path, glyph]) => items.push({ sec: "Settings", name, sub: "Windows settings", glyph, run: () => invoke("launch", { path }) }));
     files.slice(0, 8).forEach(f => items.push({ sec: "Files", name: f.name, sub: folderOf(f.path), file: f, run: () => invoke("launch", { path: f.path }), alt: () => invoke("open_files", { path: folderOf(f.path) }) }));
     // anything else: look it up on the web
     if (!answer) items.push({ sec: "Web", name: `Search the web for “${raw.trim()}”`, sub: "Opens your browser", glyph: "ph-globe-hemisphere-west", run: () => invoke("launch", { path: "https://www.google.com/search?q=" + encodeURIComponent(raw.trim()) }) });

@@ -329,9 +329,11 @@ fn fullscreen_window(own_pid: u32) -> Option<HWND> {
         }
         // A maximized window also fills the screen now that the taskbar floats; that's not
         // fullscreen. But browsers keep the "maximized" flag when a video goes fullscreen from a
-        // maximized window, so what tells them apart is the title bar: fullscreen drops it.
+        // maximized window, so what tells them apart is the frame: fullscreen drops both the
+        // title bar and the resizable border. (Apps that draw their own title bar, like Discord
+        // or ChatGPT, have no title bar but keep the border.)
         let style = GetWindowLongW(fg, GWL_STYLE) as u32;
-        if IsZoomed(fg).as_bool() && style & WS_CAPTION.0 == WS_CAPTION.0 {
+        if IsZoomed(fg).as_bool() && (style & WS_CAPTION.0 == WS_CAPTION.0 || style & WS_THICKFRAME.0 != 0) {
             return None;
         }
         let mut r = RECT::default();
@@ -341,14 +343,19 @@ fn fullscreen_window(own_pid: u32) -> Option<HWND> {
         if !GetMonitorInfoW(mon, &mut mi).as_bool() {
             return None;
         }
+        // only the main screen counts: that's where the taskbar is
+        if mi.dwFlags & MONITORINFOF_PRIMARY == 0 {
+            return None;
+        }
         let m = mi.rcMonitor;
         (r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom).then_some(fg)
     }
 }
 
 /// Apps that go fullscreen for videos rather than games.
-const VIDEO_APPS: [&str; 16] = [
+const VIDEO_APPS: [&str; 19] = [
     "chrome.exe", "msedge.exe", "firefox.exe", "opera.exe", "brave.exe", "vivaldi.exe", "avgbrowser.exe", "arc.exe",
+    "shift.exe", "zen.exe", "librewolf.exe",
     "vlc.exe", "mpc-hc64.exe", "mpc-be64.exe", "potplayermini64.exe", "video.ui.exe", "applicationframehost.exe",
     "powerpnt.exe", "mpv.exe",
 ];
