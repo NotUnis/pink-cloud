@@ -13,10 +13,17 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::media::NowPlaying;
 
 /// The "Pink Cloud" application on Discord's developer site; its name is what Discord shows.
-pub const APP_ID: &str = "";
+pub const APP_ID: &str = "1567282052737269960";
 
 static ON: AtomicBool = AtomicBool::new(false);
 static TX: OnceLock<Mutex<Sender<Option<NowPlaying>>>> = OnceLock::new();
+/// Discord's last answer, for the developer check.
+static LAST: Mutex<String> = Mutex::new(String::new());
+
+pub fn last_result() -> String {
+    let l = LAST.lock().unwrap().clone();
+    if l.is_empty() { "Discord didn't answer (is the Discord app open?)".into() } else { l }
+}
 
 pub fn available() -> bool {
     !APP_ID.is_empty()
@@ -109,10 +116,15 @@ pub fn start() {
                 "args": { "pid": std::process::id(), "activity": act },
                 "nonce": format!("{:?}", SystemTime::now()),
             });
-            if frame(p, 1, &msg).is_ok() && read_frame(p).is_ok() {
-                sent = act;
-            } else {
-                pipe = None; // Discord closed; reconnect next time
+            match frame(p, 1, &msg).and_then(|_| read_frame(p)) {
+                Ok(answer) => {
+                    *LAST.lock().unwrap() = answer.to_string();
+                    sent = act;
+                }
+                Err(e) => {
+                    *LAST.lock().unwrap() = format!("lost Discord: {e}");
+                    pipe = None; // Discord closed; reconnect next time
+                }
             }
         }
     });

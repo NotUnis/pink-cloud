@@ -1,6 +1,9 @@
 // What changed in each version, newest first: the "What's new" pop-up after an update and
 // Settings → What's new show these.
 const CHANGES = [
+  ["2.0.1", [
+    "Discord status is here: switch it on in Settings → Look and feel to show the song you're listening to on your Discord profile",
+  ]],
   ["2.0.0", [
     "Safe start: if Pink Cloud ever crashes, your normal taskbar comes back right away, and you can go back to the version you had before an update",
     "\"Something's wrong?\" in Settings sends a bug report by email in two clicks",

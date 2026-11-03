@@ -1318,6 +1318,16 @@ fn main() {
         println!("usage: cpu {:.0}% (first read {:.0}%), ram {:.0}% ({:.1}/{:.1} GB) | idle {} ms | screen kept on: {}", u2.cpu, u.cpu, u2.ram, u2.ram_used, u2.ram_total, shell::idle_ms(), shell::screen_kept_on());
         return;
     }
+    // Developer check: `pink-cloud --discord-test` shows a test song as your Discord status for 20 s.
+    if args.get(1).map(String::as_str) == Some("--discord-test") {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0);
+        discord::start();
+        discord::set_on(true);
+        discord::tell(Some(media::NowPlaying { title: "Test song".into(), artist: "Pink Cloud".into(), playing: true, position: 30_000, stamp: now, duration: 200_000, ..Default::default() }));
+        std::thread::sleep(Duration::from_secs(20));
+        println!("{}", discord::last_result());
+        return;
+    }
     // Developer check: `pink-cloud --media-fields` prints everything the playing app tells Windows.
     if args.get(1).map(String::as_str) == Some("--media-fields") {
         media::dump();
