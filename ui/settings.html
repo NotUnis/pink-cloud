@@ -414,6 +414,12 @@
         m.append(row("ph-discord-logo", "Discord status", "Coming in an update soon: your song on your Discord profile"));
       }
 
+      m.append(h("h2", "", "Taskbar and quick search"));
+      m.append(row("ph-text-aa", "App names on the taskbar", "Every window gets its own button with its name, instead of one icon per app",
+        toggle(store.get("pc-labels", false), on => store.set("pc-labels", on))));
+      m.append(row("ph-clipboard-text", "Clipboard history", "Type \"clip\" in quick search (Alt+Space) to find text you copied. Stays on this PC, only until Pink Cloud closes, and skips what password managers mark as private",
+        toggle(store.get("pc-clip", false), on => store.set("pc-clip", on))));
+
       m.append(h("h2", "", "Game mode"));
       m.append(row("ph-game-controller", "Game mode", "Turns on by itself while a game fills your screen (videos don't count)",
         toggle(store.get("pc-game", true), on => store.set("pc-game", on))));

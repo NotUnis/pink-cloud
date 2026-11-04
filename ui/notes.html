@@ -16,6 +16,7 @@
   .list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   .app { display: flex; align-items: center; gap: 8px; margin: 10px 4px 6px; font-size: 12px; font-weight: 600; color: var(--text-2); }
   .app img { width: 18px; height: 18px; }
+  .app img:not([src]) { display: none; }   /* no icon found: no empty box */
   .note { position: relative; display: flex; gap: 10px; padding: 11px 12px; margin-bottom: 6px; border-radius: 14px; cursor: pointer;
     background: var(--hi); border: 1px solid var(--border); transition: transform .3s var(--spring), background .15s; }
   .note:hover { transform: translateX(-3px); background: var(--panel-hover); }

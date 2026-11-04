@@ -56,7 +56,7 @@
 <script src="shared.js"></script>
 <script>
   const IMG = /\.(png|jpe?g|gif|webp|bmp|avif)$/i;
-  let apps = [], wins = [], files = [], items = [], sel = 0, fileRun = 0, fileTimer, answer = null, weather = null;
+  let apps = [], wins = [], files = [], items = [], clips = [], sel = 0, fileRun = 0, fileTimer, answer = null, weather = null;
 
   // ---------- Windows settings pages and Pink Cloud actions ----------
   const SETTINGS = [
@@ -172,9 +172,27 @@
   const folderOf = p => p.slice(0, p.lastIndexOf("\\"));
   const close = () => invoke("popup_blurred", { name: "search" });
 
+  // ---------- clipboard history: type "clip", or "clip something" to narrow it down ----------
+  const ago = at => { const m = Math.floor((Date.now() - at) / 60000); return m < 1 ? "Just now" : m < 60 ? `${m} min ago` : `${Math.floor(m / 60)} h ago`; };
+  function addClips(raw) {
+    const m = /^clip(?:board)?(?:\s+(.*))?$/i.exec(raw.trim());
+    if (!m) return;
+    const sec = "Clipboard history";
+    if (!store.get("pc-clip", false)) {
+      items.push({ sec, name: "Switch on clipboard history", sub: "Remembers text you copy, on this PC only, until Pink Cloud closes", glyph: "ph-clipboard-text", run: () => { store.set("pc-clip", true); invoke("clip_set_on", { on: true }); } });
+      return;
+    }
+    const want = (m[1] || "").toLowerCase();
+    const found = clips.filter(c => c.text.toLowerCase().includes(want));
+    found.forEach(c => items.push({ sec, name: c.text.trim().split(/\r?\n/)[0].slice(0, 120), sub: ago(c.at), glyph: "ph-clipboard-text", isClip: true, run: () => invoke("clip_copy", { text: c.text }) }));
+    if (!clips.length) items.push({ sec, name: "Nothing copied yet", sub: "Text you copy from now on shows up here", glyph: "ph-clipboard-text", run: () => {} });
+    else if (!want) items.push({ sec, name: "Clear clipboard history", sub: "Forgets everything in this list", glyph: "ph-broom", run: () => { clips = []; invoke("clip_clear"); } });
+  }
+
   function build() {
     const raw = q.value, t = raw.trim().toLowerCase();
     items = []; answer = null;
+    addClips(raw);
     if (!t) {
       // nothing typed yet: your open windows, then a hint
       wins.slice(0, 6).forEach(w => items.push({ sec: "Open windows", name: w.title, sub: appName(w), icon: w.exe || w.app_id, run: () => invoke("activate_window", { hwnd: w.hwnd, minimizeIfActive: false }) }));
@@ -255,7 +273,7 @@
       };
       list.appendChild(el);
     });
-    foot.innerHTML = items.length ? `<span>↑↓ to choose</span><span>Enter to open</span>${items.some(x => x.file) ? "<span>Ctrl+Enter: file location</span>" : ""}${answer ? "<span>Enter copies the answer</span>" : ""}` : "";
+    foot.innerHTML = items.length ? `<span>↑↓ to choose</span><span>Enter to open</span>${items.some(x => x.file) ? "<span>Ctrl+Enter: file location</span>" : ""}${answer ? "<span>Enter copies the answer</span>" : ""}${items.some(x => x.isClip) ? "<span>Enter copies it again, ready to paste</span>" : ""}` : "";
     mark();
     fit();
   }
@@ -312,7 +330,7 @@
     bump("searcher");
     q.value = ""; files = []; sel = 0;
     setTimeout(() => q.focus(), 30);
-    wins = await invoke("get_windows").catch(() => []);
+    [wins, clips] = await Promise.all([invoke("get_windows").catch(() => []), invoke("clip_history").catch(() => [])]);
     build();
     loadApps(); loadWeather();
   });

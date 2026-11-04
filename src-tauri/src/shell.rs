@@ -186,6 +186,8 @@ pub struct WinInfo {
     pub app_id: String,
     pub active: bool,
     pub minimized: bool,
+    /// Stays above other windows ("Keep on top").
+    pub topmost: bool,
 }
 
 /// Programs that host other apps' windows.
@@ -240,7 +242,7 @@ fn pid_of(h: HWND) -> u32 {
     pid
 }
 
-fn exe_of(pid: u32) -> String {
+pub fn exe_of(pid: u32) -> String {
     unsafe {
         let Ok(p) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else { return String::new() };
         let mut buf = [0u16; 1024];
@@ -306,6 +308,7 @@ pub fn list_windows(own_pid: u32) -> Vec<WinInfo> {
                 exe,
                 active: h == fg,
                 minimized: IsIconic(h).as_bool(),
+                topmost: ex & WS_EX_TOPMOST.0 != 0,
             })
         })
         .collect()
@@ -482,6 +485,47 @@ pub fn activate(hwnd: i64, minimize_if_active: bool) {
 pub fn close_window(hwnd: i64) {
     unsafe {
         let _ = PostMessageW(Some(hw(hwnd as isize)), WM_CLOSE, WPARAM(0), LPARAM(0));
+    }
+}
+
+/// Keeps a window above the others, or stops. Windows refuses this for apps running as
+/// administrator; the menu shows the window's real state either way.
+pub fn set_topmost(hwnd: i64, on: bool) {
+    unsafe {
+        let after = if on { HWND_TOPMOST } else { HWND_NOTOPMOST };
+        let _ = SetWindowPos(hw(hwnd as isize), Some(after), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+}
+
+/// Windows' own programs that keep the desktop running: ending them from a menu does more
+/// harm than good, so End task leaves them alone.
+const NEVER_END: [&str; 8] = ["explorer.exe", "applicationframehost.exe", "dwm.exe", "csrss.exe", "winlogon.exe", "svchost.exe", "lsass.exe", "shellexperiencehost.exe"];
+
+/// Force-closes the program a window belongs to. False when Windows wouldn't let us.
+pub fn end_task(hwnd: i64) -> bool {
+    let h = hw(hwnd as isize);
+    let mut pid = pid_of(h);
+    let is = |pid: u32, name: &str| exe_of(pid).rsplit('\\').next().unwrap_or("").eq_ignore_ascii_case(name);
+    // a Store app's window belongs to a shared host: the app itself owns a window inside it
+    if is(pid, "applicationframehost.exe") {
+        let mut kids: Vec<HWND> = Vec::new();
+        unsafe {
+            let _ = EnumChildWindows(Some(h), Some(collect), LPARAM(&mut kids as *mut _ as isize));
+        }
+        match kids.into_iter().map(pid_of).find(|&p| p != pid) {
+            Some(p) => pid = p,
+            None => return false,
+        }
+    }
+    let name = exe_of(pid).rsplit('\\').next().unwrap_or("").to_lowercase();
+    if pid == 0 || pid == std::process::id() || NEVER_END.contains(&name.as_str()) {
+        return false;
+    }
+    unsafe {
+        let Ok(p) = OpenProcess(PROCESS_TERMINATE, false, pid) else { return false };
+        let ok = TerminateProcess(p, 1).is_ok();
+        let _ = CloseHandle(p);
+        ok
     }
 }
 

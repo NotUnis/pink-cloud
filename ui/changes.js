@@ -1,6 +1,14 @@
 // What changed in each version, newest first: the "What's new" pop-up after an update and
 // Settings → What's new show these.
 const CHANGES = [
+  ["2.1.0", [
+    "Task Manager is one right-click away on the taskbar, and End task force-closes a stuck app",
+    "Volume for each app: the sliders icon next to the volume in quick settings",
+    "Keep any window on top: right-click its button on the taskbar",
+    "App names on the taskbar, with one button per window: switch it on in Settings → Look and feel",
+    "Clipboard history: type \"clip\" in quick search. It's off until you switch it on, and stays on your PC",
+    "Taskbar buttons no longer swap places when you switch between apps",
+  ]],
   ["2.0.1", [
     "Discord status is here: switch it on in Settings → Look and feel to show the song you're listening to on your Discord profile",
   ]],

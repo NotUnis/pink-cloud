@@ -2,11 +2,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod audio;
+mod clip;
 mod discord;
 mod files;
 mod folders;
 mod keys;
 mod media;
+mod mixer;
 mod notify;
 mod safe;
 mod shell;
@@ -730,6 +732,55 @@ fn close_window(hwnd: i64) {
 }
 
 #[tauri::command]
+fn end_task(hwnd: i64) -> bool {
+    shell::end_task(hwnd)
+}
+
+#[tauri::command]
+fn set_topmost(hwnd: i64, on: bool) {
+    shell::set_topmost(hwnd, on);
+}
+
+// ---------- volume for each app ----------
+
+#[tauri::command]
+async fn audio_apps() -> Vec<mixer::AudioApp> {
+    mixer::apps()
+}
+
+#[tauri::command]
+async fn set_app_volume(key: String, value: f32) {
+    mixer::set_volume(&key, value);
+}
+
+#[tauri::command]
+async fn set_app_mute(key: String, muted: bool) {
+    mixer::set_mute(&key, muted);
+}
+
+// ---------- clipboard history ----------
+
+#[tauri::command]
+fn clip_set_on(on: bool) {
+    clip::set_on(on);
+}
+
+#[tauri::command]
+fn clip_history() -> Vec<clip::Clip> {
+    clip::items()
+}
+
+#[tauri::command]
+fn clip_copy(text: String) -> bool {
+    clip::copy(&text)
+}
+
+#[tauri::command]
+fn clip_clear() {
+    clip::clear();
+}
+
+#[tauri::command]
 fn launch(path: String) {
     shell::launch(&path);
 }
@@ -1339,6 +1390,31 @@ fn main() {
         println!("set: {set:?} | read back: {:?}", files::clipboard_get());
         return;
     }
+    if args.get(1).map(String::as_str) == Some("--clip-history-test") {
+        clip::self_test();
+        return;
+    }
+    // Developer check: `pink-cloud --window-test <exact title>` keeps that window on top, stops, then ends its app.
+    if args.get(1).map(String::as_str) == Some("--window-test") {
+        let pid = std::process::id();
+        let find = || shell::list_windows(pid).into_iter().find(|w| w.title == args[2]);
+        let Some(w) = find() else { return println!("no window with that title") };
+        shell::set_topmost(w.hwnd, true);
+        println!("after keep on top: {:?}", find().map(|w| w.topmost));
+        shell::set_topmost(w.hwnd, false);
+        println!("after stop: {:?}", find().map(|w| w.topmost));
+        println!("end task said: {}", shell::end_task(w.hwnd));
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        println!("still there: {}", find().is_some());
+        return;
+    }
+    // Developer check: `pink-cloud --mixer-test` prints the apps with sound open.
+    if args.get(1).map(String::as_str) == Some("--mixer-test") {
+        for a in mixer::apps() {
+            println!("{} | {} | volume {:.2} | muted {} | playing {}", a.name, a.key, a.volume, a.muted, a.playing);
+        }
+        return;
+    }
     // Developer check: `pink-cloud --windows` prints the taskbar's windows and how they're grouped.
     if args.get(1).map(String::as_str) == Some("--windows") {
         for w in shell::list_windows(std::process::id()) {
@@ -1412,6 +1488,15 @@ fn main() {
             get_windows,
             activate_window,
             close_window,
+            end_task,
+            set_topmost,
+            audio_apps,
+            set_app_volume,
+            set_app_mute,
+            clip_set_on,
+            clip_history,
+            clip_copy,
+            clip_clear,
             launch,
             get_icon,
             list_apps,

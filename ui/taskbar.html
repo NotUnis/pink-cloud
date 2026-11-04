@@ -119,6 +119,16 @@
   .btn.gone .burst { border-color: color-mix(in srgb, var(--g1) 95%, transparent); }
   #apps > .btn { transition: transform .3s var(--spring); }
   #apps > .btn.dragging { transition: none; z-index: 5; filter: drop-shadow(0 8px 12px color-mix(in srgb, var(--shade) 35%, transparent)); }
+  /* a little pin on apps kept on top */
+  .toppin { position: absolute; top: 2px; right: 3px; font-size: 11px; color: var(--ice-strong); pointer-events: none; display: none; }
+  .btn.top .toppin { display: block; }
+  /* app names (Settings → Look and feel): every window gets its own wider button */
+  .lbl { display: none; }
+  #start { flex-shrink: 0; }
+  body.labels .center { width: max-content; }
+  body.labels #apps > .btn { width: 168px; flex: 0 1 168px; min-width: 46px; display: flex; justify-content: flex-start; gap: 8px; padding: 0 9px; }
+  body.labels #apps > .btn img, body.labels #apps > .btn .glyph { flex-shrink: 0; width: 24px; height: 24px; }
+  body.labels .lbl { display: block; flex: 1; min-width: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
   .np.heard .ctrls:not(:last-child) { display: none; }
   /* focus mode: a glowing pill counting down your session */
   .focus { display: none; align-items: center; gap: 6px; height: 32px; padding: 0 12px; margin-right: 4px; border-radius: 16px; font-size: 12px; font-weight: 600;
@@ -203,6 +213,18 @@
   tray.onclick = () => invoke("toggle_popup", { name: "quick" });
   chev.onclick = () => invoke("toggle_popup", { name: "tray" });
 
+  // right-click: Task Manager is one click away, as people asked Windows for
+  const TASK_MANAGER = { text: "Task Manager", icon: "ph-chart-line", action: () => invoke("launch", { path: "taskmgr.exe" }) };
+  const barMenu = e => {
+    e.preventDefault();
+    popupMenu([TASK_MANAGER, null,
+      { text: "Files", icon: "ph-folder-simple", action: () => invoke("open_files") },
+      { text: "Pink Cloud Settings", icon: "ph-gear-six", action: () => invoke("open_settings") },
+    ]);
+  };
+  start.addEventListener("contextmenu", barMenu);
+  right.addEventListener("contextmenu", barMenu);
+
   // ---------- notifications bell: a count of new ones since you last looked ----------
   let unseen = 0;
   function showBadge() {
@@ -277,16 +299,37 @@
   setInterval(reportHitRects, 1000);
 
   // ---------- apps: pinned + running, grouped by program ----------
+  // Windows lists windows with the one in front first; keeping the order they opened in
+  // stops buttons swapping places every time you switch apps.
+  const opened = new Map();
+  let openedCount = 0;
+  let labels = store.get("pc-labels", false);
   function groups() {
-    const list = pins.map(p => ({ key: (p.exe || p.path).toLowerCase(), pin: p, wins: [] }));
-    for (const w of windows) {
-      const key = (w.app_id || w.exe).toLowerCase() || "hwnd:" + w.hwnd;
-      let g = list.find(g => g.key === key);
-      if (!g) list.push(g = { key, pin: null, wins: [] });
+    for (const w of windows) if (!opened.has(w.hwnd)) opened.set(w.hwnd, ++openedCount);
+    for (const h of opened.keys()) if (!windows.some(w => w.hwnd === h)) opened.delete(h);
+    const list = pins.map(p => { const key = (p.exe || p.path).toLowerCase(); return { key, app: key, pin: p, wins: [] }; });
+    for (const w of [...windows].sort((a, b) => opened.get(a.hwnd) - opened.get(b.hwnd))) {
+      const app = (w.app_id || w.exe).toLowerCase() || "hwnd:" + w.hwnd;
+      // with app names on, every window has its own button, next to its app's others
+      let g = list.find(g => g.app === app && (!labels || !g.wins.length));
+      if (!g) {
+        const same = list.findLastIndex(g => g.app === app);
+        g = { key: same < 0 ? app : app + "#" + w.hwnd, app, pin: null, wins: [] };
+        if (same < 0) list.push(g); else list.splice(same + 1, 0, g);
+      }
       g.wins.push(w);
     }
     return list;
   }
+  // the names share what's left between the player and the right side, shrinking when it's full
+  function fitLabels() {
+    document.body.classList.toggle("labels", labels);
+    if (!labels) { center.style.maxWidth = ""; return; }
+    const room = Math.max(np.classList.contains("on") ? np.offsetWidth : 0, right.offsetWidth);
+    center.style.maxWidth = Math.max(200, innerWidth - 2 * room - 40) + "px";
+  }
+  addEventListener("storage", e => { if (e.key === "pc-labels") { labels = store.get("pc-labels", false); render(); } });
+  addEventListener("resize", () => fitLabels());
 
   function makeButton(g) {
     const b = document.createElement("div");
@@ -296,6 +339,8 @@
     const img = document.createElement("img");
     img.alt = "";
     b.appendChild(img);
+    b.appendChild(Object.assign(document.createElement("span"), { className: "lbl" }));
+    b.appendChild(Object.assign(document.createElement("i"), { className: "ph-fill ph-push-pin-simple toppin", title: "Kept on top" }));
     const noIcon = () => img.replaceWith(Object.assign(document.createElement("div"), { className: "glyph", innerHTML: '<i class="ph-fill ph-app-window"></i>' }));
     iconFor(src).then(async url => {
       // fall back to the icon the window shows itself (needs an open window)
@@ -330,6 +375,9 @@
       if (!b || b.classList.contains("gone")) { b?.remove(); b = makeButton(g); buttons.set(g.key, b); }
       b._g = g;
       b.title = g.wins.length ? g.wins[0].title : g.pin.name;
+      const lbl = b.querySelector(".lbl");
+      if (lbl.textContent !== b.title) lbl.textContent = b.title;
+      b.classList.toggle("top", g.wins.some(w => w.topmost));
       b.classList.toggle("run", g.wins.length > 0);
       b.classList.toggle("multi", g.wins.length > 1);
       b.classList.toggle("active", g.wins.some(w => w.active));
@@ -337,6 +385,7 @@
       if (b !== want) appsBox.insertBefore(b, want);
       prev = b;
     }
+    fitLabels();
     moveGlider();
   }
 
@@ -393,7 +442,9 @@
       const [moved] = order.splice(from, 1);
       order.splice(b._to ?? from, 0, moved);
       // keep pinned apps in their new order; the dragged one becomes pinned if it wasn't
-      pins = order.filter(g => g.pin || g === moved).map(g => g.pin || pinFor(g));
+      const kept = order.filter(g => g.pin || g === moved).map(g => g.pin || pinFor(g));
+      // with app names on, an app can have several buttons but only ever one pin
+      pins = kept.filter((p, i) => kept.findIndex(o => (o.exe || o.path).toLowerCase() === (p.exe || p.path).toLowerCase()) === i);
       savePins();
       setTimeout(() => { b._dragged = false; }, 50);
     };
@@ -484,14 +535,35 @@
   function savePins() { store.set("pc-pins", pins); render(); }
   function appMenu(g, b) {
     const name = g.pin ? g.pin.name : (g.wins[0].exe.split("\\").pop().replace(/\.exe$/i, "") || g.wins[0].title);
+    const pin = g.pin || pins.find(p => (p.exe || p.path).toLowerCase() === g.app);
+    const onTop = g.wins.length > 0 && g.wins.every(w => w.topmost);
     popupMenu([
       { text: g.wins.length ? "Open new window" : "Open " + name, icon: "ph-plus-square", action: () => launchNew(g, b) },
-      g.pin
-        ? { text: "Unpin from taskbar", icon: "ph-push-pin-slash", action: () => { pins = pins.filter(p => p !== g.pin); savePins(); } }
+      pin
+        ? { text: "Unpin from taskbar", icon: "ph-push-pin-slash", action: () => { pins = pins.filter(p => p !== pin); savePins(); } }
         : { text: "Pin to taskbar", icon: "ph-push-pin", action: () => { pins.push(pinFor(g)); savePins(); } },
       g.wins.length ? null : undefined,
+      g.wins.length ? { text: onTop ? "Stop keeping on top" : "Keep on top", icon: onTop ? "ph-push-pin-simple-slash" : "ph-push-pin-simple", action: () => { g.wins.forEach(w => invoke("set_topmost", { hwnd: w.hwnd, on: !onTop })); setTimeout(poll, 100); } } : undefined,
+      g.wins.length ? TASK_MANAGER : undefined,
+      g.wins.length ? null : undefined,
       g.wins.length ? { text: g.wins.length > 1 ? `Close all ${g.wins.length} windows` : "Close window", icon: "ph-x-circle", danger: true, action: () => g.wins.forEach(w => invoke("close_window", { hwnd: w.hwnd })) } : undefined,
+      endTaskItem(g),
     ].filter(x => x !== undefined));
+  }
+  // Force-closes a stuck app. Not offered for Pink Cloud's own windows, File Explorer (it runs
+  // your desktop), or web apps (their window belongs to the whole browser).
+  function endTaskItem(g) {
+    const w = g.wins[0];
+    if (!w || w.app_id.startsWith("pinkcloud.") || isExplorer(w.exe, w.exe) || (w.app_id && !/applicationframehost\.exe$/i.test(w.exe))) return undefined;
+    const all = w.app_id ? g.wins.length : windows.filter(o => o.exe === w.exe).length;
+    return {
+      text: all > 1 ? `End task (all ${all} windows)` : "End task", icon: "ph-prohibit", danger: true,
+      action: async () => {
+        const done = await Promise.all(g.wins.map(x => invoke("end_task", { hwnd: x.hwnd })));
+        if (!done.some(Boolean)) invoke("show_card", { card: { title: "Couldn't end that app", body: "It may be running as administrator. Try Task Manager instead.", icon: "ph-warning" } });
+        setTimeout(poll, 200);
+      },
+    };
   }
   addEventListener("storage", e => {
     if (e.key !== "pc-pins") return;
@@ -507,7 +579,7 @@
   // ---------- magnetic hover: icons lean toward the cursor ----------
   function magnet(b) {
     b.addEventListener("pointermove", e => {
-      const ic = b.querySelector("img, .glyph, .logo"); if (!ic) return;
+      const ic = b.querySelector("img, .glyph, .logo"); if (!ic || (labels && b !== start)) return;
       const r = b.getBoundingClientRect();
       ic.style.transform = `translate(${(e.clientX - r.left - r.width / 2) * .3}px, ${(e.clientY - r.top - r.height / 2) * .3 - 3}px) scale(1.12)`;
     });
@@ -718,6 +790,11 @@
   const applyDiscord = () => invoke("set_discord", { on: store.get("pc-discord", false) });
   applyDiscord();
   addEventListener("storage", e => { if (e.key === "pc-discord") applyDiscord(); });
+
+  // ---------- clipboard history (Settings → Look and feel, or type "clip" in quick search) ----------
+  const applyClip = () => invoke("clip_set_on", { on: store.get("pc-clip", false) });
+  applyClip();
+  addEventListener("storage", e => { if (e.key === "pc-clip") applyClip(); });
 
   // ---------- focus mode: the countdown, and the end of the session ----------
   function showFocus() {

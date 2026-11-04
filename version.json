@@ -1,4 +1,4 @@
 {
-  "version": "2.0.1",
-  "notes": "Discord status is here: switch it on in Settings → Look and feel to show the song you're listening to on your Discord profile."
+  "version": "2.1.0",
+  "notes": "Task Manager and End task on right-click, volume for each app, keep on top, app names on the taskbar, clipboard history"
 }

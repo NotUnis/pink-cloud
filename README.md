@@ -31,12 +31,15 @@ Uninstall it like any app: Windows Settings → Apps → Installed apps → Pink
 | | |
 |---|---|
 | 🧁 **Taskbar** | See-through and always there; clicks on its empty parts go through. A light glides under the app you're using; drag apps to reorder them. |
+| 🖱️ **Right-click the taskbar** | Task Manager, keep a window on top, and End task for stuck apps. Optional app names, with a button for every window (Settings → Look and feel). |
 | 🎵 **Now Playing** | Album art that spins like a record, song, artist and controls, for Spotify, YouTube and anything else that plays. |
 | 🌈 **Music visualizer** | Bars that dance to whatever's playing, tinted by the album art. |
 | 🎤 **Synced lyrics** | Lines pop up around your screen as the song is sung, letter by letter with a little wave. |
 | 👂 **Song recognition** | In games (and players that don't say what's playing) Pink Cloud recognizes the song by sound, so you still get the song, art and lyrics. |
 | 🎮 **Game mode** | While a game fills your screen, pop-ups wait, lyrics shrink to the top edge, and **Alt+G** shows an overlay with the time, your song, volume and PC stats. |
 | ✨ **Quick search** | **Alt+Space**: apps, open windows, files, settings, sums (`12*7`), units (`5 km in miles`) and the weather from one bar. |
+| 🎚️ **Volume for each app** | The sliders icon next to the volume in quick settings: set or mute every app on its own. |
+| 📋 **Clipboard history** | Type `clip` in quick search to find text you copied. Off until you switch it on, kept in memory only, and skips what password managers mark as private. |
 | 🔄 **Updates** | Pink Cloud tells you when there's a new version and updates itself in one click. |
 | 🪟 **Live previews & Alt+Tab** | Hover an app to see its windows; Alt+Tab opens a frosted switcher with live views. |
 | 🔎 **Start menu** | All your apps (Store apps too), recent files, search through apps and files, a power panel with a cancellable countdown. |
