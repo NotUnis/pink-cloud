@@ -148,6 +148,7 @@ fn switcher_key(app: &AppHandle, key: keys::Key) {
         }
         keys::Key::SwitchNext { back } => {
             if sw.wins.is_empty() {
+                safe::log("keyboard: Alt+Tab caught, opening the switcher");
                 switcher_open(app, &mut sw, back);
             } else {
                 let n = sw.wins.len();

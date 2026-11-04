@@ -1,4 +1,4 @@
 {
-  "version": "2.2.0",
-  "notes": "New Bubblegum theme with floating hearts and candy stripes, and Pink Cloud's own Task Manager"
+  "version": "2.2.1",
+  "notes": "Alt+Tab opens Pink Cloud's own switcher more reliably, even on PCs where the normal Windows one kept showing"
 }

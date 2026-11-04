@@ -8,6 +8,7 @@ use std::sync::mpsc::Sender;
 use std::sync::{Mutex, OnceLock};
 
 use windows::Win32::Foundation::*;
+use windows::Win32::System::Threading::{GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_TIME_CRITICAL};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
@@ -106,8 +107,11 @@ unsafe extern "system" fn hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT {
                     return LRESULT(1);
                 }
             }
-
-            // ----- Alt+Tab -----
+        }
+        // ----- Alt+Tab -----
+        // Keys sent by software count here: some keyboard software and remote desktop tools
+        // deliver every key that way. (Pink Cloud's own taps use a different, unassigned key.)
+        {
             if vk == VK_TAB && (alt || SWITCHING.load(Ordering::SeqCst)) {
                 if down {
                     SWITCHING.store(true, Ordering::SeqCst);
@@ -143,7 +147,8 @@ unsafe extern "system" fn hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT {
                     send(Key::SwitchCommit);
                 }
             }
-
+        }
+        if !injected {
             // ----- Windows key -----
             if vk == VK_LWIN || vk == VK_RWIN {
                 if down {
@@ -175,9 +180,26 @@ pub fn watch(on_key: impl Fn(Key) + Send + 'static) {
         }
     });
     std::thread::spawn(|| unsafe {
-        let Ok(h) = SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook), None, 0) else { return };
+        // Windows silently drops a keyboard hook that answers too slowly, and without this a
+        // busy PC could leave that thread waiting
+        let _ = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+        let mut current = SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook), None, 0).ok();
+        crate::safe::log(if current.is_some() { "keyboard: listening" } else { "keyboard: could not start listening" });
+        // There's no way to ask if the hook is still there, so it's renewed now and then. That
+        // brings it back if Windows dropped it, and puts it ahead of other keyboard tools.
+        let _ = SetTimer(None, 0, 30_000, None);
         let mut msg = MSG::default();
-        while GetMessageW(&mut msg, None, 0, 0).as_bool() {}
-        let _ = UnhookWindowsHookEx(h);
+        while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+            if msg.message == WM_TIMER && !SWITCHING.load(Ordering::SeqCst) && !WIN_DOWN.load(Ordering::SeqCst) {
+                if let Ok(fresh) = SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook), None, 0) {
+                    if let Some(old) = current.replace(fresh) {
+                        let _ = UnhookWindowsHookEx(old);
+                    }
+                }
+            }
+        }
+        if let Some(h) = current {
+            let _ = UnhookWindowsHookEx(h);
+        }
     });
 }
