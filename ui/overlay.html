@@ -135,6 +135,7 @@
   });
   listen("overlay-close", close);
   listen("now-playing", ({ payload }) => { song = payload; paintSong(); });
+  announceReady();
 </script>
 </body>
 </html>

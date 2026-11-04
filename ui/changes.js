@@ -1,6 +1,12 @@
 // What changed in each version, newest first: the "What's new" pop-up after an update and
 // Settings → What's new show these.
 const CHANGES = [
+  ["2.2.0", [
+    "New Bubblegum theme: hot pink and baby blue, candy stripes, and hearts, sparkles and bows that float up on your panels and idle screen",
+    "Pink Cloud has its own Task Manager: see what's using your CPU and memory, and end stuck apps. Right-click the taskbar or find it in Start",
+    "Lighter: the visualizer and lyrics use less of your PC, and rarely used screens only load when you need them",
+    "Alt+Tab now looks like the rest of Pink Cloud's windows, and shows the name of the window you're about to pick",
+  ]],
   ["2.1.0", [
     "Task Manager is one right-click away on the taskbar, and End task force-closes a stuck app",
     "Volume for each app: the sliders icon next to the volume in quick settings",

@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Task Manager</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body { font-size: 13px; }
+  .win { height: 100%; display: flex; flex-direction: column; background: var(--panel); border-radius: 10px; overflow: hidden; }
+  .title { display: flex; align-items: center; height: 42px; padding-left: 14px; flex-shrink: 0; gap: 12px; }
+  .title .name { display: flex; align-items: center; gap: 8px; font-weight: 600; pointer-events: none; white-space: nowrap; }
+  .title .name img { width: 20px; height: 20px; }
+  .title .name img:not([src]) { display: none; }
+  .title .grow { flex: 1; align-self: stretch; min-width: 12px; }
+  .title .field { height: 30px; width: 240px; flex-shrink: 1; min-width: 100px; }
+  .winTm { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; font-size: 12px; white-space: nowrap; background: var(--hi); border: 1px solid var(--border); border-radius: 15px; flex-shrink: 0; }
+  .wb { display: flex; align-self: stretch; flex-shrink: 0; }
+  .wb div { width: 46px; display: grid; place-items: center; font-size: 15px; cursor: pointer; transition: background .15s; }
+  .wb div:hover { background: var(--panel-hover); }
+  .wb .close:hover { background: var(--g3); color: #fff; }
+
+  /* the three cards along the top */
+  .cards { display: grid; grid-template-columns: 1fr 1fr 220px; gap: 10px; padding: 4px 14px 12px; flex-shrink: 0; }
+  .card { position: relative; height: 96px; padding: 12px 14px; border-radius: 14px; background: var(--hi); border: 1px solid var(--border); overflow: hidden; }
+  .card small { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); position: relative; }
+  .card .big { font-size: 26px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums; margin-top: 2px; position: relative; }
+  .card .sub { font-size: 12px; color: var(--text-2); position: relative; font-variant-numeric: tabular-nums; }
+  .card canvas { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 62px; pointer-events: none; }
+  .facts { display: grid; gap: 3px; margin-top: 8px; font-size: 12px; }
+  .facts div { display: flex; justify-content: space-between; color: var(--text-2); }
+  .facts b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .cols, .row { display: grid; grid-template-columns: minmax(0, 1fr) 88px 104px 92px; align-items: center; }
+  .cols { padding: 0 22px 6px 14px; margin: 0 14px; font-size: 12px; color: var(--text-2); flex-shrink: 0; }
+  .cols div { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 3px 8px; border-radius: 6px; }
+  .cols div:hover { background: var(--panel-hover); }
+  .cols div.num { justify-content: flex-end; }
+  .cols div.on { color: var(--text); font-weight: 600; }
+  .cols .blank { cursor: default; }
+  .cols .blank:hover { background: none; }
+  .list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 14px 14px; }
+  .list::-webkit-scrollbar { width: 8px; }
+  .list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .sec { display: flex; align-items: center; gap: 6px; padding: 10px 6px 5px; font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer; }
+  .sec i { transition: transform .3s var(--spring); }
+  .sec.shut i { transform: rotate(-90deg); }
+  .sec.shut + .rows { display: none; }
+  .sec:empty, .sec.none, .sec.none + .rows { display: none; }
+
+  .row { height: 42px; padding: 0 8px 0 14px; border-radius: 10px; position: relative; transition: background .15s, opacity .3s, transform .3s var(--ease); }
+  .row:hover { background: var(--panel-hover); }
+  .row.has { cursor: pointer; }
+  .row.gone { opacity: 0; transform: translateX(40px); }
+  .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .who .pic { width: 24px; height: 24px; flex-shrink: 0; display: grid; place-items: center; font-size: 17px; color: var(--text-2); }
+  .who .pic img { width: 24px; height: 24px; object-fit: contain; }
+  .who b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who .n { flex-shrink: 0; padding: 0 6px; border-radius: 8px; font-size: 11px; color: var(--text-2); background: var(--hi); border: 1px solid var(--border); }
+  /* the fuller the cell's bar, the more it's using */
+  .val { height: 30px; display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; margin-left: 4px; border-radius: 7px; font-variant-numeric: tabular-nums; font-size: 12px; position: relative; overflow: hidden; }
+  .val span { position: relative; }
+  .val::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--use, 0%); background: color-mix(in srgb, var(--bar) 42%, transparent); transition: width .6s var(--smooth); }
+  .val.cpu { --bar: var(--g1); }
+  .val.mem { --bar: var(--g2); }
+  .end { justify-self: end; height: 28px; padding: 0 10px; display: flex; align-items: center; gap: 4px; border-radius: 14px; font-size: 12px; white-space: nowrap; cursor: pointer; opacity: 0;
+    background: var(--hi); border: 1px solid var(--border); transition: opacity .15s, background .15s, color .15s; }
+  .row:hover .end { opacity: 1; }
+  .end:hover { background: var(--g3); color: #fff; border-color: var(--g3); }
+  .none-found { padding: 40px 12px; text-align: center; color: var(--text-2); }
+  @media (max-width: 760px) { .cards { grid-template-columns: 1fr 1fr; } .card.facts-card { display: none; } .title .field { width: 150px; } .winTm span { display: none; } }
+</style>
+</head>
+<body>
+<div class="win appwin" id="win">
+  <div class="title" data-tauri-drag-region>
+    <div class="name"><img id="appIcon" alt="">Task Manager</div>
+    <div class="grow" data-tauri-drag-region></div>
+    <label class="field"><i class="ph ph-magnifying-glass"></i><input id="q" placeholder="Find an app" spellcheck="false" autocomplete="off"></label>
+    <div class="winTm ctl" id="winTm" title="Open the normal Windows Task Manager"><i class="ph ph-arrow-square-out"></i><span>Windows Task Manager</span></div>
+    <div class="wb">
+      <div id="minBtn" title="Minimize"><i class="ph ph-minus"></i></div>
+      <div id="maxBtn" title="Maximize"><i class="ph ph-square"></i></div>
+      <div class="close" id="closeBtn" title="Close"><i class="ph ph-x"></i></div>
+    </div>
+  </div>
+  <div class="cards">
+    <div class="card"><canvas id="cpuChart"></canvas><small><i class="ph ph-cpu"></i>CPU</small><div class="big" id="cpuBig">0%</div></div>
+    <div class="card"><canvas id="memChart"></canvas><small><i class="ph ph-memory"></i>Memory</small><div class="big" id="memBig">0%</div><div class="sub" id="memSub"></div></div>
+    <div class="card facts-card"><small><i class="ph ph-list-checks"></i>Running now</small><div class="facts">
+      <div>Apps <b id="fApps">0</b></div><div>Processes <b id="fProcs">0</b></div><div>PC on for <b id="fUp"></b></div>
+    </div></div>
+  </div>
+  <div class="cols" id="cols">
+    <div data-by="name">Name</div><div class="num" data-by="cpu">CPU</div><div class="num" data-by="memory">Memory</div><div class="blank"></div>
+  </div>
+  <div class="list" id="list"></div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  const appWindow = window.__TAURI__.window.getCurrentWindow();
+  const SECTIONS = [["app", "Apps"], ["background", "Background apps"], ["windows", "Windows"]];
+  const rows = new Map(); // program -> its row
+  const boxes = {};
+  let tasks = [], ramTotal = 0;
+  let sort = store.get("pc-tasks-sort", { by: "memory", down: true });
+  let shut = new Set(store.get("pc-tasks-shut", ["windows"]));
+
+  SECTIONS.forEach(([id, label]) => {
+    const sec = document.createElement("div");
+    sec.className = "sec" + (shut.has(id) ? " shut" : "");
+    sec.innerHTML = `<i class="ph ph-caret-down"></i><span></span>`;
+    const body = Object.assign(document.createElement("div"), { className: "rows" });
+    sec.onclick = () => {
+      sec.classList.toggle("shut");
+      if (sec.classList.contains("shut")) shut.add(id); else shut.delete(id);
+      store.set("pc-tasks-shut", [...shut]);
+    };
+    list.append(sec, body);
+    boxes[id] = { sec, body, label };
+  });
+  const nothing = Object.assign(document.createElement("div"), { className: "none-found", textContent: "Nothing running by that name" });
+
+  const size = b => b >= 1073741824 ? (b / 1073741824).toFixed(1) + " GB" : Math.round(b / 1048576) + " MB";
+  const upFor = s => { const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60; return d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`; };
+
+  function makeRow(t) {
+    const r = document.createElement("div");
+    r.className = "row";
+    r.innerHTML = `<div class="who"><div class="pic"></div><b></b><span class="n"></span></div><div class="val cpu"><span></span></div><div class="val mem"><span></span></div><div class="slot"></div>`;
+    r.querySelector("b").textContent = t.name;
+    const pic = r.querySelector(".pic");
+    const glyph = () => { pic.innerHTML = `<i class="ph ${t.kind === "windows" ? "ph-gear-six" : "ph-app-window"}"></i>`; };
+    if (t.exe) iconFor(t.exe).then(u => { if (u) pic.replaceChildren(Object.assign(new Image(), { src: u, alt: "" })); else glyph(); }); else glyph();
+    if (t.can_end) {
+      const end = document.createElement("div");
+      end.className = "end";
+      end.innerHTML = `<i class="ph ph-prohibit"></i>End task`;
+      end.title = "Force-close it. Anything unsaved in it is lost";
+      end.onclick = e => { e.stopPropagation(); endTask(r); };
+      r.querySelector(".slot").append(end);
+    }
+    r.onclick = () => { if (r._t.hwnd) invoke("activate_window", { hwnd: r._t.hwnd, minimizeIfActive: false }); };
+    r.oncontextmenu = e => {
+      e.preventDefault();
+      const x = r._t, items = [];
+      if (x.hwnd) items.push({ text: "Switch to", icon: "ph-arrow-square-up-right", action: () => invoke("activate_window", { hwnd: x.hwnd, minimizeIfActive: false }) });
+      if (x.exe) items.push({ text: "Open file location", icon: "ph-folder-open", action: () => invoke("open_files", { path: x.exe.slice(0, x.exe.lastIndexOf("\\")) }) });
+      if (x.can_end) items.push(items.length ? null : undefined, { text: x.count > 1 ? `End task (all ${x.count} processes)` : "End task", icon: "ph-prohibit", danger: true, action: () => endTask(r) });
+      const clean = items.filter(i => i !== undefined);
+      if (clean.length) popupMenu(clean);
+    };
+    return r;
+  }
+  async function endTask(r) {
+    sfx("close");
+    r.classList.add("gone");
+    const done = await invoke("end_app", { key: r._t.key }).catch(() => false);
+    if (!done) {
+      r.classList.remove("gone");
+      invoke("show_card", { card: { title: `Couldn't end ${r._t.name}`, body: "It may be running as administrator. Try the Windows Task Manager.", icon: "ph-warning" } });
+    }
+    setTimeout(refresh, 450);
+  }
+
+  function compare(a, b) {
+    const by = sort.by === "name" ? a.name.toLowerCase().localeCompare(b.name.toLowerCase()) : a[sort.by] - b[sort.by];
+    return (sort.down ? -by : by) || a.name.localeCompare(b.name);
+  }
+  function paint() {
+    const want = q.value.trim().toLowerCase();
+    // while the mouse is on the list rows stay where they are, so End task can't land on the wrong one
+    const hold = list.matches(":hover");
+    const seen = new Set();
+    let shown = 0;
+    SECTIONS.forEach(([id]) => {
+      const box = boxes[id];
+      const mine = tasks.filter(t => t.kind === id && (!want || t.name.toLowerCase().includes(want) || t.exe.toLowerCase().includes(want))).sort(compare);
+      shown += mine.length;
+      box.sec.classList.toggle("none", !mine.length);
+      box.sec.querySelector("span").textContent = `${box.label} (${mine.length})`;
+      const fresh = [];
+      mine.forEach(t => {
+        seen.add(t.key);
+        let r = rows.get(t.key);
+        if (!r) { r = makeRow(t); rows.set(t.key, r); fresh.push(r); }
+        r._t = t;
+        r.classList.toggle("has", !!t.hwnd);
+        r.classList.remove("gone");
+        const n = r.querySelector(".n");
+        n.textContent = t.count; n.style.display = t.count > 1 ? "" : "none"; n.title = `${t.count} processes`;
+        r.querySelector(".cpu span").textContent = t.cpu < .05 ? "0%" : t.cpu.toFixed(1) + "%";
+        r.querySelector(".cpu").style.setProperty("--use", Math.min(100, t.cpu) + "%");
+        r.querySelector(".mem span").textContent = t.memory ? size(t.memory) : "–";
+        r.querySelector(".mem").style.setProperty("--use", ramTotal ? Math.min(100, t.memory / ramTotal * 100) + "%" : "0%");
+        r.title = t.can_end || t.kind !== "windows" ? t.exe : "Windows needs this to keep running";
+      });
+      if (hold) fresh.forEach(r => box.body.append(r));
+      else mine.forEach(t => box.body.append(rows.get(t.key)));
+    });
+    for (const [key, r] of rows) if (!seen.has(key)) { r.remove(); if (!tasks.some(t => t.key === key)) rows.delete(key); }
+    if (shown) nothing.remove(); else list.append(nothing);
+    [...cols.children].forEach(c => {
+      if (!c.dataset.by) return;
+      const on = c.dataset.by === sort.by;
+      c.classList.toggle("on", on);
+      c.querySelector("i")?.remove();
+      if (on) c.insertAdjacentHTML("beforeend", `<i class="ph ph-caret-${sort.down ? "down" : "up"}"></i>`);
+    });
+  }
+  [...cols.children].forEach(c => {
+    if (c.dataset.by) c.onclick = () => {
+      sort = sort.by === c.dataset.by ? { by: sort.by, down: !sort.down } : { by: c.dataset.by, down: c.dataset.by !== "name" };
+      store.set("pc-tasks-sort", sort);
+      list.scrollTop = 0;
+      paintNow();
+    };
+  });
+  // a click on a column is meant: it sorts even with the mouse near the list
+  function paintNow() {
+    SECTIONS.forEach(([id]) => tasks.filter(t => t.kind === id).sort(compare).forEach(t => { const r = rows.get(t.key); if (r) boxes[id].body.append(r); }));
+    paint();
+  }
+  q.addEventListener("input", paintNow);
+
+  // ---------- the charts on the cards: the last two minutes ----------
+  const HISTORY = 60;
+  const series = { cpu: [], mem: [] };
+  function chart(canvas, data, color) {
+    const dpr = devicePixelRatio, W = canvas.width = canvas.clientWidth * dpr, H = canvas.height = canvas.clientHeight * dpr;
+    if (!W || !H) return;
+    const c = canvas.getContext("2d"), step = W / (HISTORY - 1), x0 = W - (data.length - 1) * step;
+    const y = v => H - 3 * dpr - (v / 100) * (H - 8 * dpr);
+    c.beginPath();
+    data.forEach((v, i) => { const x = x0 + i * step; i ? c.lineTo(x, y(v)) : c.moveTo(x, y(v)); });
+    c.lineWidth = 2 * dpr; c.lineJoin = "round"; c.strokeStyle = color; c.stroke();
+    c.lineTo(W, H); c.lineTo(x0, H); c.closePath();
+    const g = c.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, color + "66"); g.addColorStop(1, color + "00");
+    c.fillStyle = g; c.fill();
+  }
+  const drawCharts = () => { chart(cpuChart, series.cpu, themeColors.g1 || "#f2a6c0"); chart(memChart, series.mem, themeColors.g2 || "#8cc6e6"); };
+  addEventListener("pc-theme-change", drawCharts);
+  addEventListener("resize", drawCharts);
+
+  let busy = false;
+  async function refresh() {
+    if (busy) return;
+    busy = true;
+    try {
+      const [all, use] = await Promise.all([invoke("list_tasks"), invoke("sys_usage")]);
+      tasks = all.tasks;
+      ramTotal = use.ram_total * 1073741824;
+      [["cpu", use.cpu], ["mem", use.ram]].forEach(([k, v]) => { series[k].push(v); if (series[k].length > HISTORY) series[k].shift(); });
+      cpuBig.textContent = Math.round(use.cpu) + "%";
+      memBig.textContent = Math.round(use.ram) + "%";
+      memSub.textContent = `${use.ram_used.toFixed(1)} of ${use.ram_total.toFixed(1)} GB`;
+      fApps.textContent = tasks.filter(t => t.kind === "app").length;
+      fProcs.textContent = all.processes;
+      fUp.textContent = upFor(all.uptime);
+      drawCharts();
+      paint();
+    } catch {}
+    busy = false;
+  }
+  // only while you can see it
+  setInterval(async () => {
+    try { if (await appWindow.isVisible() && !(await appWindow.isMinimized())) refresh(); } catch {}
+  }, 2000);
+
+  // ---------- window ----------
+  winTm.onclick = () => invoke("launch", { path: "taskmgr.exe" });
+  minBtn.onclick = () => appWindow.minimize();
+  maxBtn.onclick = () => appWindow.toggleMaximize();
+  closeBtn.onclick = () => closeAppWindow(win, appWindow);
+  appWindow.onResized(async () => { maxBtn.innerHTML = `<i class="ph ${(await appWindow.isMaximized()) ? "ph-copy-simple" : "ph-square"}"></i>`; });
+  listen("tasks-open", () => { openAppWindow(win); refresh(); setTimeout(refresh, 700); });
+  iconFor("C:\\Windows\\System32\\Taskmgr.exe").then(u => { if (u) appIcon.src = u; });
+  refresh();
+  announceReady();
+</script>
+</body>
+</html>

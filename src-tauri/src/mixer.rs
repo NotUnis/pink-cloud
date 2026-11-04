@@ -56,7 +56,7 @@ fn description(exe: &str) -> Option<String> {
     }
 }
 
-fn name_of(exe: &str) -> String {
+pub fn name_of(exe: &str) -> String {
     let mut names = NAMES.lock().unwrap();
     let names = names.get_or_insert_with(HashMap::new);
     names

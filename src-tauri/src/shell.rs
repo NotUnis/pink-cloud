@@ -293,6 +293,7 @@ pub fn list_windows(own_pid: u32) -> Vec<WinInfo> {
                 let id = match title.as_str() {
                     "Files" => "pinkcloud.files",
                     "Settings" => "pinkcloud.settings",
+                    "Task Manager" => "pinkcloud.tasks",
                     _ => return None,
                 };
                 (std::env::current_exe().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(), id.to_string())
@@ -501,24 +502,30 @@ pub fn set_topmost(hwnd: i64, on: bool) {
 /// harm than good, so End task leaves them alone.
 const NEVER_END: [&str; 8] = ["explorer.exe", "applicationframehost.exe", "dwm.exe", "csrss.exe", "winlogon.exe", "svchost.exe", "lsass.exe", "shellexperiencehost.exe"];
 
+/// Is this program (a path or file name) one of those?
+pub fn never_end(exe: &str) -> bool {
+    NEVER_END.contains(&exe.rsplit('\\').next().unwrap_or("").to_lowercase().as_str())
+}
+
+/// The process behind a window. A Store app's window belongs to a shared host, and the app
+/// itself owns a window inside it.
+pub fn real_pid(hwnd: i64) -> u32 {
+    let h = hw(hwnd as isize);
+    let pid = pid_of(h);
+    if !exe_of(pid).rsplit('\\').next().unwrap_or("").eq_ignore_ascii_case("applicationframehost.exe") {
+        return pid;
+    }
+    let mut kids: Vec<HWND> = Vec::new();
+    unsafe {
+        let _ = EnumChildWindows(Some(h), Some(collect), LPARAM(&mut kids as *mut _ as isize));
+    }
+    kids.into_iter().map(pid_of).find(|&p| p != pid).unwrap_or(pid)
+}
+
 /// Force-closes the program a window belongs to. False when Windows wouldn't let us.
 pub fn end_task(hwnd: i64) -> bool {
-    let h = hw(hwnd as isize);
-    let mut pid = pid_of(h);
-    let is = |pid: u32, name: &str| exe_of(pid).rsplit('\\').next().unwrap_or("").eq_ignore_ascii_case(name);
-    // a Store app's window belongs to a shared host: the app itself owns a window inside it
-    if is(pid, "applicationframehost.exe") {
-        let mut kids: Vec<HWND> = Vec::new();
-        unsafe {
-            let _ = EnumChildWindows(Some(h), Some(collect), LPARAM(&mut kids as *mut _ as isize));
-        }
-        match kids.into_iter().map(pid_of).find(|&p| p != pid) {
-            Some(p) => pid = p,
-            None => return false,
-        }
-    }
-    let name = exe_of(pid).rsplit('\\').next().unwrap_or("").to_lowercase();
-    if pid == 0 || pid == std::process::id() || NEVER_END.contains(&name.as_str()) {
+    let pid = real_pid(hwnd);
+    if pid == 0 || pid == std::process::id() || never_end(&exe_of(pid)) {
         return false;
     }
     unsafe {

@@ -179,6 +179,8 @@
   // Files and Settings are Pink Cloud's own apps, shown with the real File Explorer and Settings icons.
   const FILES_PIN = { name: "Files", path: "pinkcloud:files", exe: "pinkcloud.files", icon: "C:\\Windows\\explorer.exe" };
   const SETTINGS_PIN = { name: "Settings", path: "pinkcloud:settings", exe: "pinkcloud.settings", icon: "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe" };
+  const TASKS_PIN = { name: "Task Manager", path: "pinkcloud:tasks", exe: "pinkcloud.tasks", icon: "C:\\Windows\\System32\\Taskmgr.exe" };
+  const OWN_PINS = { "pinkcloud.files": FILES_PIN, "pinkcloud.settings": SETTINGS_PIN, "pinkcloud.tasks": TASKS_PIN };
   const DEFAULT_PINS = [FILES_PIN, SETTINGS_PIN];
   const upgrade = p => {
     const path = p.path.toLowerCase();
@@ -191,6 +193,7 @@
   const openPath = path =>
     path === "pinkcloud:files" ? invoke("open_files") :
     path === "pinkcloud:settings" ? invoke("open_settings") :
+    path === "pinkcloud:tasks" ? invoke("open_tasks") :
     isExplorer(path) ? invoke("open_explorer") :
     invoke("launch", { path });
   let windows = [];
@@ -214,7 +217,7 @@
   chev.onclick = () => invoke("toggle_popup", { name: "tray" });
 
   // right-click: Task Manager is one click away, as people asked Windows for
-  const TASK_MANAGER = { text: "Task Manager", icon: "ph-chart-line", action: () => invoke("launch", { path: "taskmgr.exe" }) };
+  const TASK_MANAGER = { text: "Task Manager", icon: "ph-chart-line", action: () => invoke("open_tasks") };
   const barMenu = e => {
     e.preventDefault();
     popupMenu([TASK_MANAGER, null,
@@ -335,7 +338,7 @@
     const b = document.createElement("div");
     b.className = "btn ctl new";
     const w0 = g.wins[0];
-    const src = g.pin ? (g.pin.icon || g.pin.path) : w0.app_id ? "shell:AppsFolder\\" + w0.app_id : w0.exe;
+    const src = g.pin ? (g.pin.icon || g.pin.path) : OWN_PINS[w0.app_id] ? OWN_PINS[w0.app_id].icon : w0.app_id ? "shell:AppsFolder\\" + w0.app_id : w0.exe;
     const img = document.createElement("img");
     img.alt = "";
     b.appendChild(img);
@@ -393,6 +396,7 @@
   // reopen as themselves and not as their host browser.
   function pinFor(g) {
     const w = g.wins[0];
+    if (OWN_PINS[w.app_id]) return { ...OWN_PINS[w.app_id] };
     const name = w.exe.split("\\").pop().replace(/\.exe$/i, "") || w.title;
     if (w.app_id) return { name: w.title, path: "shell:AppsFolder\\" + w.app_id, exe: w.app_id.toLowerCase(), icon: "shell:AppsFolder\\" + w.app_id };
     return { name, path: w.exe, exe: w.exe.toLowerCase() };
@@ -518,7 +522,7 @@
   // several windows: pick one from a list. Shift+click always opens a new window.
   function onAppClick(g, b, e) {
     sfx("tap");
-    if (!g.wins.length || (e && e.shiftKey)) { bounce(b); return openPath(g.pin ? g.pin.path : g.wins[0].exe); }
+    if (!g.wins.length || (e && e.shiftKey)) { bounce(b); return openPath(g.pin ? g.pin.path : pinFor(g).path); }
     if (g.wins.length === 1) return invoke("activate_window", { hwnd: g.wins[0].hwnd, minimizeIfActive: g.wins[0].active });
     popupMenu([
       ...g.wins.map(w => ({
@@ -530,7 +534,7 @@
       { text: "New window", icon: "ph-plus-square", action: () => launchNew(g, b) },
     ]);
   }
-  function launchNew(g, b) { if (b) bounce(b); openPath(g.pin ? g.pin.path : g.wins[0].exe); }
+  function launchNew(g, b) { if (b) bounce(b); openPath(g.pin ? g.pin.path : pinFor(g).path); }
 
   function savePins() { store.set("pc-pins", pins); render(); }
   function appMenu(g, b) {
@@ -560,7 +564,7 @@
       text: all > 1 ? `End task (all ${all} windows)` : "End task", icon: "ph-prohibit", danger: true,
       action: async () => {
         const done = await Promise.all(g.wins.map(x => invoke("end_task", { hwnd: x.hwnd })));
-        if (!done.some(Boolean)) invoke("show_card", { card: { title: "Couldn't end that app", body: "It may be running as administrator. Try Task Manager instead.", icon: "ph-warning" } });
+        if (!done.some(Boolean)) invoke("show_card", { card: { title: "Couldn't end that app", body: "It may be running as administrator. Try the Windows Task Manager instead.", icon: "ph-warning" } });
         setTimeout(poll, 200);
       },
     };
@@ -822,7 +826,7 @@
     achieve("theme");
     if (p === "custom") achieve("artist");
     const tried = new Set(store.get("pc-themes-tried", []));
-    if (["pink", "lavender", "mint", "sunset", "cosmos", "grove"].includes(p) && !tried.has(p)) {
+    if (["pink", "lavender", "mint", "sunset", "cosmos", "grove", "bubblegum"].includes(p) && !tried.has(p)) {
       tried.add(p);
       store.set("pc-themes-tried", [...tried]);
       bump("collector");
@@ -873,10 +877,15 @@
   applyMode();
   addEventListener("storage", e => { if (e.key === "pc-vis" || e.key === "pc-hear") applyMode(); });
 
+  const GLOW_SCALE = 10;
+  const glow = document.createElement("canvas"), glowCtx = glow.getContext("2d");
   function fit() {
     const dpr = devicePixelRatio;
     vis.width = Math.round(innerWidth * dpr);
     vis.height = Math.round(innerHeight * dpr);
+    // the glow is the bars drawn tiny and stretched back up, which blurs them for almost nothing
+    glow.width = Math.max(1, Math.round(vis.width / GLOW_SCALE));
+    glow.height = Math.max(1, Math.round(vis.height / GLOW_SCALE));
   }
   fit(); addEventListener("resize", fit);
 
@@ -890,7 +899,7 @@
   function draw() {
     let any = false;
     for (let i = 0; i < BANDS; i++) {
-      level[i] += (target[i] - level[i]) * .35;
+      level[i] += (target[i] - level[i]) * .55;
       any = any || level[i] > .004;
     }
     const W = vis.width, H = vis.height, dpr = devicePixelRatio;
@@ -911,22 +920,33 @@
       const band = k < BANDS ? BANDS - 1 - k : k - BANDS;      // mirrored: bass in the middle
       heights.push(Math.pow(level[band], 1.35) * maxH);
     }
-    // soft glow pass, then crisp bars
-    for (const pass of [0, 1]) {
-      ctx.save();
-      ctx.globalAlpha = pass ? alpha : alpha * .55;
-      if (!pass) ctx.filter = `blur(${10 * dpr}px)`;
-      ctx.fillStyle = grad;
-      ctx.beginPath();
+    const bars = (c, s) => {
+      c.beginPath();
       for (let k = 0; k < n; k++) {
         const h = heights[k];
         if (h < 1) continue;
         const x = k * slot + (slot - bw) / 2;
-        ctx.roundRect(x, H - h, bw, h + bw, bw / 2);
+        if (s === 1) c.roundRect(x, H - h, bw, h + bw, bw / 2);
+        else c.rect(x / s, (H - h) / s, Math.max(1, bw / s), (h + bw) / s);
       }
-      ctx.fill();
-      ctx.restore();
-    }
+      c.fill();
+    };
+    // soft glow, then crisp bars
+    const small = glowCtx.createLinearGradient(0, glow.height, 0, glow.height - maxH / GLOW_SCALE);
+    small.addColorStop(0, themeColors.g2 || "#8cc6e6");
+    small.addColorStop(.55, artRGB ? `rgba(${artRGB.join(",")},1)` : themeColors.g1 || "#f2a6c0");
+    small.addColorStop(1, "rgba(255,255,255,.9)");
+    glowCtx.clearRect(0, 0, glow.width, glow.height);
+    glowCtx.fillStyle = small;
+    bars(glowCtx, GLOW_SCALE);
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = alpha * .7;
+    ctx.drawImage(glow, 0, 0, W, H);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = grad;
+    bars(ctx, 1);
+    ctx.restore();
     // wavy line over the bar tops
     if (mode === "big" || mode === "huge") {
       ctx.save();
@@ -947,7 +967,8 @@
     pulse.style.opacity = Math.min(1, bass * 1.3).toFixed(3);
     if (!start.matches(":hover")) logo.style.transform = `scale(${(1 + bass * .28).toFixed(3)}) rotate(${(bass * 20).toFixed(1)}deg)`;
 
-    if (any) requestAnimationFrame(draw);
+    // about 30 frames a second, as often as the sound levels arrive, whatever the screen's refresh rate
+    if (any) setTimeout(() => requestAnimationFrame(draw), 28);
     else { drawing = false; ctx.clearRect(0, 0, W, H); pulse.style.opacity = 0; logo.style.transform = ""; }
   }
 </script>

@@ -15,7 +15,7 @@ const store = {
 };
 
 // Light/dark: "auto" follows Windows; every screen shares the choice.
-// Color theme ("palette"): pink, lavender, mint, sunset, or cosmos and grove (always dark).
+// Color theme ("palette"): pink, lavender, mint, sunset, bubblegum, or cosmos and grove (always dark).
 const darkQuery = matchMedia("(prefers-color-scheme: dark)");
 const currentPalette = () => store.get("pc-palette", "pink");
 function currentTheme() {
@@ -137,7 +137,7 @@ const ACHIEVEMENTS = [
   ["hello", "Hello, Pink Cloud", "Start Pink Cloud for the first time", "ph-hand-waving", 1],
   ["tour", "Grand tour", "Finish the welcome tour", "ph-map-trifold", 1],
   ["theme", "Fresh coat", "Switch to another color theme", "ph-palette", 1],
-  ["collector", "Collector", "Try every built-in theme", "ph-swatches", 6],
+  ["collector", "Collector", "Try every built-in theme", "ph-swatches", 7],
   ["artist", "Artist", "Use a theme you made yourself", "ph-paint-brush", 1],
   ["dj", "DJ", "Listen to 100 songs", "ph-vinyl-record", 100],
   ["karaoke", "Karaoke star", "Sing along to lyrics in 25 songs", "ph-microphone-stage", 25],
@@ -252,6 +252,50 @@ function glyphPath(cx, cy, s, rnd = Math.random) {
   setInterval(() => { if (Math.random() < .5) spawn(); }, 1800);
 })();
 
+// ---------- Bubblegum sweets ----------
+// The little shapes of the Bubblegum theme (24 x 24), here and on its idle screen.
+const SWEETS = {
+  heart: "M12 21s-8.5-5.3-8.5-11.2A4.8 4.8 0 0 1 12 6.7a4.8 4.8 0 0 1 8.5 3.1C20.5 15.7 12 21 12 21z",
+  sparkle: "M12 2c1 6.2 3.8 9 10 10-6.2 1-9 3.8-10 10-1-6.2-3.8-9-10-10 6.2-1 9-3.8 10-10z",
+  bow: "M10 10.2 3.2 6C2.1 5.3 1 6 1 7.3v9.4c0 1.3 1.1 2 2.2 1.3l6.8-4.2zM14 10.2 20.8 6c1.1-.7 2.2 0 2.2 1.3v9.4c0 1.3-1.1 2-2.2 1.3L14 13.8zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z",
+};
+const SWEET_COLORS = ["#ff8ccb", "#6ec6ff", "#ffb3e0", "#a6dcff"];
+const sweetSvg = (kind, color, size, cls) => `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}"><path d="${SWEETS[kind]}"/></svg>`;
+// In Bubblegum, hearts, sparkles and the odd bow float up somewhere on the panel and fade
+// away. They sit on top but never catch clicks, and stay faint so text reads.
+(function bubblegumSweets() {
+  if (/taskbar|lyrics|toast|idle|overlay/.test(location.pathname)) return;
+  let layer = null;
+  const css = `#pc-sweets { position: fixed; inset: 0; pointer-events: none; z-index: 2147483000; overflow: hidden; }
+    #pc-sweets svg { position: absolute; opacity: 0; filter: drop-shadow(0 0 5px rgba(255, 140, 203, .7)); animation: pc-sweet var(--life) ease-in-out forwards; }
+    @keyframes pc-sweet { 0% { opacity: 0; transform: translateY(14px) scale(.5) rotate(-14deg); }
+      30% { opacity: var(--peak); transform: translateY(0) scale(1) rotate(6deg); } 65% { opacity: var(--peak); }
+      100% { opacity: 0; transform: translateY(-34px) scale(.85) rotate(-8deg); } }`;
+  function spawn() {
+    if (currentPalette() !== "bubblegum" || document.hidden || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const panel = document.querySelector(".popup, .win, .w");
+    if (!panel || !panel.offsetWidth) return;
+    if (!layer) {
+      document.head.append(Object.assign(document.createElement("style"), { textContent: css }));
+      layer = Object.assign(document.createElement("div"), { id: "pc-sweets" });
+      document.body.append(layer);
+    }
+    if (layer.childElementCount >= 5) return;
+    const p = panel.getBoundingClientRect(), left = Math.max(0, p.left), top = Math.max(0, p.top);
+    const W = Math.min(innerWidth, p.right) - left, H = Math.min(innerHeight, p.bottom) - top;
+    if (W < 120 || H < 60) return;
+    const roll = Math.random(), kind = roll < .55 ? "heart" : roll < .9 ? "sparkle" : "bow";
+    const size = (kind === "bow" ? 18 : 10) + Math.random() * 12, life = 4 + Math.random() * 3;
+    layer.insertAdjacentHTML("beforeend", sweetSvg(kind, SWEET_COLORS[Math.floor(Math.random() * 4)], size, ""));
+    const el = layer.lastElementChild;
+    Object.assign(el.style, { left: left + 8 + Math.random() * Math.max(0, W - size - 16) + "px", top: top + 30 + Math.random() * Math.max(0, H - size - 40) + "px" });
+    el.style.setProperty("--life", life + "s");
+    el.style.setProperty("--peak", (.4 + Math.random() * .25).toFixed(2));
+    setTimeout(() => el.remove(), life * 1000 + 100);
+  }
+  setInterval(() => { if (Math.random() < .6) spawn(); }, 1300);
+})();
+
 // ---------- sound effects: tiny synthesized pops and chimes (no sound files) ----------
 let audioCtx = null;
 const SOUNDS = {
@@ -322,6 +366,10 @@ function closeAppWindow(el, tauriWindow) {
   el.classList.remove("opening"); el.classList.add("closing");
   setTimeout(() => { tauriWindow.hide(); el.classList.remove("closing"); }, 320);
 }
+
+// Screens that are only built when needed say when they've loaded, and then get opened.
+// The short wait lets their event listeners finish registering.
+const announceReady = () => setTimeout(() => invoke("screen_ready"), 80);
 
 // Stagger index for cascading entrances.
 function stagger(root) {

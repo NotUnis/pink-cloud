@@ -10,6 +10,7 @@ mod keys;
 mod media;
 mod mixer;
 mod notify;
+mod procs;
 mod safe;
 mod shell;
 mod tray;
@@ -193,7 +194,8 @@ fn switcher_open(app: &AppHandle, sw: &mut Switcher, back: bool) {
     }
     const CARD_W: f64 = 250.0;
     const CARD_H: f64 = 186.0;
-    const PAD: f64 = 22.0;
+    const PAD: f64 = 14.0;
+    const TITLE: f64 = 42.0; // the title bar, like Pink Cloud's other windows
     const TOP: f64 = 36.0;
     const AREA_W: f64 = 230.0;
     const AREA_H: f64 = 136.0;
@@ -201,20 +203,21 @@ fn switcher_open(app: &AppHandle, sw: &mut Switcher, back: bool) {
     let max_cols = (((w as f64 / sf) * 0.86 - PAD * 2.0) / CARD_W).floor().max(1.0) as usize;
     let cols = wins.len().min(max_cols);
     let rows = (wins.len() + cols - 1) / cols;
-    let (ww, wh) = (cols as f64 * CARD_W + PAD * 2.0, rows as f64 * CARD_H + PAD * 2.0);
+    // cards are 8 narrower and shorter than their slot, which leaves the gap between them
+    let (ww, wh) = (cols as f64 * CARD_W + PAD * 2.0 - 8.0, TITLE + rows as f64 * CARD_H + PAD - 8.0);
     let _ = win.set_size(PhysicalSize::new((ww * sf) as u32, (wh * sf) as u32));
     let _ = win.set_position(PhysicalPosition::new(x + (w - (ww * sf) as i32) / 2, y + (h - (wh * sf) as i32) / 2));
     let _ = win.show();
 
     let mut cards = Vec::new();
     for (i, wi) in wins.iter().enumerate() {
-        let (cx, cy) = (PAD + (i % cols) as f64 * CARD_W, PAD + (i / cols) as f64 * CARD_H);
+        let (cx, cy) = (PAD + (i % cols) as f64 * CARD_W, TITLE + (i / cols) as f64 * CARD_H);
         let mut live = false;
         if !wi.minimized {
             if let Some((t, sw_, sh)) = shell::thumbnail(hwnd(&win), wi.hwnd) {
                 let scale = (AREA_W / sw_.max(1) as f64).min(AREA_H / sh.max(1) as f64) * sf;
                 let (tw, th) = ((sw_ as f64 * scale) as i32, (sh as f64 * scale) as i32);
-                let ax = ((cx + 10.0) * sf) as i32 + ((AREA_W * sf) as i32 - tw) / 2;
+                let ax = ((cx + 6.0) * sf) as i32 + ((AREA_W * sf) as i32 - tw) / 2;
                 let ay = ((cy + TOP) * sf) as i32 + ((AREA_H * sf) as i32 - th) / 2;
                 shell::place_thumbnail(t, ax, ay, ax + tw, ay + th);
                 sw.thumbs.push(t);
@@ -482,7 +485,7 @@ fn set_shortcuts(search: bool, overlay: bool, files: bool) {
 /// and volume. It never takes focus, so the game keeps your keyboard and mouse.
 #[tauri::command]
 fn toggle_overlay(app: AppHandle) {
-    let Some(win) = window_or_rebuild(&app, "overlay") else { return };
+    let Some(win) = on_demand(&app, "overlay") else { return };
     if win.is_visible().unwrap_or(false) {
         let _ = app.emit_to("overlay", "overlay-close", ());
         return;
@@ -552,7 +555,7 @@ async fn set_hide_banners(state: State<'_, AppState>, on: bool) -> Result<(), ()
 /// Shows the idle screen over everything (also from the Start menu's power panel).
 #[tauri::command]
 fn show_idle(app: AppHandle) {
-    let Some(w) = app.get_webview_window("idle") else { return };
+    let Some(w) = on_demand(&app, "idle") else { return };
     if w.is_visible().unwrap_or(false) {
         return;
     }
@@ -571,6 +574,11 @@ fn show_idle(app: AppHandle) {
 fn hide_idle(app: AppHandle) {
     if let Some(w) = app.get_webview_window("idle") {
         let _ = w.hide();
+        // it's only needed while you're away, so its memory is given back
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(300));
+            let _ = w.destroy();
+        });
     }
     if let Some(h) = app.state::<AppState>().before_idle.lock().unwrap().take() {
         shell::activate(h, false);
@@ -592,7 +600,7 @@ fn idle_watcher(app: AppHandle) {
             continue;
         }
         // not over a video, a presentation or a fullscreen game
-        let showing = app.get_webview_window("idle").and_then(|w| w.is_visible().ok()).unwrap_or(true);
+        let showing = visible(&app, "idle");
         if !showing && !shell::screen_kept_on() && !shell::foreground_is_fullscreen(pid) {
             show_idle(app.clone());
         }
@@ -741,6 +749,30 @@ fn set_topmost(hwnd: i64, on: bool) {
     shell::set_topmost(hwnd, on);
 }
 
+// ---------- Task Manager ----------
+
+#[tauri::command]
+async fn list_tasks() -> procs::Tasks {
+    procs::list()
+}
+
+#[tauri::command]
+async fn end_app(key: String) -> bool {
+    procs::end_app(&key)
+}
+
+/// Brings up Pink Cloud's Task Manager.
+#[tauri::command]
+fn open_tasks(app: AppHandle) {
+    let Some(win) = on_demand(&app, "tasks") else { return };
+    if win.is_minimized().unwrap_or(false) {
+        let _ = win.unminimize();
+    }
+    let _ = win.show();
+    let _ = win.set_focus();
+    let _ = app.emit_to("tasks", "tasks-open", ());
+}
+
 // ---------- volume for each app ----------
 
 #[tauri::command]
@@ -870,7 +902,7 @@ fn first_run() -> bool {
 
 #[tauri::command]
 fn open_tour(app: AppHandle) {
-    let Some(win) = window_or_rebuild(&app, "tour") else { return };
+    let Some(win) = on_demand(&app, "tour") else { return };
     let _ = win.center();
     let _ = win.show();
     let _ = win.set_focus();
@@ -910,16 +942,15 @@ fn power(action: String) {
 /// Every screen asks when it loads, so the same tint twice in a row is skipped.
 #[tauri::command]
 fn set_tint(app: AppHandle, rgba: [u8; 4]) {
-    static LAST: Mutex<Option<[u8; 4]>> = Mutex::new(None);
     {
-        let mut last = LAST.lock().unwrap();
+        let mut last = TINT.lock().unwrap();
         if *last == Some(rgba) {
             return;
         }
         *last = Some(rgba);
     }
     let color = Color(rgba[0], rgba[1], rgba[2], rgba[3]);
-    for p in POPUPS.iter().chain(&["menu", "files", "preview", "switcher", "settings"]) {
+    for p in POPUPS.iter().chain(&["menu", "files", "preview", "switcher", "settings", "tasks"]) {
         if let Some(w) = app.get_webview_window(p) {
             let _ = w.set_effects(EffectsBuilder::new().effect(Effect::Acrylic).color(color).build());
         }
@@ -1144,6 +1175,93 @@ fn window_or_rebuild(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
     let w = tauri::WebviewWindowBuilder::from_config(app, &conf).ok()?.build().ok()?;
     shell::round_corners(hwnd(&w));
     Some(w)
+}
+
+/// Windows being built on demand, waiting for their page to say it's ready.
+static LOADING: Mutex<Vec<String>> = Mutex::new(Vec::new());
+/// The last tint the frosted glass got (see set_tint).
+static TINT: Mutex<Option<[u8; 4]>> = Mutex::new(None);
+
+/// A rarely used screen, which only exists once it's needed so it costs nothing until then.
+/// The first time this returns None and builds it in the background (building a window from
+/// a command can hang on Windows); its page calls screen_ready when loaded, which opens it.
+fn on_demand(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
+    if let Some(w) = app.get_webview_window(label) {
+        return Some(w);
+    }
+    {
+        let mut loading = LOADING.lock().unwrap();
+        if loading.iter().any(|l| l == label) {
+            return None;
+        }
+        loading.push(label.to_string());
+    }
+    let (app, label) = (app.clone(), label.to_string());
+    std::thread::spawn(move || {
+        let built = app.config().app.windows.iter().find(|w| w.label == label).cloned().and_then(|conf| tauri::WebviewWindowBuilder::from_config(&app, &conf).ok()?.build().ok());
+        match built {
+            Some(w) if label == "tasks" || label == "tour" => shell::round_corners(hwnd(&w)),
+            Some(_) => {}
+            None => LOADING.lock().unwrap().retain(|l| *l != label),
+        }
+    });
+    None
+}
+
+/// Opens each on-demand screen, logs how long it took, and puts it away again. The idle screen
+/// goes twice, because it's thrown away when you come back and has to build again.
+fn try_screens(app: AppHandle) {
+    std::thread::sleep(Duration::from_secs(8));
+    for label in ["tasks", "overlay", "tour", "idle", "idle"] {
+        let started = Instant::now();
+        match label {
+            "tasks" => open_tasks(app.clone()),
+            "overlay" => toggle_overlay(app.clone()),
+            "tour" => open_tour(app.clone()),
+            _ => show_idle(app.clone()),
+        }
+        while !visible(&app, label) && started.elapsed() < Duration::from_secs(10) {
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        safe::log(&format!("screen check: {label} {} after {} ms", if visible(&app, label) { "opened" } else { "DID NOT OPEN" }, started.elapsed().as_millis()));
+        std::thread::sleep(Duration::from_millis(2500));
+        match label {
+            "idle" => hide_idle(app.clone()),
+            _ => {
+                if let Some(w) = app.get_webview_window(label) {
+                    let _ = w.hide();
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(1500));
+    }
+    safe::log("screen check: done");
+}
+
+/// An on-demand screen finished loading: now it can open.
+#[tauri::command]
+fn screen_ready(app: AppHandle, window: WebviewWindow) {
+    let label = window.label().to_string();
+    {
+        let mut loading = LOADING.lock().unwrap();
+        if !loading.iter().any(|l| *l == label) {
+            return;
+        }
+        loading.retain(|l| *l != label);
+    }
+    match label.as_str() {
+        "tasks" => {
+            // it missed the tint the other screens got when the theme was set
+            if let Some(c) = *TINT.lock().unwrap() {
+                let _ = window.set_effects(EffectsBuilder::new().effect(Effect::Acrylic).color(Color(c[0], c[1], c[2], c[3])).build());
+            }
+            open_tasks(app);
+        }
+        "tour" => open_tour(app),
+        "overlay" => toggle_overlay(app),
+        "idle" => show_idle(app),
+        _ => {}
+    }
 }
 
 /// Brings up Pink Cloud Files, optionally at a folder.
@@ -1408,6 +1526,16 @@ fn main() {
         println!("still there: {}", find().is_some());
         return;
     }
+    // Developer check: `pink-cloud --tasks-test` prints what the Task Manager sees.
+    if args.get(1).map(String::as_str) == Some("--tasks-test") {
+        // with a program's path after it, also tries to end that program
+        if let Some(key) = args.get(2) {
+            println!("end {key}: {}", procs::end_app(&key.to_lowercase()));
+        } else {
+            procs::self_test();
+        }
+        return;
+    }
     // Developer check: `pink-cloud --mixer-test` prints the apps with sound open.
     if args.get(1).map(String::as_str) == Some("--mixer-test") {
         for a in mixer::apps() {
@@ -1489,6 +1617,10 @@ fn main() {
             activate_window,
             close_window,
             end_task,
+            screen_ready,
+            list_tasks,
+            end_app,
+            open_tasks,
             set_topmost,
             audio_apps,
             set_app_volume,
@@ -1576,7 +1708,7 @@ fn main() {
             quit
         ])
         .setup(move |app| {
-            for p in POPUPS.iter().chain(&["menu", "files", "settings", "tour"]) {
+            for p in POPUPS.iter().chain(&["menu", "files", "settings", "tasks", "tour", "switcher"]) {
                 if let Some(w) = app.get_webview_window(p) {
                     shell::round_corners(hwnd(&w));
                 }
@@ -1585,6 +1717,13 @@ fn main() {
             shell::no_activate(hwnd(&bar));
             shell::unregister_appbar(hwnd(&bar));
             place_taskbar(app.handle());
+            // Developer check: with this file in the temp folder, opens every on-demand screen
+            // once when Pink Cloud starts and logs whether it came up (the file is removed first).
+            let check = std::env::temp_dir().join("PinkCloud-try-screens.txt");
+            if std::fs::remove_file(&check).is_ok() {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || try_screens(handle));
+            }
             if !preview() {
                 safe::start(&app.package_info().version.to_string());
                 discord::start();
@@ -1650,7 +1789,9 @@ fn main() {
             let handle = app.handle().clone();
             audio::start(move |levels| {
                 let _ = handle.emit_to("taskbar", "audio", levels.clone());
-                let _ = handle.emit_to("idle", "audio", levels);
+                if visible(&handle, "idle") {
+                    let _ = handle.emit_to("idle", "audio", levels);
+                }
             });
             let handle = app.handle().clone();
             media::watch(move |np| {

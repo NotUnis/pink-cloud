@@ -31,6 +31,7 @@ Uninstall it like any app: Windows Settings → Apps → Installed apps → Pink
 | | |
 |---|---|
 | 🧁 **Taskbar** | See-through and always there; clicks on its empty parts go through. A light glides under the app you're using; drag apps to reorder them. |
+| 📊 **Task Manager** | Pink Cloud's own: live CPU and memory, apps grouped with their helpers, sorting, search and End task. The Windows one is a click away. |
 | 🖱️ **Right-click the taskbar** | Task Manager, keep a window on top, and End task for stuck apps. Optional app names, with a button for every window (Settings → Look and feel). |
 | 🎵 **Now Playing** | Album art that spins like a record, song, artist and controls, for Spotify, YouTube and anything else that plays. |
 | 🌈 **Music visualizer** | Bars that dance to whatever's playing, tinted by the album art. |
@@ -48,7 +49,7 @@ Uninstall it like any app: Windows Settings → Apps → Installed apps → Pink
 | 🌙 **Idle screen** | Step away and a dreamy clock with your song fades in. Never over videos or games. |
 | 🗂️ **Files** | Tabs, one-click sorting remembered per folder (with groups like *Today* and *Yesterday*), Quick Look (Space), drag to move, box select, pinned folders. Folders you open anywhere (and Win+E) open here. |
 | ⚙️ **Settings** | Every Pink Cloud option, plus shortcuts to every Windows settings page. |
-| 🎨 **Themes** | Pink Cloud, Lavender, Mint, Sunset, **Cosmos** 🌌 and **Grove** 🌿 (forest light and glowing jade glyphs), a theme that matches **your wallpaper** (Wallpaper Engine too) or the song's cover, and **your own colors** with a code to share. Each in light and dark. |
+| 🎨 **Themes** | Pink Cloud, Lavender, Mint, Sunset, **Cosmos** 🌌 and **Grove** 🌿 (forest light and glowing jade glyphs), **Bubblegum** 🎀 (candy stripes and floating hearts), a theme that matches **your wallpaper** (Wallpaper Engine too) or the song's cover, and **your own colors** with a code to share. Each in light and dark. |
 | 🔊 **Sounds** | Soft pops and chimes when things open and notifications arrive (switch off in Settings). |
 | 🎯 **Focus mode** | Notifications wait, lyrics step aside and the taskbar counts down your session (15 min to an hour, or no timer). In quick settings and quick search. |
 | 🏆 **Achievements** | 19 to collect as you use Pink Cloud, including a secret one. See them in Settings. |

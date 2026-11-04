@@ -9,12 +9,13 @@
      whole screen but clicks go straight through it. */
   body { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; transition: opacity .5s; }
   body.hidden { opacity: 0; }
+  body.hidden .ch { animation-play-state: paused; }
   /* a line is one or more rows: long lines are split between words into balanced rows */
   .line { position: absolute; padding: 6px 14px; text-align: center; line-height: 1.15;
-    font-weight: 800; letter-spacing: -.3px; transform-origin: 50% 50%; will-change: transform, opacity, filter; }
+    font-weight: 800; letter-spacing: -.3px; transform-origin: 50% 50%; will-change: transform, opacity; }
   .row { display: block; white-space: nowrap; padding-bottom: .12em; }
   .line.cur {
-    filter: drop-shadow(0 2px 2px rgba(40, 20, 50, .85)) drop-shadow(0 0 16px color-mix(in srgb, var(--g1) 80%, transparent)) drop-shadow(0 0 30px color-mix(in srgb, var(--g2) 50%, transparent));
+    filter: drop-shadow(0 2px 2px rgba(40, 20, 50, .85)) drop-shadow(0 0 16px color-mix(in srgb, var(--g1) 80%, transparent));
     animation: popLine .65s var(--spring) both; }
   /* every letter rides a gentle wave, and lights up when it's sung: pink-white once sung,
      ice blue right where the singing is, soft white still to come */
@@ -387,7 +388,8 @@
       }
     }
   }
-  (function loop() { update(); requestAnimationFrame(loop); })();
+  // about 15 checks a second while lyrics show (letters light up ~10 a second), few otherwise
+  (function loop() { update(); setTimeout(loop, document.body.classList.contains("hidden") ? 250 : 66); })();
 
   function applyEnabled() {
     enabled = store.get("pc-lyrics", true);

@@ -64,6 +64,32 @@
     filter: drop-shadow(0 0 6px #3ff0c0) drop-shadow(0 0 16px rgba(63, 240, 192, .5)); }
   @keyframes glyph-fade { 0% { opacity: 0; filter: blur(3px) drop-shadow(0 0 6px #3ff0c0); } 30%, 70% { opacity: .65; } 100% { opacity: 0; filter: blur(3px) drop-shadow(0 0 6px #3ff0c0); } }
 
+  /* Bubblegum: candy stripes drifting across the sky, hearts and sparkles floating up, big
+     hearts popping in at the sides, and a ring of hearts turning slowly behind the clock */
+  .stripes, .sweet, .hearts { display: none; }
+  :root[data-palette="bubblegum"] .stripes, :root[data-palette="bubblegum"] .sweet, :root[data-palette="bubblegum"] .hearts { display: block; }
+  :root[data-palette="bubblegum"] .spark { box-shadow: 0 0 8px #ffb3e0, 0 0 14px #a6dcff; }
+  :root[data-palette="bubblegum"] .cloud { filter: blur(22px); background: radial-gradient(closest-side, rgba(255, 150, 215, .42), transparent); }
+  :root[data-palette="bubblegum"] .c2, :root[data-palette="bubblegum"] .c4 { background: radial-gradient(closest-side, rgba(120, 200, 255, .42), transparent); }
+  :root[data-palette="bubblegum"] .center { text-shadow: 0 4px 24px rgba(150, 40, 130, .4); }
+  :root[data-palette="bubblegum"] .time { animation: breathe 6s ease-in-out infinite, candy 8s ease-in-out infinite; }
+  @keyframes candy { 0%, 100% { text-shadow: 0 0 36px rgba(255, 79, 168, .75), 0 4px 24px rgba(150, 40, 130, .4); } 50% { text-shadow: 0 0 36px rgba(70, 170, 255, .75), 0 4px 24px rgba(40, 80, 160, .4); } }
+  .stripes { position: absolute; left: -20vmax; top: -20vmax; width: calc(100vw + 60vmax); height: calc(100vh + 60vmax); pointer-events: none; opacity: .13;
+    background: repeating-linear-gradient(135deg, #fff 0 44px, transparent 44px 88px, #ff8ccb 88px 132px, transparent 132px 176px);
+    animation: candyDrift 40s linear infinite; }
+  :root[data-theme="dark"] .stripes { opacity: .07; }
+  /* 248.9px sideways is one whole stripe pattern at this angle, so the loop doesn't show */
+  @keyframes candyDrift { to { transform: translateX(248.9px); } }
+  .sweet { position: absolute; pointer-events: none; opacity: 0; filter: drop-shadow(0 0 8px rgba(255, 255, 255, .55)); animation: sweetRise linear infinite; }
+  @keyframes sweetRise { 0% { opacity: 0; transform: translate(0, 0) rotate(-14deg); } 12% { opacity: .85; } 50% { transform: translate(34px, -45vh) rotate(12deg); } 85% { opacity: .7; } 100% { opacity: 0; transform: translate(-16px, -90vh) rotate(-10deg); } }
+  .hearts { position: absolute; left: 50%; top: 50%; width: 760px; height: 760px; margin: -400px 0 0 -380px; pointer-events: none; opacity: .75;
+    filter: drop-shadow(0 0 10px rgba(255, 140, 203, .7)); animation: spin 150s linear infinite; }
+  .hearts .in { animation: spin 100s linear infinite reverse; transform-origin: 380px 380px; }
+  .hearts .beat { animation: beat 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes beat { 0%, 100% { transform: scale(1); opacity: .9; } 14% { transform: scale(1.35); opacity: 1; } 28% { transform: scale(1); } 42% { transform: scale(1.2); opacity: 1; } 60% { transform: scale(1); opacity: .55; } }
+  .pop { position: absolute; pointer-events: none; opacity: 0; filter: drop-shadow(0 0 16px rgba(255, 255, 255, .7)); animation: pop 6s var(--ease) forwards; }
+  @keyframes pop { 0% { opacity: 0; transform: scale(.2) rotate(-24deg); } 18% { opacity: .85; transform: scale(1.12) rotate(6deg); } 28% { transform: scale(1) rotate(0); } 70% { opacity: .75; transform: translateY(-16px); } 100% { opacity: 0; transform: translateY(-46px) scale(.9); } }
+
   .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
     text-shadow: 0 4px 24px rgba(120, 60, 120, .35); }
   .time { font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; font-size: 190px; font-weight: 600; letter-spacing: -6px; line-height: 1; font-variant-numeric: tabular-nums;
@@ -160,6 +186,35 @@
     setTimeout(() => el.remove(), life * 1000 + 100);
   }, 2600);
 
+  // Bubblegum: stripes, floating sweets and the ring of hearts (only shown in that theme)
+  document.body.insertAdjacentHTML("afterbegin", `<div class="stripes"></div>`);
+  for (let i = 0; i < 34; i++) {
+    const kind = Math.random() < .65 ? "heart" : "sparkle", size = 12 + Math.random() * 22;
+    document.body.insertAdjacentHTML("afterbegin", sweetSvg(kind, SWEET_COLORS[i % 4], size, "sweet"));
+    Object.assign(document.body.firstElementChild.style, { left: Math.random() * 100 + "vw", top: 70 + Math.random() * 40 + "vh",
+      animationDuration: 11 + Math.random() * 13 + "s", animationDelay: -Math.random() * 24 + "s" });
+  }
+  (function heartRing() {
+    const C = 380, band = (r, n, kind, size, rot) => {
+      let d = "";
+      for (let i = 0; i < n; i++) {
+        const deg = (i / n) * 360 + rot, s = size / 24;
+        d += `<g transform="rotate(${deg} ${C} ${C}) translate(${C - size / 2} ${C - r - size / 2}) scale(${s})"><path class="beat" fill="${SWEET_COLORS[i % 4]}" style="animation-delay:${(-(i / n) * 3.2).toFixed(2)}s" d="${SWEETS[kind]}"/></g>`;
+      }
+      return d;
+    };
+    document.body.insertAdjacentHTML("afterbegin", `<svg class="hearts" viewBox="0 0 760 760">${band(350, 28, "heart", 26, 0)}<g class="in">${band(298, 20, "sparkle", 18, 4)}</g></svg>`);
+  })();
+  // ...and a big heart or bow pops in at the side now and then, away from the clock
+  setInterval(() => {
+    if (currentPalette() !== "bubblegum" || !document.body.classList.contains("on") || Math.random() < .3) return;
+    const kind = Math.random() < .75 ? "heart" : "bow", size = 60 + Math.random() * 70;
+    document.body.insertAdjacentHTML("afterbegin", sweetSvg(kind, SWEET_COLORS[Math.floor(Math.random() * 4)], size, "pop"));
+    const el = document.body.firstElementChild;
+    Object.assign(el.style, { left: (Math.random() < .5 ? 3 + Math.random() * 17 : 76 + Math.random() * 16) + "vw", top: 8 + Math.random() * 60 + "vh" });
+    setTimeout(() => el.remove(), 6100);
+  }, 2400);
+
   // Cosmos: a shooting star every few seconds
   setInterval(() => {
     if (currentPalette() !== "cosmos" || !document.body.classList.contains("on") || Math.random() < .4) return;
@@ -240,6 +295,7 @@
   addEventListener("mousedown", leave);
   addEventListener("keydown", leave);
   addEventListener("wheel", leave);
+  announceReady();
 </script>
 </body>
 </html>

@@ -115,6 +115,7 @@
     "ms-settings:": "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
     "pinkcloud:settings": "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
     "pinkcloud:files": "C:\\Windows\\explorer.exe",
+    "pinkcloud:tasks": "C:\\Windows\\System32\\Taskmgr.exe",
   };
   function iconEl(app) {
     const img = document.createElement("img");
@@ -227,6 +228,7 @@
   function open(app) {
     if (app.path === "pinkcloud:files") invoke("open_files");
     else if (app.path === "pinkcloud:settings") invoke("open_settings");
+    else if (app.path === "pinkcloud:tasks") invoke("open_tasks");
     else if (isExplorer(app.path, app.exe)) invoke("open_explorer");
     else invoke("launch", { path: app.path });
     invoke("popup_blurred", { name: "start" });
@@ -249,7 +251,7 @@
           ];
           // Store apps and web apps match their open windows by app ID
           const id = app.path.toLowerCase().startsWith("shell:appsfolder\\") ? app.path.slice(17).toLowerCase() : "";
-          const own = { "pinkcloud:files": "pinkcloud.files", "pinkcloud:settings": "pinkcloud.settings" }[app.path];
+          const own = { "pinkcloud:files": "pinkcloud.files", "pinkcloud:settings": "pinkcloud.settings", "pinkcloud:tasks": "pinkcloud.tasks" }[app.path];
           if (!list.some(p => p.path === app.path)) list.push({ name: app.name, path: app.path, exe: own || app.exe || id, icon: ICON_OF[app.path] || app.path });
           store.set("pc-pins", list);
         } },
@@ -310,7 +312,7 @@
     apps = await invoke("list_apps");
     // "Settings" is Pink Cloud Settings; the Windows one stays available as "Windows Settings"
     apps = apps.map(a => a.path === "ms-settings:" ? { ...a, name: "Windows Settings" } : a);
-    apps.unshift({ name: "Files", path: "pinkcloud:files", exe: "" }, { name: "Settings", path: "pinkcloud:settings", exe: "" });
+    apps.unshift({ name: "Files", path: "pinkcloud:files", exe: "" }, { name: "Settings", path: "pinkcloud:settings", exe: "" }, { name: "Task Manager", path: "pinkcloud:tasks", exe: "" });
     render();
   }
   async function loadRecent() {

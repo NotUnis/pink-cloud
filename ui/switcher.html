@@ -7,16 +7,21 @@
 <style>
   /* Alt+Tab: every window as a live view (drawn by Windows in each card's empty area),
      and a glowing ring that springs to the one you're about to pick. */
-  .popup { --ox: 50%; --oy: 50%; background: var(--panel); border-radius: 22px; }
-  .card { position: absolute; border-radius: 16px; cursor: pointer; transition: background .15s; }
+  .popup { --ox: 50%; --oy: 50%; background: var(--panel); border-radius: 10px; }
+  /* looks like Settings, Files and Task Manager: a title bar on top, framed cards below */
+  .bar { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px 0 14px; font-weight: 600; font-size: 13px; }
+  .bar i { font-size: 18px; color: var(--ice-strong); }
+  .bar span { margin-left: auto; min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 400; color: var(--text-2); }
+  .card { position: absolute; border-radius: 14px; cursor: pointer; background: var(--hi); border: 1px solid var(--border); transition: background .15s; }
   .card:hover { background: var(--panel-hover); }
   .head { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; }
   .head img { width: 18px; height: 18px; flex-shrink: 0; }
+  img:not([src]) { visibility: hidden; }
   .head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
   .asleep { position: absolute; left: 0; right: 0; top: 34px; bottom: 10px; display: grid; place-items: center; color: var(--text-2); font-size: 12px; text-align: center; }
   .asleep img { width: 56px; height: 56px; display: block; margin: 0 auto 6px; opacity: .8; }
   .asleep img.snap { width: auto; height: auto; max-width: calc(100% - 20px); max-height: 100%; margin: 0; border-radius: 8px; opacity: 1; }
-  .ring { position: absolute; border-radius: 18px; pointer-events: none; z-index: 2;
+  .ring { position: absolute; left: 0; top: 0; border-radius: 16px; pointer-events: none; z-index: 2;
     box-shadow: 0 0 0 3px var(--ice-strong), 0 0 24px 4px color-mix(in srgb, var(--g2) 75%, transparent), 0 0 50px 10px color-mix(in srgb, var(--g1) 35%, transparent);
     transition: transform .42s var(--spring), width .3s var(--spring), height .3s var(--spring); }
   @keyframes ringPulse { 0%, 100% { opacity: 1; } 50% { opacity: .75; } }
@@ -25,7 +30,7 @@
 </style>
 </head>
 <body>
-<div class="popup" id="panel"></div>
+<div class="popup" id="panel"><div class="bar"><i class="ph-fill ph-squares-four"></i>Switch window<span id="picked"></span></div><div id="grid"></div></div>
 
 <script src="shared.js"></script>
 <script>
@@ -35,10 +40,11 @@
     const c = cards[i];
     if (!c || !ring) return;
     ring.style.transform = `translate(${c.x - 2}px, ${c.y - 2}px)`;
+    picked.textContent = c.title;
   }
 
   listen("switcher", ({ payload }) => {
-    panel.innerHTML = "";
+    grid.innerHTML = "";
     cards = payload.cards;
     cards.forEach((c, i) => {
       const el = document.createElement("div");
@@ -61,12 +67,12 @@
           .then(u => { if (u) el.querySelector(".asleep img").src = u; });
       }
       el.onclick = () => invoke("switcher_pick", { index: i });
-      panel.appendChild(el);
+      grid.appendChild(el);
     });
     ring = document.createElement("div");
     ring.className = "ring";
     Object.assign(ring.style, { width: payload.w + 4 + "px", height: payload.h + 4 + "px", transition: "none" });
-    panel.appendChild(ring);
+    grid.appendChild(ring);
     moveRing(payload.selected);
     requestAnimationFrame(() => ring && (ring.style.transition = ""));
     panel.classList.remove("open"); void panel.offsetWidth; panel.classList.add("open");

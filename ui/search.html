@@ -67,7 +67,7 @@
     ["Notifications", "ms-settings:notifications", "ph-bell"], ["Accounts", "ms-settings:yourinfo", "ph-user-circle"], ["Privacy & security", "ms-settings:privacy", "ph-shield-check"],
     ["Date & time", "ms-settings:dateandtime", "ph-clock"], ["Language & region", "ms-settings:regionlanguage", "ph-translate"], ["Graphics", "ms-settings:display-advancedgraphics", "ph-cpu"],
     ["Printers & scanners", "ms-settings:printers", "ph-printer"], ["Startup apps", "ms-settings:startupapps", "ph-rocket-launch"], ["VPN", "ms-settings:network-vpn", "ph-lock-key"],
-    ["About this PC", "ms-settings:about", "ph-info"], ["Task Manager", "taskmgr.exe", "ph-chart-line"], ["Control Panel", "control.exe", "ph-sliders"],
+    ["About this PC", "ms-settings:about", "ph-info"], ["Windows Task Manager", "taskmgr.exe", "ph-chart-line"], ["Control Panel", "control.exe", "ph-sliders"],
   ];
   const ACTIONS = [
     ["Pink Cloud Settings", () => invoke("open_settings"), "ph-gear-six", "settings preferences pink cloud"],
@@ -81,7 +81,7 @@
     ["Recycle Bin", () => invoke("launch", { path: "shell:RecycleBinFolder" }), "ph-trash", "recycle bin trash"],
     ["Game overlay", () => invoke("toggle_overlay"), "ph-game-controller", "game overlay"],
     ["Idle screen", () => invoke("show_idle"), "ph-moon-stars", "idle screensaver"],
-    ...["pink", "lavender", "mint", "sunset", "cosmos", "grove", "wallpaper", "custom"].map(p => [
+    ...["pink", "lavender", "mint", "sunset", "cosmos", "grove", "bubblegum", "wallpaper", "custom"].map(p => [
       `Theme: ${p[0].toUpperCase() + p.slice(1)}`, () => store.set("pc-palette", p), "ph-palette", "theme color colour " + p]),
     ["Start focus", () => startFocus(), "ph-target", "focus concentrate study work pomodoro timer"],
     ["End focus", () => stopFocus(false), "ph-target", "focus stop end"],
@@ -225,6 +225,7 @@
   function openApp(a) {
     if (a.path === "pinkcloud:files") invoke("open_files");
     else if (a.path === "pinkcloud:settings") invoke("open_settings");
+    else if (a.path === "pinkcloud:tasks") invoke("open_tasks");
     else if (isExplorer(a.path, a.exe)) invoke("open_explorer");
     else invoke("launch", { path: a.path });
   }
@@ -322,7 +323,7 @@
 
   async function loadApps() {
     apps = (await invoke("list_apps")).map(a => a.path === "ms-settings:" ? { ...a, name: "Windows Settings", icon: "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe" } : a);
-    apps.unshift({ name: "Files", path: "pinkcloud:files", icon: "C:\\Windows\\explorer.exe" }, { name: "Settings", path: "pinkcloud:settings", icon: "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe" });
+    apps.unshift({ name: "Files", path: "pinkcloud:files", icon: "C:\\Windows\\explorer.exe" }, { name: "Settings", path: "pinkcloud:settings", icon: "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe" }, { name: "Task Manager", path: "pinkcloud:tasks", icon: "C:\\Windows\\System32\\Taskmgr.exe" });
   }
   loadApps();
 

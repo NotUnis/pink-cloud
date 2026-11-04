@@ -2,7 +2,7 @@
 @import url("vendor/phosphor/fill/style.css");
 
 /* Color themes. Every screen is colored from these variables, so switching theme
-   (data-palette on the root: pink, lavender, mint, sunset, cosmos, grove) recolors everything.
+   (data-palette on the root: pink, lavender, mint, sunset, cosmos, grove, bubblegum) recolors everything.
    --g1 / --g2 are the theme's two signature colors (gradients, visualizer, glows), --g3 a hot
    accent, --pink / --ice the soft fills and selection, --sky the idle screen, and --tint the
    frosted glass behind popups ("r, g, b, a"). The popups sit on real Windows acrylic, so panel
@@ -162,6 +162,38 @@
     linear-gradient(110deg, transparent 66%, rgba(230, 255, 160, .05) 69%, transparent 74%),
     linear-gradient(120deg, transparent 38%, rgba(63, 240, 192, .04) 41%, transparent 45%),
     radial-gradient(80% 60% at 85% 0%, rgba(243, 221, 114, .08), transparent 70%);
+}
+
+/* Bubblegum: hot pink and baby blue, candy stripes, and hearts, sparkles and bows that float
+   up and fade away (light or dark). */
+:root[data-palette="bubblegum"] {
+  --panel: rgba(255, 234, 247, .58); --panel-hover: rgba(255, 170, 218, .42);
+  --pink: #ffc6e5; --pink-deep: #ff9fd3; --ice: #d4eeff; --ice-strong: #d9428f; --ice-hover: #c2337c;
+  --on-ice: #fff; --text: #3a1f4d; --text-2: #6d4a80; --border: rgba(255, 150, 208, .6);
+  --g1: #ff8ccb; --g2: #6ec6ff; --g3: #ff4fa8; --g1-soft: #ffd0ea; --g2-soft: #cdeaff; --shade: #b05ac0;
+  --lyric-sung: #fff2fa; --lyric-now: #bfe6ff;
+  --sky: radial-gradient(70% 70% at 15% 15%, #ffb3de 0%, transparent 70%),
+         radial-gradient(70% 70% at 85% 80%, #7fcdff 0%, transparent 70%),
+         linear-gradient(135deg, #ff9fd6 0%, #d3a6f2 50%, #86c9ff 100%);
+  --tint: 255, 232, 246, 110;
+}
+:root[data-palette="bubblegum"][data-theme="dark"] {
+  --panel: rgba(38, 22, 54, .52); --panel-hover: rgba(255, 140, 203, .18); --hi: rgba(255, 255, 255, .07);
+  --pink: #5c2f66; --pink-deep: #8a3f85; --ice: rgba(110, 198, 255, .2); --ice-strong: #7fd0ff; --ice-hover: #a6e0ff;
+  --on-ice: #0e2030; --text: #ffeef8; --text-2: #d9b8d8; --border: rgba(255, 140, 203, .3);
+  --halo: rgba(24, 12, 36, .9); --sheen: rgba(255, 190, 230, .2);
+  --g1-soft: #7c3a78; --g2-soft: #234e70; --shade: #000;
+  --sky: radial-gradient(60% 60% at 18% 20%, rgba(255, 79, 168, .5), transparent 70%),
+         radial-gradient(60% 60% at 82% 78%, rgba(70, 170, 255, .45), transparent 70%),
+         linear-gradient(135deg, #3a1540 0%, #2a1a52 50%, #12284e 100%);
+  --tint: 38, 22, 54, 170;
+}
+/* candy stripes across every Bubblegum panel */
+:root[data-palette="bubblegum"] .popup, :root[data-palette="bubblegum"] .win, :root[data-palette="bubblegum"] .w {
+  background-image:
+    radial-gradient(70% 45% at 100% 0%, rgba(255, 79, 168, .14), transparent 70%),
+    radial-gradient(70% 45% at 0% 100%, rgba(110, 198, 255, .16), transparent 70%),
+    repeating-linear-gradient(135deg, rgba(255, 140, 203, .07) 0 14px, transparent 14px 28px, rgba(110, 198, 255, .07) 28px 42px, transparent 42px 56px);
 }
 
 * { box-sizing: border-box; margin: 0; }
