@@ -183,6 +183,7 @@ fn switcher_key(app: &AppHandle, key: keys::Key) {
             drop(sw);
             open_files(app.clone(), None);
         }
+        keys::Key::Tap => {}
     }
 }
 
@@ -471,11 +472,12 @@ fn set_game_off(state: State<AppState>, off: bool) {
 
 /// Which extra shortcuts are on: Alt+Space (search), Alt+G (game overlay), Win+E (Files).
 #[tauri::command]
-fn set_shortcuts(search: bool, overlay: bool, files: bool) {
+fn set_shortcuts(search: bool, overlay: bool, files: bool, win_tab: bool) {
     use std::sync::atomic::Ordering::SeqCst;
     keys::SEARCH_KEY.store(search, SeqCst);
     keys::OVERLAY_KEY.store(overlay, SeqCst);
     keys::FILES_KEY.store(files, SeqCst);
+    keys::WIN_TAB_KEY.store(win_tab, SeqCst);
     // Pink Cloud Files as the folder app (not in preview mode, which changes nothing)
     if !preview() && folders::ON.load(SeqCst) != files {
         std::thread::spawn(move || folders::register(files));

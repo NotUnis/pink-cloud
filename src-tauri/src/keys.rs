@@ -30,12 +30,17 @@ pub enum Key {
     Overlay,
     /// Win+E: Pink Cloud Files instead of Explorer
     Files,
+    /// handled here, off the keyboard hook: see tap_unused
+    Tap,
 }
 
 /// Which of the extra shortcuts are switched on (Settings).
 pub static SEARCH_KEY: AtomicBool = AtomicBool::new(true);
 pub static OVERLAY_KEY: AtomicBool = AtomicBool::new(true);
 pub static FILES_KEY: AtomicBool = AtomicBool::new(true);
+/// Win+Tab opens the switcher too, which also suits keyboards with Alt and the Windows key
+/// swapped. Switching it off in Settings gives Windows' Task View back.
+pub static WIN_TAB_KEY: AtomicBool = AtomicBool::new(true);
 const VK_E: VIRTUAL_KEY = VIRTUAL_KEY(0x45);
 const VK_G: VIRTUAL_KEY = VIRTUAL_KEY(0x47);
 static SWALLOW_UP: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
@@ -71,6 +76,12 @@ fn held(vk: VIRTUAL_KEY) -> bool {
     unsafe { GetAsyncKeyState(vk.0 as i32) as u16 & 0x8000 != 0 }
 }
 
+/// Is a Windows key really down right now? Asks Windows rather than remembering, because a
+/// missed key-up would otherwise make every E look like Win+E until the key is pressed again.
+fn win_held() -> bool {
+    held(VK_LWIN) || held(VK_RWIN)
+}
+
 unsafe extern "system" fn hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     if code >= 0 {
         let k = &*(lp.0 as *const KBDLLHOOKSTRUCT);
@@ -79,6 +90,14 @@ unsafe extern "system" fn hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT {
         let down = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
         let vk = VIRTUAL_KEY(k.vkCode as u16);
         let alt = k.flags.0 & LLKHF_ALTDOWN.0 != 0;
+        // a key-up that got lost must not leave the keyboard in a strange state
+        if down && vk != VK_LWIN && vk != VK_RWIN && WIN_DOWN.load(Ordering::SeqCst) && !win_held() {
+            WIN_DOWN.store(false, Ordering::SeqCst);
+        }
+        if down && SWITCHING.load(Ordering::SeqCst) && !alt && !held(VK_MENU) && !win_held() {
+            SWITCHING.store(false, Ordering::SeqCst);
+            send(Key::SwitchCommit);
+        }
         if !injected {
             // ----- Alt+Space, Alt+G, Win+E (AltGr is Ctrl+Alt, so Ctrl must be up) -----
             if !down && SWALLOW_UP.load(Ordering::SeqCst) == vk.0 {
@@ -86,12 +105,12 @@ unsafe extern "system" fn hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT {
                 return LRESULT(1);
             }
             if down && !SWITCHING.load(Ordering::SeqCst) {
-                let plain_alt = alt && !held(VK_CONTROL) && !WIN_DOWN.load(Ordering::SeqCst);
+                let plain_alt = alt && !held(VK_CONTROL) && !win_held();
                 let pick = if plain_alt && vk == VK_SPACE && SEARCH_KEY.load(Ordering::SeqCst) {
                     Some(Key::Search)
                 } else if plain_alt && vk == VK_G && OVERLAY_KEY.load(Ordering::SeqCst) {
                     Some(Key::Overlay)
-                } else if WIN_DOWN.load(Ordering::SeqCst) && vk == VK_E && FILES_KEY.load(Ordering::SeqCst) {
+                } else if win_held() && vk == VK_E && FILES_KEY.load(Ordering::SeqCst) {
                     USED_IN_SHORTCUT.store(true, Ordering::SeqCst);
                     Some(Key::Files)
                 } else {
@@ -112,8 +131,15 @@ unsafe extern "system" fn hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT {
         // Keys sent by software count here: some keyboard software and remote desktop tools
         // deliver every key that way. (Pink Cloud's own taps use a different, unassigned key.)
         {
-            if vk == VK_TAB && (alt || SWITCHING.load(Ordering::SeqCst)) {
+            let win_tab = win_held() && WIN_TAB_KEY.load(Ordering::SeqCst);
+            if vk == VK_TAB && (alt || win_tab || SWITCHING.load(Ordering::SeqCst)) {
                 if down {
+                    if win_tab {
+                        // so Windows doesn't open its Start menu when the key is let go. Not sent
+                        // from here: waiting on it in the hook can make Windows skip the hook.
+                        USED_IN_SHORTCUT.store(true, Ordering::SeqCst);
+                        send(Key::Tap);
+                    }
                     SWITCHING.store(true, Ordering::SeqCst);
                     send(Key::SwitchNext { back: held(VK_SHIFT) });
                 }
@@ -141,9 +167,12 @@ unsafe extern "system" fn hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT {
                     }
                     return LRESULT(1);
                 }
-                if !down && (vk == VK_MENU || vk == VK_LMENU || vk == VK_RMENU) {
+                let alt_up = !down && (vk == VK_MENU || vk == VK_LMENU || vk == VK_RMENU);
+                if alt_up || (!down && (vk == VK_LWIN || vk == VK_RWIN)) {
                     SWITCHING.store(false, Ordering::SeqCst);
-                    tap_unused();
+                    if alt_up {
+                        tap_unused();
+                    }
                     send(Key::SwitchCommit);
                 }
             }
@@ -176,7 +205,11 @@ pub fn watch(on_key: impl Fn(Key) + Send + 'static) {
     let _ = EVENTS.set(Mutex::new(tx));
     std::thread::spawn(move || {
         for k in rx {
-            on_key(k);
+            if k == Key::Tap {
+                tap_unused();
+            } else {
+                on_key(k);
+            }
         }
     });
     std::thread::spawn(|| unsafe {
@@ -190,7 +223,7 @@ pub fn watch(on_key: impl Fn(Key) + Send + 'static) {
         let _ = SetTimer(None, 0, 30_000, None);
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {
-            if msg.message == WM_TIMER && !SWITCHING.load(Ordering::SeqCst) && !WIN_DOWN.load(Ordering::SeqCst) {
+            if msg.message == WM_TIMER && !SWITCHING.load(Ordering::SeqCst) && !win_held() {
                 if let Ok(fresh) = SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook), None, 0) {
                     if let Some(old) = current.replace(fresh) {
                         let _ = UnhookWindowsHookEx(old);

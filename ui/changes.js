@@ -1,7 +1,8 @@
 // What changed in each version, newest first: the "What's new" pop-up after an update and
 // Settings → What's new show these.
 const CHANGES = [
-  ["2.2.1", ["Alt+Tab opens Pink Cloud's own switcher more reliably, even on PCs where the normal Windows one kept showing"]],
+  ["2.2.2", ["Win+Tab opens Pink Cloud's switcher too, handy if your Alt and Windows keys are swapped. Want Windows' Task View back? Switch it off in Settings → Taskbar"]],
+  ["2.2.1", ["Alt+Tab opens Pink Cloud's own switcher more reliably"]],
   ["2.2.0", [
     "New Bubblegum theme: hot pink and baby blue, candy stripes, and hearts, sparkles and bows that float up on your panels and idle screen",
     "Pink Cloud has its own Task Manager: see what's using your CPU and memory, and end stuck apps. Right-click the taskbar or find it in Start",

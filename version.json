@@ -1,4 +1,4 @@
 {
-  "version": "2.2.1",
-  "notes": "Alt+Tab opens Pink Cloud's own switcher more reliably, even on PCs where the normal Windows one kept showing"
+  "version": "2.2.2",
+  "notes": "Win+Tab opens Pink Cloud's switcher too, handy if your Alt and Windows keys are swapped"
 }

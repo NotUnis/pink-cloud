@@ -467,6 +467,8 @@
       m.append(row("ph-sparkle", "Quick search (Alt+Space)", "Apps, files, settings, sums, unit conversions and the weather from one bar",
         toggle(store.get("pc-key-search", true), on => store.set("pc-key-search", on))));
       m.append(row("ph-cards", "Alt+Tab", "Opens Pink Cloud's window switcher with live previews"));
+      m.append(row("ph-swap", "Win+Tab opens the switcher too", "Handy if your keyboard has Alt and the Windows key swapped. Turn it off to get Windows' Task View back",
+        toggle(store.get("pc-key-wintab", true), on => store.set("pc-key-wintab", on))));
       m.append(row("ph-hand-grabbing", "Reorder apps", "Drag apps along the taskbar; dropping an app pins it"));
       m.append(row("ph-eye", "Window previews", "Hover an app on the taskbar to see its windows"));
     },

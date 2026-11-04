@@ -783,11 +783,11 @@
 
   // ---------- shortcuts and game mode: Settings choices go to the keyboard hook ----------
   function applyShortcuts() {
-    invoke("set_shortcuts", { search: store.get("pc-key-search", true), overlay: store.get("pc-key-overlay", true), files: store.get("pc-own-files", true) });
+    invoke("set_shortcuts", { search: store.get("pc-key-search", true), overlay: store.get("pc-key-overlay", true), files: store.get("pc-own-files", true), winTab: store.get("pc-key-wintab", true) });
     invoke("set_game_off", { off: !store.get("pc-game", true) });
   }
   applyShortcuts();
-  addEventListener("storage", e => { if (["pc-key-search", "pc-key-overlay", "pc-own-files", "pc-game"].includes(e.key)) applyShortcuts(); });
+  addEventListener("storage", e => { if (["pc-key-search", "pc-key-overlay", "pc-own-files", "pc-game", "pc-key-wintab"].includes(e.key)) applyShortcuts(); });
   listen("game-mode", ({ payload }) => { if (payload.on) { sfx("game"); achieve("gamer"); } });
 
   // ---------- Discord status (Settings → Look and feel) ----------
