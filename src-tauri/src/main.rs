@@ -45,7 +45,6 @@ struct AppState {
     bar_capture: std::sync::atomic::AtomicBool,
     /// clickable parts of the other see-through layers, and whether each catches the mouse now
     layer_hits: Mutex<HashMap<String, Vec<[i32; 4]>>>,
-    layer_catching: Mutex<HashMap<String, bool>>,
     hide_banners: std::sync::atomic::AtomicBool,
     idle_minutes: std::sync::atomic::AtomicU64,
     /// the window you were using when the idle screen came up
@@ -294,6 +293,41 @@ fn place_taskbar(app: &AppHandle) {
     let _ = bar.set_position(PhysicalPosition::new(l, t));
 }
 
+/// Fits the full-screen see-through layers (lyrics, pop-ups, widgets) to the screen again.
+fn fit_layers(app: &AppHandle) {
+    for label in LAYERS.iter().chain(&["lyrics"]) {
+        if let Some(w) = app.get_webview_window(label) {
+            let (x, y, sw, sh, sf) = screen(&w);
+            let lh = sh - bottom_offset(sf) - (BAR_HEIGHT * sf) as i32;
+            let _ = w.set_size(PhysicalSize::new(sw as u32, lh as u32));
+            let _ = w.set_position(PhysicalPosition::new(x, y));
+            shell::no_activate(hwnd(&w));
+        }
+    }
+}
+
+/// Resolution, display scale or monitors changed (a game can do this too), or Windows moved the
+/// bar: everything is fitted to the screen again, instead of staying as it was at startup.
+fn screen_watcher(app: AppHandle) {
+    let mut last = None;
+    loop {
+        std::thread::sleep(Duration::from_secs(2));
+        let Some(bar) = app.get_webview_window("taskbar") else { continue };
+        let (x, y, w, h, sf) = screen(&bar);
+        let now = (x, y, w, h, (sf * 100.0).round() as i32);
+        let (l, t, r, b) = bar_rect(&bar);
+        // a hidden bar (a fullscreen game) is left alone until it comes back
+        let bar_off = bar.is_visible().unwrap_or(false)
+            && (bar.outer_position().map(|p| (p.x, p.y)).ok() != Some((l, t)) || bar.outer_size().map(|s| (s.width as i32, s.height as i32)).ok() != Some((r - l, b - t)));
+        if bar_off || last.is_some_and(|was| was != now) {
+            safe::log(&format!("screen: fitting to {w}x{h} at {:.0}%", sf * 100.0));
+            place_taskbar(&app);
+            fit_layers(&app);
+        }
+        last = Some(now);
+    }
+}
+
 fn cleanup(app: &AppHandle) {
     safe::clean_exit();
     if preview() {
@@ -309,10 +343,6 @@ fn cleanup(app: &AppHandle) {
     if folders::ON.load(std::sync::atomic::Ordering::SeqCst) {
         folders::register(false);
     }
-}
-
-fn any_popup_open(app: &AppHandle) -> bool {
-    POPUPS.iter().any(|p| visible(app, p)) || visible(app, "menu")
 }
 
 #[derive(serde::Deserialize)]
@@ -374,57 +404,55 @@ fn menu_pick(app: AppHandle, state: State<AppState>, id: Option<String>) {
 /// buttons (the screen reports where those are). Steps aside for fullscreen games and videos.
 fn hit_watcher(app: AppHandle) {
     let pid = std::process::id();
-    let mut catching = true;
+    // Tauri answers questions about a window on the main thread, which can be busy for a while,
+    // and until now this loop waited for those answers: a click arriving meanwhile fell through
+    // to the window underneath. So everything here asks Windows directly, using these handles.
+    let bar = loop {
+        match app.get_webview_window("taskbar") {
+            Some(w) => break w,
+            None => std::thread::sleep(Duration::from_millis(100)),
+        }
+    };
+    let bar_h = hwnd(&bar);
+    let popups: Vec<isize> = POPUPS.iter().chain(&["menu"]).filter_map(|l| app.get_webview_window(l)).map(|w| hwnd(&w)).collect();
+    let layers: Vec<(&str, isize)> = LAYERS.iter().filter_map(|l| app.get_webview_window(l).map(|w| (*l, hwnd(&w)))).collect();
+    // game mode has its own loop, so it can't hold this one up either
+    let handle = app.clone();
+    std::thread::spawn(move || loop {
+        check_game(&handle);
+        std::thread::sleep(Duration::from_millis(480));
+    });
     let mut hidden = false;
-    let mut tick = 0u32;
     loop {
         std::thread::sleep(Duration::from_millis(30));
-        let Some(bar) = app.get_webview_window("taskbar") else { continue };
 
-        let fullscreen = shell::foreground_is_fullscreen(pid) && !any_popup_open(&app);
+        let fullscreen = shell::foreground_is_fullscreen(pid) && !popups.iter().any(|h| shell::is_visible(*h));
         if fullscreen != hidden {
             hidden = fullscreen;
             let _ = if hidden { bar.hide() } else { bar.show() };
-            tick = 0;
         }
-        // game mode: checked a couple of times a second, and right away when fullscreen changes
-        if tick % 16 == 0 {
-            check_game(&app);
-        }
-        tick = tick.wrapping_add(1);
         if hidden {
             continue;
         }
 
-        let (l, t, _, _) = bar_rect(&bar);
+        let (l, t) = shell::window_pos(bar_h);
         let (cx, cy) = shell::cursor();
         let (x, y) = (cx - l, cy - t);
         let state = app.state::<AppState>();
         let over_button = state.bar_capture.load(std::sync::atomic::Ordering::SeqCst)
             || state.hit_rects.lock().unwrap().iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]);
-        if over_button != catching {
-            catching = over_button;
-            let _ = bar.set_ignore_cursor_events(!catching);
-            // switching click-through resets the window's extended style; keep it out of focus and Alt+Tab
-            shell::no_activate(hwnd(&bar));
-        }
+        shell::set_click_through(bar_h, !over_button);
 
         // the notification pop-ups and the desktop widgets work the same way: they only catch
         // the mouse over a pop-up or a widget, clicks everywhere else go through
-        for label in LAYERS {
-            let Some(w) = app.get_webview_window(label) else { continue };
-            if !w.is_visible().unwrap_or(false) {
+        for (label, h) in &layers {
+            if !shell::is_visible(*h) {
                 continue;
             }
-            let Ok(pos) = w.outer_position() else { continue };
-            let (x, y) = (cx - pos.x, cy - pos.y);
-            let over = state.layer_hits.lock().unwrap().get(label).is_some_and(|rs| rs.iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]));
-            let mut catching = state.layer_catching.lock().unwrap();
-            if catching.get(label).copied() != Some(over) {
-                catching.insert(label.to_string(), over);
-                let _ = w.set_ignore_cursor_events(!over);
-                shell::no_activate(hwnd(&w));
-            }
+            let (lx, ly) = shell::window_pos(*h);
+            let (x, y) = (cx - lx, cy - ly);
+            let over = state.layer_hits.lock().unwrap().get(*label).is_some_and(|rs| rs.iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]));
+            shell::set_click_through(*h, !over);
         }
     }
 }
@@ -724,8 +752,9 @@ fn popup_blurred(app: AppHandle, state: State<AppState>, name: String) {
 
 /// Called by the taskbar about once a second: the open windows, and keeps the
 /// Windows taskbar hidden if Explorer restarted.
+// Not on the thread that runs every window: a slow answer here would freeze all the buttons.
 #[tauri::command]
-fn get_windows() -> Vec<shell::WinInfo> {
+async fn get_windows() -> Vec<shell::WinInfo> {
     if !preview() {
         shell::keep_windows_taskbar_hidden();
     }
@@ -815,9 +844,16 @@ fn clip_clear() {
     clip::clear();
 }
 
+/// Opens an app or file. Windows can take seconds over this (a slow disk, an antivirus check, a
+/// prompt), so it gets its own thread, and every button keeps working meanwhile. The thread
+/// stays a little afterwards because Windows may still be finishing up on it.
 #[tauri::command]
 fn launch(path: String) {
-    shell::launch(&path);
+    std::thread::spawn(move || {
+        shell::com_init();
+        shell::launch(&path);
+        std::thread::sleep(Duration::from_secs(10));
+    });
 }
 
 #[tauri::command]
@@ -1743,6 +1779,8 @@ fn main() {
             bar.show()?;
             let handle = app.handle().clone();
             std::thread::spawn(move || hit_watcher(handle));
+            let handle = app.handle().clone();
+            std::thread::spawn(move || screen_watcher(handle));
 
             // folders opened anywhere come to Pink Cloud Files
             let handle = app.handle().clone();

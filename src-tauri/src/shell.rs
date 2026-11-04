@@ -174,6 +174,32 @@ pub fn no_activate(hwnd: isize) {
     }
 }
 
+pub fn is_visible(hwnd: isize) -> bool {
+    unsafe { IsWindowVisible(hw(hwnd)).as_bool() }
+}
+
+/// Where a window is, in physical pixels.
+pub fn window_pos(hwnd: isize) -> (i32, i32) {
+    let mut r = RECT::default();
+    unsafe {
+        let _ = GetWindowRect(hw(hwnd), &mut r);
+    }
+    (r.left, r.top)
+}
+
+/// Lets clicks fall through a window, or catches them. Only touches the window when it needs
+/// changing, and looks at its real state each time, so anything else resetting it heals itself.
+pub fn set_click_through(hwnd: isize, through: bool) {
+    let t = WS_EX_TRANSPARENT.0 as isize;
+    unsafe {
+        let ex = GetWindowLongPtrW(hw(hwnd), GWL_EXSTYLE);
+        if (ex & t != 0) != through {
+            let keep = WS_EX_LAYERED.0 as isize | WS_EX_NOACTIVATE.0 as isize | WS_EX_TOOLWINDOW.0 as isize;
+            SetWindowLongPtrW(hw(hwnd), GWL_EXSTYLE, if through { ex | t | keep } else { (ex & !t) | keep });
+        }
+    }
+}
+
 // ---------- open windows ----------
 
 #[derive(Serialize, Clone)]

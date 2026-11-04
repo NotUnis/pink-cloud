@@ -1,6 +1,10 @@
 // What changed in each version, newest first: the "What's new" pop-up after an update and
 // Settings → What's new show these.
 const CHANGES = [
+  ["2.2.3", [
+    "Buttons respond more reliably: their clickable areas stay up to date, and opening an app no longer freezes the taskbar",
+    "The taskbar, lyrics and widgets fit your screen again when the resolution, display scale or monitors change",
+  ]],
   ["2.2.2", ["Win+Tab opens Pink Cloud's switcher too, handy if your Alt and Windows keys are swapped. Want Windows' Task View back? Switch it off in Settings → Taskbar"]],
   ["2.2.1", ["Alt+Tab opens Pink Cloud's own switcher more reliably"]],
   ["2.2.0", [

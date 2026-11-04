@@ -255,7 +255,14 @@
   addEventListener("storage", e => {
     if (["pc-widgets", "pc-note", "pc-weather-city"].includes(e.key) || (e.key === "pc-widget-pos" && !e.newValue)) build();
   });
-  addEventListener("resize", () => reportHits(false));
+  addEventListener("resize", () => {
+    // a smaller screen mustn't leave a widget out of reach
+    document.querySelectorAll(".w").forEach(el => {
+      el.style.left = Math.max(0, Math.min(innerWidth - el.offsetWidth, el.offsetLeft)) + "px";
+      el.style.top = Math.max(0, Math.min(innerHeight - el.offsetHeight, el.offsetTop)) + "px";
+    });
+    reportHits(false);
+  });
   build();
 </script>
 </body>

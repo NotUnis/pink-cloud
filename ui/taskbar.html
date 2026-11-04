@@ -297,9 +297,17 @@
     const key = JSON.stringify(rects);
     if (key !== lastRects) { lastRects = key; invoke("set_hit_rects", { rects }); }
   }
-  new MutationObserver(() => requestAnimationFrame(reportHitRects)).observe(document.querySelector(".bar"), { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-  addEventListener("resize", reportHitRects);
-  setInterval(reportHitRects, 1000);
+  // Buttons spring into place, so measuring only once would catch them mid-animation and leave
+  // part of a button letting clicks through. So: right away, and again as they settle.
+  let settling = [];
+  function reportSoon() {
+    requestAnimationFrame(reportHitRects);
+    settling.forEach(clearTimeout);
+    settling = [150, 400, 900].map(ms => setTimeout(reportHitRects, ms));
+  }
+  new MutationObserver(reportSoon).observe(document.querySelector(".bar"), { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  addEventListener("resize", reportSoon);
+  setInterval(reportHitRects, 500);
 
   // ---------- apps: pinned + running, grouped by program ----------
   // Windows lists windows with the one in front first; keeping the order they opened in
