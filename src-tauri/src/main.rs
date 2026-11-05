@@ -422,7 +422,9 @@ fn hit_watcher(app: AppHandle) {
         check_game(&handle);
         std::thread::sleep(Duration::from_millis(480));
     });
+    let lyrics_h = app.get_webview_window("lyrics").map(|w| hwnd(&w));
     let mut hidden = false;
+    let mut last_front = 0isize;
     loop {
         std::thread::sleep(Duration::from_millis(30));
 
@@ -430,6 +432,21 @@ fn hit_watcher(app: AppHandle) {
         if fullscreen != hidden {
             hidden = fullscreen;
             let _ = if hidden { bar.hide() } else { bar.show() };
+        }
+
+        // Windows and other apps can push these down, or put an always-on-top app over them, so
+        // being on top is checked all the time: put back if it was lost, and raised whenever
+        // another app comes to the front (not Pink Cloud's own panels, which belong above them).
+        let front = shell::front_window();
+        let new_front = front != last_front && !shell::is_own_window(front);
+        last_front = front;
+        if !hidden && (new_front || !shell::is_topmost(bar_h)) {
+            shell::raise(bar_h);
+        }
+        if let Some(h) = lyrics_h.filter(|h| shell::is_visible(*h)) {
+            if (new_front && !hidden) || !shell::is_topmost(h) {
+                shell::raise(h);
+            }
         }
         if hidden {
             continue;

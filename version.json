@@ -1,4 +1,4 @@
 {
-  "version": "2.2.3",
-  "notes": "Buttons respond more reliably, and Pink Cloud fits your screen again when the resolution, scale or monitors change"
+  "version": "2.2.4",
+  "notes": "The taskbar and lyrics stay in front of your apps, instead of sometimes ending up behind them"
 }

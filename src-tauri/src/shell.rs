@@ -178,6 +178,25 @@ pub fn is_visible(hwnd: isize) -> bool {
     unsafe { IsWindowVisible(hw(hwnd)).as_bool() }
 }
 
+pub fn front_window() -> isize {
+    unsafe { GetForegroundWindow().0 as isize }
+}
+
+pub fn is_own_window(hwnd: isize) -> bool {
+    pid_of(hw(hwnd)) == std::process::id()
+}
+
+pub fn is_topmost(hwnd: isize) -> bool {
+    unsafe { GetWindowLongPtrW(hw(hwnd), GWL_EXSTYLE) & WS_EX_TOPMOST.0 as isize != 0 }
+}
+
+/// Puts a window above everything else that's always on top, without taking focus.
+pub fn raise(hwnd: isize) {
+    unsafe {
+        let _ = SetWindowPos(hw(hwnd), Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+    }
+}
+
 /// Where a window is, in physical pixels.
 pub fn window_pos(hwnd: isize) -> (i32, i32) {
     let mut r = RECT::default();
