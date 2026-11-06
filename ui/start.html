@@ -32,6 +32,9 @@
   .file b { font-weight: 500; font-size: 13px; }
   .file small { color: var(--text-2); font-size: 11px; }
   .sub { font-weight: 600; margin: 16px 6px 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 6px 12px; }
+  .chip { display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px 0 11px; border-radius: 17px; background: var(--hi); border: 1px solid var(--border); font-size: 13px; }
+  .chip i { font-size: 16px; color: var(--ice-strong); }
   .foot { display: flex; align-items: center; justify-content: space-between; margin: 0 -26px; padding: 12px 34px; flex-shrink: 0;
     border-top: 1px solid var(--border); background: var(--hi); }
   .user { display: flex; align-items: center; gap: 10px; padding: 6px 10px; }
@@ -139,6 +142,16 @@
     secTitle.textContent = mode === "pinned" ? "Pinned" : mode === "all" ? "All apps" : "Best matches";
     toggleAll.innerHTML = mode === "pinned" ? 'All apps <i class="ph ph-caret-right"></i>' : '<i class="ph ph-caret-left"></i> Back';
     if (mode === "pinned") {
+      if (scenes().length) {
+        const chips = Object.assign(document.createElement("div"), { className: "chips" });
+        scenes().forEach(s => {
+          const c = Object.assign(document.createElement("div"), { className: "chip ctl", title: sceneSummary(s) });
+          c.append(Object.assign(document.createElement("i"), { className: "ph " + (s.icon || "ph-magic-wand") }), s.name);
+          c.onclick = () => { switchScene(s); invoke("popup_blurred", { name: "start" }); };
+          chips.append(c);
+        });
+        body.appendChild(chips);
+      }
       const grid = Object.assign(document.createElement("div"), { className: "grid stagger" });
       startPins().map(byName).filter(Boolean).forEach(a => grid.appendChild(item(a, "pin")));
       body.appendChild(grid);

@@ -206,6 +206,15 @@ pub fn window_pos(hwnd: isize) -> (i32, i32) {
     (r.left, r.top)
 }
 
+/// A window's left, top, right and bottom, in physical pixels.
+pub fn window_rect(hwnd: isize) -> (i32, i32, i32, i32) {
+    let mut r = RECT::default();
+    unsafe {
+        let _ = GetWindowRect(hw(hwnd), &mut r);
+    }
+    (r.left, r.top, r.right, r.bottom)
+}
+
 /// Lets clicks fall through a window, or catches them. Only touches the window when it needs
 /// changing, and looks at its real state each time, so anything else resetting it heals itself.
 pub fn set_click_through(hwnd: isize, through: bool) {
@@ -531,6 +540,32 @@ pub fn activate(hwnd: i64, minimize_if_active: bool) {
 pub fn close_window(hwnd: i64) {
     unsafe {
         let _ = PostMessageW(Some(hw(hwnd as isize)), WM_CLOSE, WPARAM(0), LPARAM(0));
+    }
+}
+
+/// Where a window sits when it isn't maximized or minimized, and which of those it is now.
+pub fn placement(hwnd: i64) -> ([i32; 4], u32) {
+    let mut p = WINDOWPLACEMENT { length: size_of::<WINDOWPLACEMENT>() as u32, ..Default::default() };
+    unsafe {
+        let _ = GetWindowPlacement(hw(hwnd as isize), &mut p);
+    }
+    let r = p.rcNormalPosition;
+    ([r.left, r.top, r.right, r.bottom], p.showCmd)
+}
+
+/// Puts a window back there, without taking the keyboard away from what you're doing.
+pub fn place(hwnd: i64, rect: [i32; 4], show: u32) {
+    let h = hw(hwnd as isize);
+    let mut p = WINDOWPLACEMENT { length: size_of::<WINDOWPLACEMENT>() as u32, ..Default::default() };
+    unsafe {
+        let _ = GetWindowPlacement(h, &mut p);
+        p.rcNormalPosition = RECT { left: rect[0], top: rect[1], right: rect[2], bottom: rect[3] };
+        p.showCmd = match show {
+            2 => SW_SHOWMINNOACTIVE,
+            3 => SW_SHOWMAXIMIZED,
+            _ => SW_SHOWNOACTIVATE,
+        }.0 as u32;
+        let _ = SetWindowPlacement(h, &p);
     }
 }
 

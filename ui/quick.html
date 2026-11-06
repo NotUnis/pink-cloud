@@ -69,6 +69,19 @@
   .mmid .range { flex: none; }
   .mrow .val { width: 28px; text-align: right; font-size: 12px; color: var(--text-2); flex-shrink: 0; }
   .mnone { padding: 28px 12px; text-align: center; color: var(--text-2); font-size: 13px; line-height: 1.5; }
+  /* scenes: the same kind of view */
+  #sceneView { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  .popup.scening > :not(#sceneView) { display: none; }
+  .popup.scening #sceneView { display: flex; animation: popIn .4s var(--spring); }
+  .scn { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 6px; border-radius: 12px; background: var(--hi); border: 1px solid var(--border); }
+  .scn > i { font-size: 22px; color: var(--text-2); flex-shrink: 0; }
+  .scn div { min-width: 0; }
+  .scn b, .scn small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .scn b { font-weight: 600; }
+  .scn small { color: var(--text-2); font-size: 12px; margin-top: 1px; }
+  .scn.on { background: var(--ice-strong); border-color: var(--ice-strong); color: var(--on-ice); }
+  .scn.on > i, .scn.on small { color: var(--on-ice); }
+  .scnsave { display: flex; align-items: center; justify-content: center; gap: 8px; height: 42px; margin-top: 10px; flex-shrink: 0; background: var(--hi); border: 1px solid var(--border); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -86,6 +99,7 @@
   </div>
   <div class="srow stagger"><i class="ph ph-speaker-high" id="volIc"></i><div class="range" id="vol"><div class="fill"></div><div class="knob"></div></div><span class="val" id="volVal"></span><div class="ctl mixbtn" id="mixBtn" title="Volume for each app"><i class="ph ph-sliders-horizontal"></i></div></div>
   <div class="dots" id="dots" title="Color theme"></div>
+  <div class="opt" id="sceneBtn" title="Set up your whole PC with one click"><i class="ph ph-magic-wand"></i><span>Scenes</span><i class="ph ph-caret-right"></i></div>
   <div class="opt" id="autostart" title="Open Pink Cloud automatically when you sign in"><i class="ph ph-rocket-launch"></i><span>Start with Windows</span><div class="sw"></div></div>
   <div class="foot">
     <div class="batt" id="batt"><i class="ph ph-battery-high" id="batIc"></i><span id="batPct"></span><div class="bbar"><span id="batBar"></span></div></div>
@@ -97,6 +111,11 @@
   <div id="mixer">
     <div class="mhead"><div class="ctl" id="mixBack" title="Back"><i class="ph ph-caret-left"></i></div>Volume for each app</div>
     <div class="mlist" id="mixList"></div>
+  </div>
+  <div id="sceneView">
+    <div class="mhead"><div class="ctl" id="sceneBack" title="Back"><i class="ph ph-caret-left"></i></div>Scenes</div>
+    <div class="mlist" id="sceneList"></div>
+    <div class="ctl scnsave" id="sceneSave"><i class="ph ph-plus"></i>Save as scene</div>
   </div>
 </div>
 
@@ -286,9 +305,30 @@
   mixBack.onclick = () => panel.classList.remove("mixing");
   setInterval(() => { if (panel.classList.contains("mixing") && document.hasFocus()) loadMixer(); }, 2000);
 
+  // ---------- scenes ----------
+  function showScenes() {
+    sceneList.innerHTML = "";
+    const list = scenes(), on = store.get("pc-scene-on", null);
+    list.forEach(s => {
+      const r = document.createElement("div");
+      r.className = "scn ctl" + (s.id === on ? " on" : "");
+      r.innerHTML = `<i class="ph"></i><div><b></b><small></small></div>`;
+      r.querySelector("i").classList.add(s.icon || "ph-magic-wand");
+      r.querySelector("b").textContent = s.name;
+      r.querySelector("small").textContent = sceneSummary(s);
+      r.onclick = () => { switchScene(s); close(); };
+      sceneList.append(r);
+    });
+    if (!list.length) sceneList.innerHTML = `<div class="mnone">Set your PC up how you like it, then save it here. One click brings it all back: your apps and where they were, your theme, wallpaper and sound.</div>`;
+    sceneSave.innerHTML = `<i class="ph ph-plus"></i>Save${list.length ? " what's open" : ""} as a scene`;
+  }
+  sceneBtn.onclick = () => { panel.classList.add("scening"); showScenes(); };
+  sceneBack.onclick = () => panel.classList.remove("scening");
+  sceneSave.onclick = () => { saveNewScene(); close(); };
+
   let timer = null;
   setupPopup("quick", () => {
-    panel.classList.remove("mixing");
+    panel.classList.remove("mixing", "scening");
     showMusicTiles();
     showTheme();
     showAutostart();

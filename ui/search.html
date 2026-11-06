@@ -83,6 +83,7 @@
     ["Idle screen", () => invoke("show_idle"), "ph-moon-stars", "idle screensaver"],
     ...["pink", "lavender", "mint", "sunset", "cosmos", "grove", "bubblegum", "wallpaper", "custom"].map(p => [
       `Theme: ${p[0].toUpperCase() + p.slice(1)}`, () => store.set("pc-palette", p), "ph-palette", "theme color colour " + p]),
+    ["Save as scene", () => saveNewScene(), "ph-magic-wand", "scene save setup layout"],
     ["Start focus", () => startFocus(), "ph-target", "focus concentrate study work pomodoro timer"],
     ["End focus", () => stopFocus(false), "ph-target", "focus stop end"],
     ["Something's wrong? Report a problem", () => invoke("open_settings", { page: "report" }), "ph-bug", "bug report problem help broken crash"],
@@ -209,7 +210,14 @@
     }
     if (answer) items.push({ answer: true, ...answer, run: answer.run || (() => navigator.clipboard.writeText(answer.copy || answer.big).then(() => close())) });
 
+    // A scene's exact name goes first; a partial match doesn't push aside the app you were typing.
+    // "scene" on its own lists them all.
+    const sceneHits = /^scenes?$/.test(t) ? scenes() : best(scenes(), t, s => s.name, 4);
+    const addScenes = list => list.forEach(s => items.push({ sec: "Scenes", name: s.name, sub: sceneSummary(s), glyph: s.icon || "ph-magic-wand", run: () => switchScene(s) }));
+    const sceneFirst = /^scenes?$/.test(t) || sceneHits.some(s => s.name.toLowerCase() === t);
+    if (sceneFirst) addScenes(sceneHits);
     best(apps, t, a => a.name, 6).forEach(a => items.push({ sec: "Apps", name: a.name, sub: "App", icon: a.icon || a.path, run: () => openApp(a) }));
+    if (!sceneFirst) addScenes(sceneHits);
     best(wins, t, w => w.title + " " + appName(w), 4).forEach(w => items.push({ sec: "Open windows", name: w.title, sub: appName(w), icon: w.exe || w.app_id, run: () => invoke("activate_window", { hwnd: w.hwnd, minimizeIfActive: false }) }));
     best(ACTIONS, t, a => a[0] + " " + a[3], 4).forEach(([name, run, glyph]) => items.push({ sec: "Pink Cloud", name, sub: "Action", glyph, run }));
     best(SETTINGS, t, s => s[0], 4).forEach(([name, path, glyph]) => items.push({ sec: "Settings", name, sub: "Windows settings", glyph, run: () => invoke("launch", { path }) }));

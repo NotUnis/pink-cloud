@@ -467,8 +467,8 @@ fn quiet(cmd: &str, args: &[&str]) -> String {
         .unwrap_or_default()
 }
 
-/// Wallpaper Engine's picture of the wallpaper it's showing (on the first screen), if it runs.
-fn wallpaper_engine_preview() -> Option<PathBuf> {
+/// Wallpaper Engine's program and the wallpaper it's showing (on the first screen), if it runs.
+fn wallpaper_engine_now() -> Option<(PathBuf, PathBuf)> {
     let running = quiet("tasklist", &["/FI", "IMAGENAME eq wallpaper64.exe", "/NH"]).contains("wallpaper64")
         || quiet("tasklist", &["/FI", "IMAGENAME eq wallpaper32.exe", "/NH"]).contains("wallpaper32");
     if !running {
@@ -484,15 +484,65 @@ fn wallpaper_engine_preview() -> Option<PathBuf> {
         }
     }
     let config = libs.iter().map(|l| l.join(r"steamapps\common\wallpaper_engine\config.json")).find(|p| p.exists())?;
-    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(config).ok()?).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&config).ok()?).ok()?;
     // config.json holds one section per Windows user; find whichever has the selected wallpapers
     let selected = json.as_object()?.values().find_map(|u| u.pointer("/general/wallpaperconfig/selectedwallpapers"))?.as_object()?;
     let first = selected.get("Monitor0").or_else(|| selected.values().next())?;
     let file = PathBuf::from(first.get("file")?.as_str()?);
+    Some((config.parent()?.join("wallpaper64.exe"), file))
+}
+
+/// Wallpaper Engine's picture of the wallpaper it's showing, if it runs.
+fn wallpaper_engine_preview() -> Option<PathBuf> {
+    let (_, file) = wallpaper_engine_now()?;
     let dir = file.parent()?;
     let project: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.join("project.json")).ok()?).ok()?;
     let preview = dir.join(project.get("preview")?.as_str()?);
     preview.exists().then_some(preview)
+}
+
+/// A wallpaper a scene can bring back: a Wallpaper Engine one, or a picture set in Windows.
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq)]
+pub struct Wallpaper {
+    pub engine: bool,
+    pub file: String,
+}
+
+fn windows_wallpaper() -> Option<String> {
+    let out = quiet("reg", &["query", r"HKCU\Control Panel\Desktop", "/v", "WallPaper"]);
+    let file = out.lines().find(|l| l.contains("REG_SZ"))?.split("REG_SZ").nth(1)?.trim().to_string();
+    // Windows' own working copy gets overwritten, so it can't be brought back later
+    (Path::new(&file).exists() && !file.contains("TranscodedWallpaper")).then_some(file)
+}
+
+pub fn current_wallpaper() -> Option<Wallpaper> {
+    if let Some((_, file)) = wallpaper_engine_now() {
+        return Some(Wallpaper { engine: true, file: file.to_string_lossy().to_string() });
+    }
+    windows_wallpaper().map(|file| Wallpaper { engine: false, file })
+}
+
+pub fn set_wallpaper(w: &Wallpaper) {
+    if !Path::new(&w.file).exists() || current_wallpaper().as_ref() == Some(w) {
+        return;
+    }
+    if w.engine {
+        // Wallpaper Engine's own way of being told what to show, so it keeps running as usual.
+        // Only while it runs: a scene shouldn't start it when you've closed it.
+        if let Some((exe, _)) = wallpaper_engine_now() {
+            use std::os::windows::process::CommandExt;
+            // it's told by the wallpaper's project file, while its config can name the content file
+            let project = Path::new(&w.file).with_file_name("project.json");
+            let target = if project.exists() { project.to_string_lossy().to_string() } else { w.file.clone() };
+            let _ = std::process::Command::new(exe).args(["-control", "openWallpaper", "-file", &target]).creation_flags(0x0800_0000).spawn();
+        }
+        return;
+    }
+    use windows::Win32::UI::WindowsAndMessaging::*;
+    let path: Vec<u16> = w.file.encode_utf16().chain(Some(0)).collect();
+    unsafe {
+        let _ = SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, Some(path.as_ptr() as *mut std::ffi::c_void), SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+    }
 }
 
 /// The picture on your desktop: Wallpaper Engine's current wallpaper, or the Windows one.

@@ -192,6 +192,38 @@ function stopFocus(finished = false) {
 }
 addEventListener("storage", e => { if (e.key === "pc-focus") dispatchEvent(new Event("pc-focus-change")); });
 
+// ---------- scenes ----------
+// A saved setup in pc-scenes: { id, name, icon, apps, closeOthers, look, wallpaper, mood, sound }.
+// Each part is optional. The settings are kept exactly as they're stored, unset ones as null, so
+// bringing them back needs no knowledge of their defaults, and every screen reacts as usual.
+const SCENE_LOOK = ["pc-palette", "pc-theme", "pc-custom-colors", "pc-vis", "pc-autohide"];
+const SCENE_MOOD = ["pc-lyrics", "pc-lyrics-place", "pc-np", "pc-dnd"];
+const scenes = () => store.get("pc-scenes", []);
+const sceneSnapshot = keys => Object.fromEntries(keys.map(k => [k, localStorage.getItem(k)]));
+function sceneSummary(s) {
+  const bits = [], n = s.apps?.length || 0;
+  if (n) bits.push(`${n} app${n === 1 ? "" : "s"}`);
+  if (s.look) { const p = JSON.parse(s.look["pc-palette"] || '"pink"'); bits.push(p === "pink" ? "Pink Cloud" : p[0].toUpperCase() + p.slice(1)); }
+  if (s.sound) bits.push("sound");
+  if (s.mood) bits.push("lyrics and alerts");
+  return bits.join(" · ") || "Nothing saved in it yet";
+}
+function switchScene(s) {
+  for (const part of [s.look, s.mood]) for (const [k, v] of Object.entries(part || {})) {
+    if (localStorage.getItem(k) === v) continue;
+    try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {}
+  }
+  applyTheme();
+  store.set("pc-scene-on", s.id);
+  invoke("scene_apply", { plan: {
+    wins: s.apps || [], close_others: !!(s.apps && s.closeOthers), sounds: s.sound?.apps || [],
+    master: s.sound?.master ?? null, muted: s.sound?.muted ?? null, wallpaper: s.look ? s.wallpaper ?? null : null,
+  } });
+  sfx("toggle");
+  invoke("show_card", { card: { icon: s.icon || "ph-magic-wand", title: s.name, body: sceneSummary(s) } }).catch(() => {});
+}
+const saveNewScene = () => { store.set("pc-scene-new", true); invoke("open_settings", { page: "scenes" }); };
+
 // Is this window really on screen? A hidden Pink Cloud window still says document.hidden is
 // false and keeps drawing at full speed, so decorations must ask the window itself.
 const windowShowing = () => window.__TAURI__.window.getCurrentWindow().isVisible().catch(() => false);

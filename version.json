@@ -1,4 +1,4 @@
 {
-  "version": "2.2.5",
-  "notes": "Much lighter on your PC: the Grove and Bubblegum decorations no longer keep animating in windows you can't see"
+  "version": "2.3.0",
+  "notes": "Scenes: save how your PC is set up and bring it all back with one click. Plus auto-hide for the taskbar: press Win+B or right-click the taskbar"
 }

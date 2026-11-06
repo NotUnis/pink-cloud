@@ -9,7 +9,8 @@
      No background: everything floats on the wallpaper, with a soft halo behind text and glyphs. */
   body { position: relative; text-shadow: 0 0 6px var(--halo), 0 1px 2px var(--halo); }
   #vis { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; display: flex; align-items: center; padding: 0 10px; z-index: 1; }
+  .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; display: flex; align-items: center; padding: 0 10px; z-index: 1; transition: transform .22s var(--smooth); }
+  .bar.tucked { transform: translateY(calc(100% + 6px)); }
   .bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 25%; pointer-events: none;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation: sweep 1.6s .5s var(--smooth) both; }
   @keyframes sweep { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(520%) skewX(-20deg); opacity: 0; } }
@@ -220,7 +221,9 @@
   const TASK_MANAGER = { text: "Task Manager", icon: "ph-chart-line", action: () => invoke("open_tasks") };
   const barMenu = e => {
     e.preventDefault();
+    const autoHide = store.get("pc-autohide", false);
     popupMenu([TASK_MANAGER, null,
+      { text: autoHide ? "Always show taskbar" : "Auto-hide taskbar", icon: autoHide ? "ph-eye" : "ph-eye-slash", action: toggleAutoHide },
       { text: "Files", icon: "ph-folder-simple", action: () => invoke("open_files") },
       { text: "Pink Cloud Settings", icon: "ph-gear-six", action: () => invoke("open_settings") },
     ]);
@@ -290,10 +293,13 @@
   let lastRects = "";
   function reportHitRects() {
     const dpr = devicePixelRatio, p = 2;
+    // where the buttons are with the bar up, even while it's away or sliding (auto-hide), so
+    // they catch clicks as soon as it comes back
+    const dy = new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".bar")).transform).m42;
     const rects = [...document.querySelectorAll(".center > .btn, #apps > .btn:not(.gone), .right > *, .np.on")]
       .map(el => el.getBoundingClientRect())
       .filter(r => r.width > 0)
-      .map(r => [r.left - p, r.top - p, r.right + p, r.bottom + p].map(v => Math.round(v * dpr)));
+      .map(r => [r.left - p, r.top - dy - p, r.right + p, r.bottom - dy + p].map(v => Math.round(v * dpr)));
     const key = JSON.stringify(rects);
     if (key !== lastRects) { lastRects = key; invoke("set_hit_rects", { rects }); }
   }
@@ -897,9 +903,22 @@
   }
   fit(); addEventListener("resize", fit);
 
+  // ---------- auto-hide: the bar and the visualizer stay away until the mouse comes for them ----------
+  let tucked = false;
+  listen("bar-tuck", ({ payload }) => {
+    tucked = payload;
+    document.querySelector(".bar").classList.toggle("tucked", tucked);
+    if (tucked) target.fill(0);   // the bars settle and drawing stops until it's back
+  });
+  const applyAutoHide = () => invoke("set_auto_hide", { on: store.get("pc-autohide", false) });
+  function toggleAutoHide() { store.set("pc-autohide", !store.get("pc-autohide", false)); applyAutoHide(); sfx("toggle"); }
+  listen("toggle-auto-hide", toggleAutoHide);
+  addEventListener("storage", e => { if (e.key === "pc-autohide") applyAutoHide(); });
+  applyAutoHide();
+
   listen("audio", ({ payload }) => {
     soundHeard(payload);
-    if (mode === "off") return;
+    if (mode === "off" || tucked) return;
     for (let i = 0; i < BANDS; i++) target[i] = (payload[i] || 0) / 255;
     if (!drawing) { drawing = true; requestAnimationFrame(draw); }
   });

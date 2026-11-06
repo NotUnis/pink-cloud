@@ -1,6 +1,10 @@
 // What changed in each version, newest first: the "What's new" pop-up after an update and
 // Settings → What's new show these.
 const CHANGES = [
+  ["2.3.0", [
+    "Scenes: set your PC up how you like it and save it. One click brings it all back: your apps and where their windows were, theme, wallpaper, sound, lyrics and notifications. Find them in quick settings, Start and quick search",
+    "Auto-hide the taskbar: it slides away and comes back when your mouse reaches the bottom of the screen. Press Win+B or right-click the taskbar to switch it on and off",
+  ]],
   ["2.2.5", ["Much lighter on your PC: the Grove and Bubblegum decorations no longer keep animating in windows you can't see"]],
   ["2.2.4", ["The taskbar and lyrics stay in front of your apps, instead of sometimes ending up behind them"]],
   ["2.2.3", [

@@ -112,6 +112,11 @@
   .pin img { width: 26px; height: 26px; flex-shrink: 0; }
   .mini { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--text-2); transition: background .15s; }
   .mini:hover { background: var(--panel-hover); color: var(--text); }
+  .mini.on, .mini.on:hover { background: var(--ice-strong); color: var(--on-ice); }
+  .row img.appic { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
+  .row .txt small.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row.tight { min-height: 48px; padding: 6px 16px; }
+  .picks { display: flex; gap: 2px; flex-wrap: wrap; flex-shrink: 0; }
   .usage { height: 6px; border-radius: 3px; background: var(--pink); overflow: hidden; margin-top: 6px; width: 240px; }
   .usage span { display: block; height: 100%; background: var(--ice-strong); border-radius: 3px; }
   /* color theme cards: a tiny scene in each theme's colors */
@@ -183,6 +188,7 @@
     ["home", "Home", "ph-house-line"],
     ["look", "Look and feel", "ph-paint-brush"],
     ["taskbar", "Taskbar", "ph-app-window"],
+    ["scenes", "Scenes", "ph-magic-wand"],
     ["widgets", "Widgets", "ph-squares-four"],
     ["notifications", "Notifications", "ph-bell"],
     ["idle", "Idle screen", "ph-cloud-moon"],
@@ -461,6 +467,8 @@
         m.append(r);
       });
       m.append(h("h2", "", "Behavior"));
+      m.append(row("ph-eye-slash", "Auto-hide the taskbar", "It slides away and comes back when your mouse reaches the bottom of the screen. Win+B switches this on and off from anywhere",
+        toggle(store.get("pc-autohide", false), on => store.set("pc-autohide", on))));
       m.append(row("ph-windows-logo", "Windows key", "A tap opens Pink Cloud Start; shortcuts like Win+D still work"));
       m.append(row("ph-folder-simple", "Open folders in Pink Cloud Files", "Folders you open anywhere, and Win+E, go to Pink Cloud Files instead of Explorer. Switch off to use Explorer again",
         toggle(store.get("pc-own-files", true), on => store.set("pc-own-files", on))));
@@ -471,6 +479,41 @@
         toggle(store.get("pc-key-wintab", true), on => store.set("pc-key-wintab", on))));
       m.append(row("ph-hand-grabbing", "Reorder apps", "Drag apps along the taskbar; dropping an app pins it"));
       m.append(row("ph-eye", "Window previews", "Hover an app on the taskbar to see its windows"));
+    },
+
+    scenes(m) {
+      // saving straight from quick settings or quick search (not while searching settings)
+      if (m.classList.contains("page") && store.get("pc-scene-new", false)) {
+        store.set("pc-scene-new", false);
+        setTimeout(() => sceneEditor(null));
+      }
+      m.append(h("p", "lead", "Set your PC up how you like it and save it. One click brings it all back, from quick settings, Start or quick search (Alt+Space)."));
+      const acts = h("div", "acts"), add = h("button", "btn primary", "Save as scene");
+      add.onclick = () => sceneEditor(null);
+      acts.append(add);
+      m.append(acts);
+      const list = scenes();
+      if (!list.length) {
+        const e = h("div", "empty");
+        e.append(h("i", "ph ph-magic-wand"), "No scenes yet");
+        m.append(e);
+      }
+      list.forEach(s => {
+        const ctrls = h("div"); ctrls.style.cssText = "display:flex;gap:4px;align-items:center";
+        const go = h("button", "btn", "Switch");
+        go.onclick = () => switchScene(s);
+        const edit = h("div", "mini"); edit.title = "Edit"; edit.innerHTML = '<i class="ph ph-pencil-simple"></i>';
+        edit.onclick = () => sceneEditor(s);
+        // a scene takes a while to set up again, so removing one takes a second click
+        const del = h("div", "mini"); del.title = "Delete"; del.innerHTML = '<i class="ph ph-trash"></i>';
+        del.onclick = () => {
+          if (del.dataset.sure) { store.set("pc-scenes", scenes().filter(x => x.id !== s.id)); return show("scenes"); }
+          del.dataset.sure = 1; del.title = "Click again to delete"; del.innerHTML = '<i class="ph ph-check"></i>';
+          setTimeout(() => { delete del.dataset.sure; del.title = "Delete"; del.innerHTML = '<i class="ph ph-trash"></i>'; }, 3000);
+        };
+        ctrls.append(go, edit, del);
+        m.append(row(s.icon || "ph-magic-wand", s.name, sceneSummary(s), ctrls));
+      });
     },
 
     widgets(m) {
@@ -768,6 +811,89 @@
       navs.append(n);
     });
   }
+  // ---------- saving or editing a scene ----------
+  const SCENE_ICONS = ["ph-magic-wand", "ph-code", "ph-game-controller", "ph-headphones", "ph-book-open", "ph-paint-brush", "ph-film-strip", "ph-coffee", "ph-moon-stars", "ph-star"];
+  async function sceneEditor(old) {
+    const read = async () => {
+      const now = await invoke("scene_now");
+      return { apps: now.wins, look: sceneSnapshot(SCENE_LOOK), wallpaper: now.wallpaper, mood: sceneSnapshot(SCENE_MOOD), sound: { master: now.master, muted: now.muted, apps: now.sounds } };
+    };
+    let fresh;
+    try { fresh = await read(); } catch { fresh = { apps: [], look: sceneSnapshot(SCENE_LOOK), wallpaper: null, mood: sceneSnapshot(SCENE_MOOD), sound: null }; }
+    // parts this scene doesn't have yet start from how things are now, in case they get switched on
+    const d = {
+      name: old?.name || "", icon: old?.icon || SCENE_ICONS[0], closeOthers: !!old?.closeOthers,
+      apps: old?.apps || fresh.apps, look: old?.look || fresh.look, wallpaper: old?.look ? old.wallpaper : fresh.wallpaper, mood: old?.mood || fresh.mood, sound: old?.sound || fresh.sound,
+      on: old ? { apps: !!old.apps, look: !!old.look, sound: !!old.sound, mood: !!old.mood } : { apps: true, look: true, sound: true, mood: true },
+    };
+    function part(key, icon, title, desc) {
+      main.querySelector(".page").append(row(icon, title, desc, toggle(d.on[key], on => { d.on[key] = on; })));
+    }
+    function draw() {
+      const m = h("div", "page");
+      m.append(h("h1", "", old ? "Edit scene" : "Save as scene"));
+      main.innerHTML = ""; main.append(m);
+
+      const name = h("input", "textbox"); name.placeholder = "Name it, like Build or Play"; name.maxLength = 24; name.value = d.name; name.spellcheck = false;
+      name.oninput = () => { d.name = name.value; };
+      m.append(row("ph-tag", "Name", "", name));
+      const picks = h("div", "picks");
+      SCENE_ICONS.forEach(ic => {
+        const b = h("div", "mini" + (d.icon === ic ? " on" : "")); b.innerHTML = `<i class="ph ${ic}"></i>`;
+        b.onclick = () => { d.icon = ic; picks.querySelectorAll(".mini").forEach(x => x.classList.toggle("on", x === b)); };
+        picks.append(b);
+      });
+      m.append(row("ph-smiley", "Icon", "", picks));
+
+      m.append(h("h2", "", "Apps"));
+      part("apps", "ph-app-window", "Open these apps and put their windows back", d.apps.length ? "Apps already open just move into place. File Explorer windows aren't saved" : "Nothing's open right now");
+      d.apps.forEach((a, i) => {
+        const x = h("div", "mini"); x.title = "Leave out of this scene"; x.innerHTML = '<i class="ph ph-x"></i>';
+        x.onclick = () => { d.apps = d.apps.filter((_, j) => j !== i); draw(); };
+        const r = row("ph-dot", a.name, "", x);
+        r.classList.add("tight");
+        r.querySelector(".txt").append(Object.assign(h("small", "one", a.title), { title: a.title }));
+        const img = h("img", "appic"); img.alt = "";
+        iconFor(a.icon || a.path).then(u => { if (u) img.src = u; });
+        r.querySelector("i").replaceWith(img);
+        m.append(r);
+      });
+      m.append(row("ph-x-square", "Close every other app", "Works like pressing each window's X, so apps can still ask you to save your work",
+        toggle(d.closeOthers, on => { d.closeOthers = on; })));
+
+      m.append(h("h2", "", "Everything else"));
+      const shortName = JSON.parse(d.look["pc-palette"] || '"pink"');
+      part("look", "ph-palette", "Look", `Your theme (${shortName}), wallpaper, visualizer and auto-hide`);
+      const sounds = d.sound?.apps?.map(a => a.name).join(", ");
+      part("sound", "ph-speaker-high", "Sound", "Your volume" + (sounds ? `, and ${sounds}` : "") + ". An app gets its volume once it opens its sound");
+      part("mood", "ph-microphone-stage", "Lyrics, player and notifications", "Whether they're on, where lyrics sit, and Do Not Disturb");
+
+      const acts = h("div", "acts"), save = h("button", "btn primary", old ? "Save changes" : "Save scene"), cancel = h("button", "btn", "Cancel");
+      save.onclick = () => {
+        const s = {
+          id: old?.id || Date.now().toString(36), name: d.name.trim() || `Scene ${scenes().length + 1}`, icon: d.icon, closeOthers: d.on.apps && d.closeOthers,
+          apps: d.on.apps ? d.apps : null, look: d.on.look ? d.look : null, wallpaper: d.on.look ? d.wallpaper : null, mood: d.on.mood ? d.mood : null, sound: d.on.sound ? d.sound : null,
+        };
+        const list = scenes(), at = list.findIndex(x => x.id === s.id);
+        if (at >= 0) list[at] = s; else list.push(s);
+        store.set("pc-scenes", list);
+        sfx("toggle");
+        show("scenes");
+      };
+      cancel.onclick = () => show("scenes");
+      acts.append(save, cancel);
+      if (old) {
+        const now = h("button", "btn", "Use what's set up now");
+        now.onclick = async () => { Object.assign(d, await read()); draw(); };
+        acts.append(now);
+      }
+      m.append(acts);
+      if (!d.name) name.focus();
+    }
+    page = "scenes"; renderNav();
+    draw();
+  }
+
   async function show(id) {
     page = id;
     renderNav();
@@ -804,7 +930,7 @@
   closeBtn.onclick = () => closeAppWindow(win, appWindow);
   appWindow.onResized(async () => { maxBtn.innerHTML = `<i class="ph ${(await appWindow.isMaximized()) ? "ph-copy-simple" : "ph-square"}"></i>`; });
   listen("settings-open", ({ payload }) => { openAppWindow(win); if (payload) show(payload); });
-  addEventListener("storage", e => { if ((["pc-theme", "pc-vis", "pc-lyrics", "pc-np", "pc-pins", "pc-update"].includes(e.key) || (e.key === "pc-ach" && page === "achievements") || (e.key === "pc-focus" && page === "focus")) && !q.value) show(page); });
+  addEventListener("storage", e => { if ((["pc-theme", "pc-vis", "pc-lyrics", "pc-np", "pc-pins", "pc-update", "pc-autohide"].includes(e.key) || (e.key === "pc-ach" && page === "achievements") || (e.key === "pc-focus" && page === "focus")) && !q.value) show(page); });
 
   iconFor("C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe").then(u => { if (u) appIcon.src = u; });
   invoke("user_name").then(n => { uname.textContent = n; avatar.textContent = (n[0] || "?").toUpperCase(); });

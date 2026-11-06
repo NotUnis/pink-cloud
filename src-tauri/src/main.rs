@@ -12,6 +12,7 @@ mod mixer;
 mod notify;
 mod procs;
 mod safe;
+mod scene;
 mod shell;
 mod tray;
 
@@ -43,6 +44,8 @@ struct AppState {
     hit_rects: Mutex<Vec<[i32; 4]>>,
     /// while you drag an app along the taskbar, the whole taskbar catches the mouse
     bar_capture: std::sync::atomic::AtomicBool,
+    /// the taskbar slides away until the mouse reaches the bottom of the screen
+    auto_hide: std::sync::atomic::AtomicBool,
     /// clickable parts of the other see-through layers, and whether each catches the mouse now
     layer_hits: Mutex<HashMap<String, Vec<[i32; 4]>>>,
     hide_banners: std::sync::atomic::AtomicBool,
@@ -181,6 +184,9 @@ fn switcher_key(app: &AppHandle, key: keys::Key) {
         keys::Key::Files => {
             drop(sw);
             open_files(app.clone(), None);
+        }
+        keys::Key::ToggleBar => {
+            let _ = app.emit_to("taskbar", "toggle-auto-hide", ());
         }
         keys::Key::Tap => {}
     }
@@ -425,6 +431,7 @@ fn hit_watcher(app: AppHandle) {
     let lyrics_h = app.get_webview_window("lyrics").map(|w| hwnd(&w));
     let mut hidden = false;
     let mut last_front = 0isize;
+    let (mut tucked, mut at_edge, mut away) = (false, 0u32, 0u32);
     loop {
         std::thread::sleep(Duration::from_millis(30));
 
@@ -452,12 +459,37 @@ fn hit_watcher(app: AppHandle) {
             continue;
         }
 
-        let (l, t) = shell::window_pos(bar_h);
+        let (l, t, r, b) = shell::window_rect(bar_h);
         let (cx, cy) = shell::cursor();
         let (x, y) = (cx - l, cy - t);
         let state = app.state::<AppState>();
-        let over_button = state.bar_capture.load(std::sync::atomic::Ordering::SeqCst)
-            || state.hit_rects.lock().unwrap().iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]);
+        let capture = state.bar_capture.load(std::sync::atomic::Ordering::SeqCst);
+
+        // Auto-hide: comes up when the mouse stays at the bottom edge for a moment, and goes away
+        // shortly after it leaves the bar, unless one of the bar's panels or menus is open.
+        let auto = state.auto_hide.load(std::sync::atomic::Ordering::SeqCst);
+        if auto || tucked {
+            let sf = (b - t) as f64 / (BAR_HEIGHT + VIS_HEIGHT);
+            let within = |height: f64| cx >= l && cx < r && cy < b && cy >= b - (height * sf) as i32;
+            let open = capture
+                || ["start", "quick", "calendar", "tray", "notes", "menu", "preview"].iter()
+                    .any(|l| app.get_webview_window(l).is_some_and(|w| shell::is_visible(hwnd(&w))));
+            let was = tucked;
+            if tucked {
+                at_edge = if within(8.0) { at_edge + 1 } else { 0 };
+                tucked = auto && !open && at_edge < 2;
+            } else {
+                away = if open || within(BAR_HEIGHT) { 0 } else { away + 1 };
+                tucked = away >= 14;
+            }
+            if tucked != was {
+                (at_edge, away) = (0, 0);
+                let _ = app.emit_to("taskbar", "bar-tuck", tucked);
+            }
+        }
+
+        let over_button = capture
+            || (!tucked && state.hit_rects.lock().unwrap().iter().any(|r| x >= r[0] && x < r[2] && y >= r[1] && y < r[3]));
         shell::set_click_through(bar_h, !over_button);
 
         // the notification pop-ups and the desktop widgets work the same way: they only catch
@@ -561,6 +593,11 @@ const LAYERS: [&str; 2] = ["toast", "widgets"];
 #[tauri::command]
 fn set_bar_capture(state: State<AppState>, on: bool) {
     state.bar_capture.store(on, std::sync::atomic::Ordering::SeqCst);
+}
+
+#[tauri::command]
+fn set_auto_hide(state: State<AppState>, on: bool) {
+    state.auto_hide.store(on, std::sync::atomic::Ordering::SeqCst);
 }
 
 /// The clickable parts of a see-through layer (pop-ups, widgets), relative to its window.
@@ -837,6 +874,18 @@ async fn set_app_volume(key: String, value: f32) {
 #[tauri::command]
 async fn set_app_mute(key: String, muted: bool) {
     mixer::set_mute(&key, muted);
+}
+
+// ---------- scenes ----------
+
+#[tauri::command]
+async fn scene_now() -> scene::Now {
+    scene::now()
+}
+
+#[tauri::command]
+fn scene_apply(app: AppHandle, plan: scene::Plan) {
+    scene::apply(app, plan);
 }
 
 // ---------- clipboard history ----------
@@ -1681,6 +1730,8 @@ fn main() {
             audio_apps,
             set_app_volume,
             set_app_mute,
+            scene_now,
+            scene_apply,
             clip_set_on,
             clip_history,
             clip_copy,
@@ -1699,6 +1750,7 @@ fn main() {
             menu_pick,
             set_hit_rects,
             set_bar_capture,
+            set_auto_hide,
             set_layer_hits,
             notes_recent,
             app_name,

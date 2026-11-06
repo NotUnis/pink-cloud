@@ -30,6 +30,8 @@ pub enum Key {
     Overlay,
     /// Win+E: Pink Cloud Files instead of Explorer
     Files,
+    /// Win+B: switch taskbar auto-hide on or off
+    ToggleBar,
     /// handled here, off the keyboard hook: see tap_unused
     Tap,
 }
@@ -41,6 +43,7 @@ pub static FILES_KEY: AtomicBool = AtomicBool::new(true);
 /// Win+Tab opens the switcher too, which also suits keyboards with Alt and the Windows key
 /// swapped. Switching it off in Settings gives Windows' Task View back.
 pub static WIN_TAB_KEY: AtomicBool = AtomicBool::new(true);
+const VK_B: VIRTUAL_KEY = VIRTUAL_KEY(0x42);
 const VK_E: VIRTUAL_KEY = VIRTUAL_KEY(0x45);
 const VK_G: VIRTUAL_KEY = VIRTUAL_KEY(0x47);
 static SWALLOW_UP: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
@@ -113,13 +116,20 @@ unsafe extern "system" fn hook(code: i32, wp: WPARAM, lp: LPARAM) -> LRESULT {
                 } else if win_held() && vk == VK_E && FILES_KEY.load(Ordering::SeqCst) {
                     USED_IN_SHORTCUT.store(true, Ordering::SeqCst);
                     Some(Key::Files)
+                } else if win_held() && vk == VK_B && !alt && !held(VK_CONTROL) && !held(VK_SHIFT) {
+                    // only plain Win+B: Win+Alt+B is HDR and Win+Ctrl+Shift+B resets the graphics driver
+                    USED_IN_SHORTCUT.store(true, Ordering::SeqCst);
+                    Some(Key::ToggleBar)
                 } else {
                     None
                 };
                 if let Some(k) = pick {
                     SWALLOW_UP.store(vk.0, Ordering::SeqCst);
                     // so letting go of Alt doesn't open the app's menu bar
-                    if k != Key::Files {
+                    if k == Key::ToggleBar {
+                        // so Windows' Start menu stays closed when the key is let go
+                        send(Key::Tap);
+                    } else if k != Key::Files {
                         tap_unused();
                     }
                     send(k);

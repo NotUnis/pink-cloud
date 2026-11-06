@@ -184,6 +184,20 @@ pub fn set_volume(key: &str, value: f32) {
     }
 }
 
+/// Sets an app by its program's file name (or "system"), wherever it's installed now.
+/// False when it has no sound open yet.
+pub fn set_file(file: &str, volume: f32, muted: bool) -> bool {
+    let mut found = false;
+    for s in sessions().iter().filter(|s| s.key.rsplit('\\').next() == Some(file)) {
+        found = true;
+        unsafe {
+            let _ = s.volume.SetMasterVolume(volume.clamp(0.0, 1.0), std::ptr::null());
+            let _ = s.volume.SetMute(muted, std::ptr::null());
+        }
+    }
+    found
+}
+
 pub fn set_mute(key: &str, muted: bool) {
     for s in sessions().iter().filter(|s| s.key == key) {
         unsafe {
