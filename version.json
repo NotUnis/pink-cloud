@@ -1,4 +1,4 @@
 {
-  "version": "2.2.4",
-  "notes": "The taskbar and lyrics stay in front of your apps, instead of sometimes ending up behind them"
+  "version": "2.2.5",
+  "notes": "Much lighter on your PC: the Grove and Bubblegum decorations no longer keep animating in windows you can't see"
 }

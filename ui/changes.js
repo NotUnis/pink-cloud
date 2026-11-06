@@ -1,6 +1,7 @@
 // What changed in each version, newest first: the "What's new" pop-up after an update and
 // Settings → What's new show these.
 const CHANGES = [
+  ["2.2.5", ["Much lighter on your PC: the Grove and Bubblegum decorations no longer keep animating in windows you can't see"]],
   ["2.2.4", ["The taskbar and lyrics stay in front of your apps, instead of sometimes ending up behind them"]],
   ["2.2.3", [
     "Buttons respond more reliably: their clickable areas stay up to date, and opening an app no longer freezes the taskbar",

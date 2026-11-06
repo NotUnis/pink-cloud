@@ -192,6 +192,10 @@ function stopFocus(finished = false) {
 }
 addEventListener("storage", e => { if (e.key === "pc-focus") dispatchEvent(new Event("pc-focus-change")); });
 
+// Is this window really on screen? A hidden Pink Cloud window still says document.hidden is
+// false and keeps drawing at full speed, so decorations must ask the window itself.
+const windowShowing = () => window.__TAURI__.window.getCurrentWindow().isVisible().catch(() => false);
+
 // ---------- Grove glyphs ----------
 // Each glyph is a few strokes picked on a small grid, so every one is different and none of
 // them is real writing. Returns SVG path data centered on (cx, cy), s = grid step.
@@ -216,8 +220,9 @@ function glyphPath(cx, cy, s, rnd = Math.random) {
       animation: pc-glyph var(--life) ease-in-out forwards; }
     @keyframes pc-glyph { 0% { opacity: 0; transform: translateY(4px); filter: blur(2px) drop-shadow(0 0 4px #3ff0c0); }
       30%, 70% { opacity: var(--peak); transform: none; } 100% { opacity: 0; transform: translateY(-4px); filter: blur(2px) drop-shadow(0 0 4px #3ff0c0); } }`;
-  function spawn() {
+  async function spawn() {
     if (currentPalette() !== "grove" || document.hidden || store.get("pc-grove-glyphs", true) === false) return;
+    if (!(await windowShowing())) { layer?.replaceChildren(); return; }
     const panel = document.querySelector(".popup, .win, .w");
     if (!panel || !panel.offsetWidth) return;
     if (!layer) {
@@ -271,8 +276,9 @@ const sweetSvg = (kind, color, size, cls) => `<svg class="${cls}" width="${size}
     @keyframes pc-sweet { 0% { opacity: 0; transform: translateY(14px) scale(.5) rotate(-14deg); }
       30% { opacity: var(--peak); transform: translateY(0) scale(1) rotate(6deg); } 65% { opacity: var(--peak); }
       100% { opacity: 0; transform: translateY(-34px) scale(.85) rotate(-8deg); } }`;
-  function spawn() {
+  async function spawn() {
     if (currentPalette() !== "bubblegum" || document.hidden || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!(await windowShowing())) { layer?.replaceChildren(); return; }
     const panel = document.querySelector(".popup, .win, .w");
     if (!panel || !panel.offsetWidth) return;
     if (!layer) {
