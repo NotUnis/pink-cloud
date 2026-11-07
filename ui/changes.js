@@ -1,6 +1,11 @@
 // What changed in each version, newest first: the "What's new" pop-up after an update and
 // Settings → What's new show these.
 const CHANGES = [
+  ["2.4.0", [
+    "New Frutiger Aero theme: sky blue and fresh green, glossy glass panels and taskbar, bubbles drifting up, and an idle screen with sunlit hills and ribbons of light",
+    "Lighter when it starts: screens load one at a time instead of all at once, and Settings and Files load when you first open them",
+    "Fewer themes, better ones: Pink Cloud, Lavender, Mint and Sunset became your own gradient, which now washes across your panels and updates as you pick colors. If you were using one, you keep its colors",
+  ]],
   ["2.3.0", [
     "Scenes: set your PC up how you like it and save it. One click brings it all back: your apps and where their windows were, theme, wallpaper, sound, lyrics and notifications. Find them in quick settings, Start and quick search",
     "Auto-hide the taskbar: it slides away and comes back when your mouse reaches the bottom of the screen. Press Win+B or right-click the taskbar to switch it on and off",

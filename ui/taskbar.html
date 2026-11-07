@@ -11,6 +11,9 @@
   #vis { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
   .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; display: flex; align-items: center; padding: 0 10px; z-index: 1; transition: transform .22s var(--smooth); }
   .bar.tucked { transform: translateY(calc(100% + 6px)); }
+  /* Frutiger Aero is the one theme with a bar of its own: a strip of glossy glass */
+  :root[data-palette="aero"] .bar { background: linear-gradient(180deg, rgba(255, 255, 255, .62) 0, rgba(190, 235, 255, .38) 48%, rgba(60, 165, 225, .34) 50%, rgba(120, 210, 245, .46) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), 0 -1px 0 rgba(20, 100, 160, .3); }
   .bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 25%; pointer-events: none;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation: sweep 1.6s .5s var(--smooth) both; }
   @keyframes sweep { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(520%) skewX(-20deg); opacity: 0; } }
@@ -834,18 +837,21 @@
 
   // ---------- achievements the taskbar keeps an eye on ----------
   // themes (switched in Start, quick settings, Settings or quick search)
+  const BUILT_IN_THEMES = ["cosmos", "grove", "bubblegum", "aero"];
   addEventListener("storage", e => {
     if (e.key !== "pc-palette") return;
     const p = currentPalette();
     achieve("theme");
     if (p === "custom") achieve("artist");
     const tried = new Set(store.get("pc-themes-tried", []));
-    if (["pink", "lavender", "mint", "sunset", "cosmos", "grove", "bubblegum"].includes(p) && !tried.has(p)) {
+    if (BUILT_IN_THEMES.includes(p) && !tried.has(p)) {
       tried.add(p);
       store.set("pc-themes-tried", [...tried]);
       bump("collector");
     }
   });
+  // already tried them all before the list got shorter
+  if (BUILT_IN_THEMES.every(p => store.get("pc-themes-tried", []).includes(p))) achieve("collector");
   // up at 3 at night
   setInterval(() => { if (new Date().getHours() === 3) achieve("owl"); }, 60000);
   // the secret: seven quick clicks on the clock

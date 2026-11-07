@@ -15,11 +15,24 @@ const store = {
 };
 
 // Light/dark: "auto" follows Windows; every screen shares the choice.
-// Color theme ("palette"): pink, lavender, mint, sunset, bubblegum, or cosmos and grove (always dark).
+// Color theme ("palette"): bubblegum, cosmos and grove (always dark), aero (always bright), or
+// made from three colors: your wallpaper or song's ("wallpaper") or your own ("custom").
+// The plain gradient themes became custom colors, so anyone using one keeps its look.
+const OLD_THEMES = { pink: null, lavender: { g1: "#c4a7f2", g2: "#9cc4f2", g3: "#a67ce8" }, mint: { g1: "#8fe0c2", g2: "#f6b8cb", g3: "#3fc497" }, sunset: { g1: "#ffb38a", g2: "#f78bb0", g3: "#ff7a5c" } };
+(function moveOffOldTheme() {
+  const was = store.get("pc-palette", null);
+  if (!(was in OLD_THEMES)) return;
+  if (OLD_THEMES[was] && !store.get("pc-custom-colors", null)) store.set("pc-custom-colors", OLD_THEMES[was]);
+  store.set("pc-palette", "custom");
+})();
+const THEME_NAMES = { cosmos: "Cosmos", grove: "Grove", bubblegum: "Bubblegum", aero: "Frutiger Aero", wallpaper: "Your wallpaper", custom: "Your colors" };
+const themeName = p => THEME_NAMES[p] || THEME_NAMES.custom;
 const darkQuery = matchMedia("(prefers-color-scheme: dark)");
-const currentPalette = () => store.get("pc-palette", "pink");
+// (a scene saved with an old theme can still bring its name back)
+const currentPalette = () => { const p = store.get("pc-palette", "custom"); return p in OLD_THEMES ? "custom" : p; };
 function currentTheme() {
   if (["cosmos", "grove"].includes(currentPalette())) return "dark";
+  if (currentPalette() === "aero") return "light";
   const pick = store.get("pc-theme", "auto");
   return pick === "auto" ? (darkQuery.matches ? "dark" : "light") : pick;
 }
@@ -137,7 +150,7 @@ const ACHIEVEMENTS = [
   ["hello", "Hello, Pink Cloud", "Start Pink Cloud for the first time", "ph-hand-waving", 1],
   ["tour", "Grand tour", "Finish the welcome tour", "ph-map-trifold", 1],
   ["theme", "Fresh coat", "Switch to another color theme", "ph-palette", 1],
-  ["collector", "Collector", "Try every built-in theme", "ph-swatches", 7],
+  ["collector", "Collector", "Try every built-in theme", "ph-swatches", 4],
   ["artist", "Artist", "Use a theme you made yourself", "ph-paint-brush", 1],
   ["dj", "DJ", "Listen to 100 songs", "ph-vinyl-record", 100],
   ["karaoke", "Karaoke star", "Sing along to lyrics in 25 songs", "ph-microphone-stage", 25],
@@ -203,7 +216,7 @@ const sceneSnapshot = keys => Object.fromEntries(keys.map(k => [k, localStorage.
 function sceneSummary(s) {
   const bits = [], n = s.apps?.length || 0;
   if (n) bits.push(`${n} app${n === 1 ? "" : "s"}`);
-  if (s.look) { const p = JSON.parse(s.look["pc-palette"] || '"pink"'); bits.push(p === "pink" ? "Pink Cloud" : p[0].toUpperCase() + p.slice(1)); }
+  if (s.look) bits.push(themeName(JSON.parse(s.look["pc-palette"] || '"custom"')));
   if (s.sound) bits.push("sound");
   if (s.mood) bits.push("lyrics and alerts");
   return bits.join(" · ") || "Nothing saved in it yet";
@@ -334,6 +347,42 @@ const sweetSvg = (kind, color, size, cls) => `<svg class="${cls}" width="${size}
   setInterval(() => { if (Math.random() < .6) spawn(); }, 1300);
 })();
 
+// ---------- Frutiger Aero bubbles ----------
+// In Aero, bubbles drift up somewhere on the panel and fade away. They sit on top but never
+// catch clicks, and stay faint so text reads.
+(function aeroBubbles() {
+  if (/taskbar|lyrics|toast|idle|overlay/.test(location.pathname)) return;
+  let layer = null;
+  const css = `#pc-bubbles { position: fixed; inset: 0; pointer-events: none; z-index: 2147483000; overflow: hidden; }
+    #pc-bubbles div { position: absolute; opacity: 0; animation: pc-bubble var(--life) ease-in-out forwards; }
+    @keyframes pc-bubble { 0% { opacity: 0; transform: translate(0, 20px) scale(.5); } 20% { opacity: var(--peak); }
+      55% { transform: translate(var(--sway), -44px) scale(1); } 80% { opacity: var(--peak); } 100% { opacity: 0; transform: translate(0, -96px) scale(1.06); } }`;
+  async function spawn() {
+    if (currentPalette() !== "aero" || document.hidden || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!(await windowShowing())) { layer?.replaceChildren(); return; }
+    const panel = document.querySelector(".popup, .win, .w");
+    if (!panel || !panel.offsetWidth) return;
+    if (!layer) {
+      document.head.append(Object.assign(document.createElement("style"), { textContent: css }));
+      layer = Object.assign(document.createElement("div"), { id: "pc-bubbles" });
+      document.body.append(layer);
+    }
+    if (layer.childElementCount >= 6) return;
+    const p = panel.getBoundingClientRect(), left = Math.max(0, p.left), top = Math.max(0, p.top);
+    const W = Math.min(innerWidth, p.right) - left, H = Math.min(innerHeight, p.bottom) - top;
+    if (W < 120 || H < 60) return;
+    const size = 10 + Math.random() ** 2 * 26, life = 5 + Math.random() * 3;
+    const el = Object.assign(document.createElement("div"), { className: "pc-bubble" });
+    Object.assign(el.style, { width: size + "px", height: size + "px", left: left + 8 + Math.random() * Math.max(0, W - size - 16) + "px", top: top + 100 + Math.random() * Math.max(0, H - size - 110) + "px" });
+    el.style.setProperty("--life", life + "s");
+    el.style.setProperty("--peak", (.55 + Math.random() * .3).toFixed(2));
+    el.style.setProperty("--sway", (Math.random() * 28 - 14).toFixed(0) + "px");
+    layer.append(el);
+    setTimeout(() => el.remove(), life * 1000 + 100);
+  }
+  setInterval(() => { if (Math.random() < .65) spawn(); }, 1300);
+})();
+
 // ---------- sound effects: tiny synthesized pops and chimes (no sound files) ----------
 let audioCtx = null;
 const SOUNDS = {
@@ -402,7 +451,7 @@ function openAppWindow(el) {
 function closeAppWindow(el, tauriWindow) {
   sfx("close");
   el.classList.remove("opening"); el.classList.add("closing");
-  setTimeout(() => { tauriWindow.hide(); el.classList.remove("closing"); }, 320);
+  setTimeout(() => { invoke("put_away"); el.classList.remove("closing"); }, 320);
 }
 
 // Screens that are only built when needed say when they've loaded, and then get opened.
@@ -417,14 +466,19 @@ function stagger(root) {
 // Popups: replay the opening animation each time, close when focus moves elsewhere.
 function setupPopup(name, onOpen) {
   const panel = document.querySelector(".popup");
+  // A hidden window keeps drawing whatever still moves, so a closed panel holds its animations.
+  document.head.append(Object.assign(document.createElement("style"), { textContent: "html.asleep * { animation-play-state: paused !important; }" }));
+  document.documentElement.classList.add("asleep");
   listen("opened", () => {
+    document.documentElement.classList.remove("asleep");
     panel.classList.remove("open"); void panel.offsetWidth; panel.classList.add("open");
     sfx("open");
     stagger(document);
     onOpen && onOpen();
   });
   window.__TAURI__.window.getCurrentWindow().onFocusChanged(({ payload: focused }) => {
-    if (!focused) invoke("popup_blurred", { name });
+    if (focused) document.documentElement.classList.remove("asleep");
+    else { document.documentElement.classList.add("asleep"); invoke("popup_blurred", { name }); }
   });
   addEventListener("keydown", e => { if (e.key === "Escape") invoke("popup_blurred", { name }); });
 }

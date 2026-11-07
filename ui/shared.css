@@ -2,7 +2,7 @@
 @import url("vendor/phosphor/fill/style.css");
 
 /* Color themes. Every screen is colored from these variables, so switching theme
-   (data-palette on the root: pink, lavender, mint, sunset, cosmos, grove, bubblegum) recolors everything.
+   (data-palette on the root: cosmos, grove, bubblegum, aero, wallpaper, custom) recolors everything.
    --g1 / --g2 are the theme's two signature colors (gradients, visualizer, glows), --g3 a hot
    accent, --pink / --ice the soft fills and selection, --sky the idle screen, and --tint the
    frosted glass behind popups ("r, g, b, a"). The popups sit on real Windows acrylic, so panel
@@ -59,61 +59,9 @@
   --tint: 40, 26, 46, 170;
 }
 
-/* Lavender: soft lilac with baby blue */
-:root[data-palette="lavender"] {
-  --panel: rgba(244, 238, 255, .55); --panel-hover: rgba(214, 196, 245, .5);
-  --pink: #ddd0f7; --pink-deep: #c2acee; --ice: #dbe8fb; --ice-strong: #6a7fd6; --ice-hover: #5a6ec4;
-  --text: #2f2548; --text-2: #5f5480; --border: rgba(190, 170, 230, .55);
-  --g1: #c4a7f2; --g2: #9cc4f2; --g3: #a67ce8; --g1-soft: #e3d6fa; --g2-soft: #d3e4fa; --shade: #7a64b8;
-  --lyric-sung: #f6f0ff; --lyric-now: #cfe0fb;
-  --sky: radial-gradient(120% 90% at 20% 10%, #eadcff 0%, #d4c0f5 35%, #b4b6ee 65%, #9fc4ef 100%);
-  --tint: 244, 238, 255, 110;
-}
-:root[data-palette="lavender"][data-theme="dark"] {
-  --panel: rgba(34, 28, 52, .45); --panel-hover: rgba(180, 160, 235, .16);
-  --pink: #4a3e6e; --pink-deep: #64538f; --ice: rgba(156, 196, 242, .2); --ice-strong: #9cc4f2; --ice-hover: #b8d4f6;
-  --on-ice: #141b2e; --text: #f0ebff; --text-2: #c2b8de; --border: rgba(180, 160, 235, .22);
-  --g1-soft: #5a4888; --g2-soft: #2e4466; --shade: #000;
-  --sky: radial-gradient(120% 90% at 20% 10%, #3c2f62 0%, #2b2450 45%, #1b2145 80%, #121a36 100%);
-  --tint: 34, 28, 52, 170;
-}
-
-/* Mint: fresh mint with a soft pink */
-:root[data-palette="mint"] {
-  --panel: rgba(236, 252, 246, .55); --panel-hover: rgba(184, 234, 214, .5);
-  --pink: #c8efe0; --pink-deep: #9ee0c6; --ice: #fde3ea; --ice-strong: #2e9d7a; --ice-hover: #268467;
-  --text: #1f3b35; --text-2: #4b6b63; --border: rgba(150, 214, 190, .55);
-  --g1: #8fe0c2; --g2: #f6b8cb; --g3: #3fc497; --g1-soft: #d3f4e7; --g2-soft: #fbdde6; --shade: #4f9c84;
-  --lyric-sung: #f2fffa; --lyric-now: #ffd6e2;
-  --sky: radial-gradient(120% 90% at 20% 10%, #d8f7ea 0%, #b6ead6 35%, #a9dccf 60%, #f4c6d4 100%);
-  --tint: 236, 252, 246, 110;
-}
-:root[data-palette="mint"][data-theme="dark"] {
-  --panel: rgba(20, 40, 36, .45); --panel-hover: rgba(143, 224, 194, .14);
-  --pink: #285447; --pink-deep: #36705e; --ice: rgba(246, 184, 203, .18); --ice-strong: #8fe0c2; --ice-hover: #aae9d1;
-  --on-ice: #10241e; --text: #e6fbf3; --text-2: #a9cfc3; --border: rgba(143, 224, 194, .2);
-  --g1-soft: #2e6656; --g2-soft: #6a3a4c; --shade: #000;
-  --sky: radial-gradient(120% 90% at 20% 10%, #1f4a40 0%, #173a33 45%, #142c30 80%, #2a1e2c 100%);
-  --tint: 20, 40, 36, 170;
-}
-
-/* Sunset: peach, coral and warm pink */
-:root[data-palette="sunset"] {
-  --panel: rgba(255, 242, 234, .55); --panel-hover: rgba(255, 200, 170, .5);
-  --pink: #ffd8c2; --pink-deep: #ffb898; --ice: #ffe0ea; --ice-strong: #e0566f; --ice-hover: #c8465f;
-  --text: #4a2430; --text-2: #7a4f58; --border: rgba(240, 180, 160, .55);
-  --g1: #ffb38a; --g2: #f78bb0; --g3: #ff7a5c; --g1-soft: #ffdcc8; --g2-soft: #fcd3e1; --shade: #c06a6a;
-  --lyric-sung: #fff6ee; --lyric-now: #ffd2b8;
-  --sky: radial-gradient(120% 90% at 20% 10%, #ffe2c4 0%, #ffbf9a 30%, #f79bb5 62%, #b98bd8 100%);
-  --tint: 255, 236, 226, 110;
-}
-:root[data-palette="sunset"][data-theme="dark"] {
-  --panel: rgba(48, 26, 30, .45); --panel-hover: rgba(255, 150, 120, .15);
-  --pink: #5e3433; --pink-deep: #7c4440; --ice: rgba(247, 139, 176, .2); --ice-strong: #ff9e7d; --ice-hover: #ffb699;
-  --on-ice: #2a1414; --text: #ffeee6; --text-2: #dbb3a8; --border: rgba(255, 160, 130, .22);
-  --g1-soft: #7a4136; --g2-soft: #6e3046; --shade: #000;
-  --sky: radial-gradient(120% 90% at 20% 10%, #5a2f30 0%, #45243a 45%, #2e1d3e 80%, #1c1830 100%);
-  --tint: 48, 26, 30, 170;
+/* Your own gradient: your three colors wash across every panel. */
+:root[data-palette="custom"] .popup, :root[data-palette="custom"] .win, :root[data-palette="custom"] .w {
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--g1) 42%, transparent), color-mix(in srgb, var(--g3) 26%, transparent) 55%, color-mix(in srgb, var(--g2) 42%, transparent));
 }
 
 /* Cosmos: deep space, violet and cyan nebula light, stars. Always dark. */
@@ -195,6 +143,41 @@
     radial-gradient(70% 45% at 0% 100%, rgba(110, 198, 255, .16), transparent 70%),
     repeating-linear-gradient(135deg, rgba(255, 140, 203, .07) 0 14px, transparent 14px 28px, rgba(110, 198, 255, .07) 28px 42px, transparent 42px 56px);
 }
+
+/* Frutiger Aero: sky blue and fresh green, glossy glass, and bubbles. Always bright. */
+:root[data-palette="aero"] {
+  --panel: rgba(226, 246, 255, .5); --panel-hover: rgba(150, 220, 250, .45); --hi: rgba(255, 255, 255, .62);
+  --pink: #bfe6f7; --pink-deep: #8fd3ef; --ice: #c9ecff; --ice-strong: #0877b8; --ice-hover: #0a6aa3;
+  --on-ice: #fff; --text: #0c3450; --text-2: #2f5f7d; --border: rgba(120, 195, 235, .6);
+  --halo: rgba(255, 255, 255, .95); --sheen: rgba(255, 255, 255, .8);
+  --g1: #4fc3f7; --g2: #8edc5a; --g3: #00a0e0; --g1-soft: #c4ecff; --g2-soft: #d6f5bd; --shade: #2a7fb5;
+  --lyric-sung: #f4fcff; --lyric-now: #c9f59a;
+  --sky: linear-gradient(180deg, #0a84d8 0%, #35abee 30%, #8fd9fa 58%, #dff6ff 78%);
+  --tint: 215, 240, 255, 110;
+}
+/* a band of light across the top of the glass, and sky and grass glowing up from below */
+:root[data-palette="aero"] .popup, :root[data-palette="aero"] .win, :root[data-palette="aero"] .w {
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, .55) 0, rgba(255, 255, 255, .14) 64px, transparent 65px),
+    radial-gradient(60% 40% at 90% 100%, rgba(142, 220, 90, .3), transparent 70%),
+    radial-gradient(70% 45% at 8% 100%, rgba(79, 195, 247, .32), transparent 70%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 0 0 1px rgba(255, 255, 255, .35);
+}
+:root[data-palette="aero"] .row, :root[data-palette="aero"] .card, :root[data-palette="aero"] .qt .ctl, :root[data-palette="aero"] .opt,
+:root[data-palette="aero"] .field, :root[data-palette="aero"] .scn, :root[data-palette="aero"] .btn {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .42), rgba(255, 255, 255, 0) 50%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85);
+}
+/* lit-up controls are glossy gel: the shine stays faint enough for white text to read */
+:root[data-palette="aero"] .btn.primary, :root[data-palette="aero"] .qt.on .ctl, :root[data-palette="aero"] .qk.on, :root[data-palette="aero"] .scn.on,
+:root[data-palette="aero"] .sw.on, :root[data-palette="aero"] .opt.on .sw, :root[data-palette="aero"] .seg .knob {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, .07) 49%, transparent 51%, rgba(255, 255, 255, .12));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 1px 4px rgba(8, 90, 150, .35);
+}
+/* one bubble: a bright spot of light, a clear middle and a shining rim */
+.pc-bubble { border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 32% 26%, rgba(255, 255, 255, .95) 0 6%, rgba(255, 255, 255, .25) 14%, rgba(255, 255, 255, .04) 45%, rgba(190, 235, 255, .18) 78%, rgba(255, 255, 255, .55) 98%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), inset -3px -4px 10px rgba(90, 195, 250, .4), 0 1px 4px rgba(10, 100, 170, .18); }
 
 * { box-sizing: border-box; margin: 0; }
 html, body { height: 100%; overflow: hidden; background: transparent; }

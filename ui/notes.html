@@ -118,6 +118,7 @@
   listen("notes-new", ({ payload }) => { notes = [...payload.reverse(), ...notes]; render(); });
   setupPopup("notes", () => { showDnd(); load(); store.set("pc-notes-seen", Date.now()); });
   load();
+  announceReady();
 </script>
 </body>
 </html>

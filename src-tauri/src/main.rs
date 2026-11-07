@@ -77,6 +77,8 @@ fn snapshot_watcher(app: AppHandle) {
     let mut taken: HashMap<i64, Instant> = HashMap::new();
     let mut last_front: Option<i64> = None;
     let mut round = 0u32;
+    // Taking a picture makes the app draw itself once more, so not during the busy first moments.
+    std::thread::sleep(Duration::from_secs(20));
     loop {
         std::thread::sleep(Duration::from_millis(700));
         round += 1;
@@ -98,8 +100,13 @@ fn snapshot_watcher(app: AppHandle) {
             }
             last_front = front;
         }
+        // a game or video filling the screen is left alone: it can't be minimized by accident,
+        // and being asked to draw an extra picture could make it stutter
+        if shell::foreground_is_fullscreen(pid) {
+            continue;
+        }
         if let Some(f) = front {
-            if taken.get(&f).map_or(true, |t| t.elapsed() > Duration::from_millis(2500)) {
+            if taken.get(&f).map_or(true, |t| t.elapsed() > Duration::from_secs(6)) {
                 shoot(f, &mut taken);
                 continue;
             }
@@ -107,7 +114,7 @@ fn snapshot_watcher(app: AppHandle) {
         // otherwise, refresh whichever other open window has the oldest picture
         if let Some(w) = wins
             .iter()
-            .filter(|w| !w.minimized && taken.get(&w.hwnd).map_or(true, |t| t.elapsed() > Duration::from_secs(8)))
+            .filter(|w| !w.minimized && taken.get(&w.hwnd).map_or(true, |t| t.elapsed() > Duration::from_secs(30)))
             .min_by_key(|w| taken.get(&w.hwnd).copied())
         {
             shoot(w.hwnd, &mut taken);
@@ -420,7 +427,6 @@ fn hit_watcher(app: AppHandle) {
         }
     };
     let bar_h = hwnd(&bar);
-    let popups: Vec<isize> = POPUPS.iter().chain(&["menu"]).filter_map(|l| app.get_webview_window(l)).map(|w| hwnd(&w)).collect();
     let layers: Vec<(&str, isize)> = LAYERS.iter().filter_map(|l| app.get_webview_window(l).map(|w| (*l, hwnd(&w)))).collect();
     // game mode has its own loop, so it can't hold this one up either
     let handle = app.clone();
@@ -435,7 +441,9 @@ fn hit_watcher(app: AppHandle) {
     loop {
         std::thread::sleep(Duration::from_millis(30));
 
-        let fullscreen = shell::foreground_is_fullscreen(pid) && !popups.iter().any(|h| shell::is_visible(*h));
+        // (panels load a while after startup, so they're looked up each time)
+        let fullscreen = shell::foreground_is_fullscreen(pid)
+            && !POPUPS.iter().chain(&["menu"]).any(|l| app.get_webview_window(l).is_some_and(|w| shell::is_visible(hwnd(&w))));
         if fullscreen != hidden {
             hidden = fullscreen;
             let _ = if hidden { bar.hide() } else { bar.show() };
@@ -754,7 +762,7 @@ fn toggle_popup(app: AppHandle, name: String) {
 fn toggle(app: &AppHandle, name: &str) {
     let state = app.state::<AppState>();
     let name = name.to_string();
-    let Some(win) = app.get_webview_window(&name) else { return };
+    let Some(win) = ready_screen(app, &name, None) else { return };
     if win.is_visible().unwrap_or(false) {
         let _ = win.hide();
         return;
@@ -1271,19 +1279,64 @@ fn app_exe() -> String {
     std::env::current_exe().map(|p| p.to_string_lossy().to_lowercase()).unwrap_or_default()
 }
 
-/// A Pink Cloud window, built again from its settings if it was ever closed for good.
-fn window_or_rebuild(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
-    if let Some(w) = app.get_webview_window(label) {
-        return Some(w);
+/// Closes a window you're done with. A hidden window keeps running its page and animations, so
+/// the big, rarely used ones really close and load again next time; the rest just hide.
+fn close_screen(w: WebviewWindow) {
+    let _ = w.hide();
+    if matches!(w.label(), "settings" | "files" | "tasks" | "tour" | "overlay") {
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(300));
+            // unless you opened it again in that moment
+            if !w.is_visible().unwrap_or(false) {
+                let _ = w.destroy();
+            }
+        });
     }
-    let conf = app.config().app.windows.iter().find(|w| w.label == label)?.clone();
-    let w = tauri::WebviewWindowBuilder::from_config(app, &conf).ok()?.build().ok()?;
-    shell::round_corners(hwnd(&w));
-    Some(w)
+}
+
+#[tauri::command]
+fn put_away(window: WebviewWindow) {
+    close_screen(window);
 }
 
 /// Windows being built on demand, waiting for their page to say it's ready.
 static LOADING: Mutex<Vec<String>> = Mutex::new(Vec::new());
+/// Screens you asked for before they had loaded (and which page or folder): they open once ready.
+static WANTED: Mutex<Vec<(String, Option<String>)>> = Mutex::new(Vec::new());
+
+/// A screen that's ready to show. If it isn't yet, this returns None, starts loading it if
+/// needed, and remembers you asked: it opens by itself as soon as its page has loaded.
+fn ready_screen(app: &AppHandle, label: &str, arg: Option<String>) -> Option<WebviewWindow> {
+    let loading = LOADING.lock().unwrap().iter().any(|l| l == label);
+    if !loading {
+        if let Some(w) = app.get_webview_window(label) {
+            return Some(w);
+        }
+    }
+    {
+        let mut wanted = WANTED.lock().unwrap();
+        wanted.retain(|(l, _)| l != label);
+        wanted.push((label.to_string(), arg));
+    }
+    on_demand(app, label);
+    None
+}
+
+/// Loading everything at once made the whole PC stutter for a moment at startup. So only the
+/// taskbar and what has to react instantly load right away; the panels follow here one at a
+/// time, once the rush is over. Settings and Files only load when you first open them.
+fn load_panels(app: AppHandle) {
+    std::thread::sleep(Duration::from_secs(6));
+    for label in ["start", "quick", "search", "calendar", "notes", "tray"] {
+        on_demand(&app, label);
+        // until its page is done, but never long enough to hold the others up for good
+        let started = Instant::now();
+        while LOADING.lock().unwrap().iter().any(|l| l == label) && started.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        std::thread::sleep(Duration::from_millis(800));
+    }
+}
 /// The last tint the frosted glass got (see set_tint).
 static TINT: Mutex<Option<[u8; 4]>> = Mutex::new(None);
 
@@ -1305,8 +1358,14 @@ fn on_demand(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
     std::thread::spawn(move || {
         let built = app.config().app.windows.iter().find(|w| w.label == label).cloned().and_then(|conf| tauri::WebviewWindowBuilder::from_config(&app, &conf).ok()?.build().ok());
         match built {
-            Some(w) if label == "tasks" || label == "tour" => shell::round_corners(hwnd(&w)),
-            Some(_) => {}
+            Some(w) => {
+                if !matches!(label.as_str(), "idle" | "overlay") {
+                    shell::round_corners(hwnd(&w));
+                }
+                // a page that never reports in must not leave its screen unopenable
+                std::thread::sleep(Duration::from_secs(10));
+                screen_ready(app, w);
+            }
             None => LOADING.lock().unwrap().retain(|l| *l != label),
         }
     });
@@ -1317,13 +1376,16 @@ fn on_demand(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
 /// goes twice, because it's thrown away when you come back and has to build again.
 fn try_screens(app: AppHandle) {
     std::thread::sleep(Duration::from_secs(8));
-    for label in ["tasks", "overlay", "tour", "idle", "idle"] {
+    for label in ["settings", "settings", "files", "start", "quick", "search", "calendar", "notes", "tray", "tasks", "overlay", "tour", "idle", "idle"] {
         let started = Instant::now();
         match label {
+            "settings" => open_settings(app.clone(), None),
+            "files" => open_files(app.clone(), None),
             "tasks" => open_tasks(app.clone()),
             "overlay" => toggle_overlay(app.clone()),
             "tour" => open_tour(app.clone()),
-            _ => show_idle(app.clone()),
+            "idle" => show_idle(app.clone()),
+            _ => toggle(&app, label),
         }
         while !visible(&app, label) && started.elapsed() < Duration::from_secs(10) {
             std::thread::sleep(Duration::from_millis(25));
@@ -1334,7 +1396,7 @@ fn try_screens(app: AppHandle) {
             "idle" => hide_idle(app.clone()),
             _ => {
                 if let Some(w) = app.get_webview_window(label) {
-                    let _ = w.hide();
+                    close_screen(w);
                 }
             }
         }
@@ -1354,25 +1416,38 @@ fn screen_ready(app: AppHandle, window: WebviewWindow) {
         }
         loading.retain(|l| *l != label);
     }
-    match label.as_str() {
-        "tasks" => {
-            // it missed the tint the other screens got when the theme was set
-            if let Some(c) = *TINT.lock().unwrap() {
-                let _ = window.set_effects(EffectsBuilder::new().effect(Effect::Acrylic).color(Color(c[0], c[1], c[2], c[3])).build());
-            }
-            open_tasks(app);
+    // it missed the tint the other screens got when the theme was set
+    if !matches!(label.as_str(), "tour" | "overlay" | "idle") {
+        if let Some(c) = *TINT.lock().unwrap() {
+            let _ = window.set_effects(EffectsBuilder::new().effect(Effect::Acrylic).color(Color(c[0], c[1], c[2], c[3])).build());
         }
+    }
+    match label.as_str() {
+        "tasks" => open_tasks(app),
         "tour" => open_tour(app),
         "overlay" => toggle_overlay(app),
         "idle" => show_idle(app),
-        _ => {}
+        _ => {
+            let asked = {
+                let mut wanted = WANTED.lock().unwrap();
+                let at = wanted.iter().position(|(l, _)| *l == label);
+                at.map(|i| wanted.remove(i))
+            };
+            if let Some((_, arg)) = asked {
+                match label.as_str() {
+                    "settings" => open_settings(app, arg),
+                    "files" => open_files(app, arg),
+                    _ => toggle(&app, &label),
+                }
+            }
+        }
     }
 }
 
 /// Brings up Pink Cloud Files, optionally at a folder.
 #[tauri::command]
 fn open_files(app: AppHandle, path: Option<String>) {
-    let Some(win) = window_or_rebuild(&app, "files") else { return };
+    let Some(win) = ready_screen(&app, "files", path.clone()) else { return };
     if win.is_minimized().unwrap_or(false) {
         let _ = win.unminimize();
     }
@@ -1384,7 +1459,7 @@ fn open_files(app: AppHandle, path: Option<String>) {
 /// Brings up Pink Cloud Settings, optionally on a page.
 #[tauri::command]
 fn open_settings(app: AppHandle, page: Option<String>) {
-    let Some(win) = window_or_rebuild(&app, "settings") else { return };
+    let Some(win) = ready_screen(&app, "settings", page.clone()) else { return };
     if win.is_minimized().unwrap_or(false) {
         let _ = win.unminimize();
     }
@@ -1751,6 +1826,7 @@ fn main() {
             set_hit_rects,
             set_bar_capture,
             set_auto_hide,
+            put_away,
             set_layer_hits,
             notes_recent,
             app_name,
@@ -1867,6 +1943,8 @@ fn main() {
             std::thread::spawn(move || snapshot_watcher(handle));
             let handle = app.handle().clone();
             std::thread::spawn(move || idle_watcher(handle));
+            let handle = app.handle().clone();
+            std::thread::spawn(move || load_panels(handle));
 
             // notifications: pop-ups, the bell's count and the panel all hear about new ones
             let handle = app.handle().clone();
@@ -1931,7 +2009,12 @@ fn main() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                let _ = window.hide();
+                match window.app_handle().get_webview_window(window.label()) {
+                    Some(w) => close_screen(w),
+                    None => {
+                        let _ = window.hide();
+                    }
+                }
             }
         })
         .build(tauri::generate_context!())

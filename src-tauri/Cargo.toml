@@ -1,6 +1,6 @@
 [package]
 name = "pink-cloud"
-version = "2.3.0"
+version = "2.4.0"
 description = "Pink Cloud: a soft, cute replacement for the Windows taskbar, Start menu and quick settings"
 edition = "2021"
 

@@ -90,6 +90,7 @@
 
   listen("tray-changed", () => update(false));
   setupPopup("tray", () => update(true));
+  announceReady();
 </script>
 </body>
 </html>

@@ -90,6 +90,29 @@
   .pop { position: absolute; pointer-events: none; opacity: 0; filter: drop-shadow(0 0 16px rgba(255, 255, 255, .7)); animation: pop 6s var(--ease) forwards; }
   @keyframes pop { 0% { opacity: 0; transform: scale(.2) rotate(-24deg); } 18% { opacity: .85; transform: scale(1.12) rotate(6deg); } 28% { transform: scale(1) rotate(0); } 70% { opacity: .75; transform: translateY(-16px); } 100% { opacity: 0; transform: translateY(-46px) scale(.9); } }
 
+  /* Frutiger Aero: sun glare over green hills, ribbons of light flowing across a blue sky, and
+     bubbles rising up through it all */
+  .aero-sun, .aero-rays, .hill, .ribbons, .bub { display: none; }
+  :root[data-palette="aero"] .aero-sun, :root[data-palette="aero"] .aero-rays, :root[data-palette="aero"] .hill, :root[data-palette="aero"] .ribbons, :root[data-palette="aero"] .bub { display: block; }
+  :root[data-palette="aero"] .center { text-shadow: 0 2px 5px rgba(0, 70, 130, .5), 0 0 36px rgba(255, 255, 255, .55); }
+  :root[data-palette="aero"] .hint { text-shadow: 0 1px 4px rgba(0, 70, 30, .7); opacity: .9; }
+  :root[data-palette="aero"] .cloud { background: radial-gradient(closest-side, rgba(255, 255, 255, .85), rgba(255, 255, 255, 0)); filter: blur(10px); }
+  .aero-sun { position: absolute; left: -16vmax; top: -18vmax; width: 62vmax; height: 62vmax; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(closest-side, #fff 0, rgba(255, 255, 235, .7) 18%, rgba(255, 255, 255, .2) 46%, transparent); }
+  .aero-rays { position: absolute; left: -41vmax; top: -43vmax; width: 112vmax; height: 112vmax; border-radius: 50%; pointer-events: none;
+    background: repeating-conic-gradient(rgba(255, 255, 255, .16) 0 5deg, transparent 5deg 17deg);
+    -webkit-mask-image: radial-gradient(closest-side, #000 10%, transparent 92%); animation: spin 240s linear infinite; }
+  .hill { position: absolute; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(ellipse 70% 62% at 50% 0%, #d9fb8c 0, #96e04c 34%, #48b02f 72%, #2f9128 100%);
+    box-shadow: inset 0 16px 34px rgba(255, 255, 255, .6), 0 -6px 34px rgba(255, 255, 255, .45); }
+  .h1 { left: -14vw; width: 82vw; height: 64vh; bottom: -44vh; }
+  .h2 { right: -22vw; width: 100vw; height: 74vh; bottom: -56vh; }
+  .ribbons { position: absolute; left: -15vw; top: 8vh; width: 130vw; height: 82vh; pointer-events: none; animation: flow 46s ease-in-out infinite alternate; }
+  @keyframes flow { from { transform: translateX(-5vw) scaleY(.94); } to { transform: translateX(5vw) scaleY(1.06); } }
+  .bub { position: absolute; opacity: 0; animation: bubRise linear infinite; }
+  @keyframes bubRise { 0% { opacity: 0; transform: translate(0, 0) scale(.7); } 10% { opacity: .95; } 35% { transform: translate(26px, -35vh) scale(.9); }
+    70% { transform: translate(-18px, -72vh) scale(1); } 90% { opacity: .8; } 100% { opacity: 0; transform: translate(10px, -108vh) scale(1.06); } }
+
   .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
     text-shadow: 0 4px 24px rgba(120, 60, 120, .35); }
   .time { font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif; font-size: 190px; font-weight: 600; letter-spacing: -6px; line-height: 1; font-variant-numeric: tabular-nums;
@@ -214,6 +237,22 @@
     Object.assign(el.style, { left: (Math.random() < .5 ? 3 + Math.random() * 17 : 76 + Math.random() * 16) + "vw", top: 8 + Math.random() * 60 + "vh" });
     setTimeout(() => el.remove(), 6100);
   }, 2400);
+
+  // Frutiger Aero: sun, hills, ribbons of light and bubbles (only shown in that theme)
+  for (let i = 0; i < 28; i++) {
+    const size = 14 + Math.random() ** 2 * 96;
+    document.body.insertAdjacentHTML("afterbegin", `<div class="bub pc-bubble"></div>`);
+    Object.assign(document.body.firstElementChild.style, { width: size + "px", height: size + "px", left: Math.random() * 100 + "vw", top: 72 + Math.random() * 38 + "vh",
+      animationDuration: 13 + Math.random() * 15 + "s", animationDelay: -Math.random() * 28 + "s" });
+  }
+  document.body.insertAdjacentHTML("afterbegin", `<div class="hill h2"></div><div class="hill h1"></div>`);
+  document.body.insertAdjacentHTML("afterbegin", `<svg class="ribbons" viewBox="0 0 1600 800" preserveAspectRatio="none">
+    <defs><linearGradient id="rib" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".3" stop-color="#fff" stop-opacity=".5"/><stop offset=".7" stop-color="#c8f4ff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    <path fill="url(#rib)" opacity=".75" d="M0 470C260 300 520 300 800 420S1340 560 1600 360V430C1340 640 1060 620 800 500S260 390 0 540Z"/>
+    <path fill="url(#rib)" opacity=".5" d="M0 330C300 460 560 500 840 380S1320 200 1600 300V330C1320 250 1120 330 840 450S300 540 0 390Z"/>
+    <path fill="url(#rib)" opacity=".4" d="M0 620C340 500 640 600 900 640S1360 620 1600 500V570C1360 700 1140 730 900 700S340 590 0 680Z"/>
+  </svg>`);
+  document.body.insertAdjacentHTML("afterbegin", `<div class="aero-rays"></div><div class="aero-sun"></div>`);
 
   // Cosmos: a shooting star every few seconds
   setInterval(() => {

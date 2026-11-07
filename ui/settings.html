@@ -206,13 +206,10 @@
   const REPORT_TO = "notunisthegoat@gmail.com";
   // color themes: id, name, and the colors of their little preview scene
   const PALETTES = [
-    ["pink", "Pink Cloud", "linear-gradient(135deg, #fbd3e0, #c9a8e6 60%, #9cc9ec)", "#f2a6c0", "#8cc6e6"],
-    ["lavender", "Lavender", "linear-gradient(135deg, #eadcff, #c4b2f2 55%, #9fc4ef)", "#c4a7f2", "#9cc4f2"],
-    ["mint", "Mint", "linear-gradient(135deg, #d8f7ea, #a9dccf 55%, #f4c6d4)", "#8fe0c2", "#f6b8cb"],
-    ["sunset", "Sunset", "linear-gradient(135deg, #ffe2c4, #ffad8a 45%, #f79bb5 75%, #b98bd8)", "#ffb38a", "#f78bb0"],
     ["cosmos", "Cosmos", "radial-gradient(60% 60% at 30% 35%, #6d3fe0aa, transparent 70%), radial-gradient(50% 50% at 75% 70%, #22d3ee66, transparent 70%), linear-gradient(160deg, #0b0a24, #120c33 50%, #05081c)", "#a78bfa", "#22d3ee"],
     ["grove", "Grove", "linear-gradient(115deg, transparent 45%, #f3dd7244 52%, transparent 60%), radial-gradient(60% 50% at 50% 110%, #5abe3c99, transparent 70%), linear-gradient(170deg, #1a5a2a, #0b2a16 55%, #061a0d)", "#8fdc5a", "#3ff0c0"],
     ["bubblegum", "Bubblegum", "repeating-linear-gradient(135deg, #ffffff33 0 8px, transparent 8px 16px), linear-gradient(135deg, #ff9fd6, #d3a6f2 50%, #86c9ff)", "#ff8ccb", "#6ec6ff"],
+    ["aero", "Frutiger Aero", "linear-gradient(180deg, rgba(255, 255, 255, .4), transparent 45%), radial-gradient(40% 50% at 18% 12%, #fff, transparent 70%), radial-gradient(90% 55% at 70% 118%, #8edc4a 62%, transparent 64%), linear-gradient(180deg, #1e96e6, #8fd9fa 75%)", "#4fc3f7", "#8edc5a"],
   ];
   let page = "home";
   let info = null, drives = [], apps = [], appQuery = "";
@@ -334,6 +331,7 @@
     async look(m) {
       m.append(h("h2", "", "Color theme"));
       const themes = h("div", "themes");
+      let customCard = null;
       PALETTES.forEach(([id, name, sky, a, b]) => {
         const c = h("div", "theme tilt" + (currentPalette() === id ? " on" : ""));
         c.innerHTML = `<div class="scene" style="background:${sky}">${id === "cosmos" ? '<i class="stars"></i>' : ""}<div class="mini"><span style="background:${a}"></span><span style="background:${b}"></span><span style="background:${a}"></span></div></div><b></b>`;
@@ -348,6 +346,7 @@
         c.querySelector("b").textContent = name;
         c.onclick = () => { store.set("pc-palette", id); applyTheme(); show("look"); };
         themes.append(c);
+        if (id === "custom") customCard = c;
       });
       m.append(themes);
       if (currentPalette() === "wallpaper") {
@@ -359,10 +358,15 @@
         const pick = h("div"); pick.style.cssText = "display:flex;gap:8px";
         [["g1", "Main"], ["g2", "Second"], ["g3", "Accent"]].forEach(([k, label]) => {
           const inp = h("input"); inp.type = "color"; inp.value = col[k]; inp.title = label; inp.className = "swatch";
-          inp.oninput = () => { col[k] = inp.value; store.set("pc-custom-colors", col); applyTheme(); code.textContent = codeOf(col); };
+          // the card shows the gradient as you change it, not only the next time this page opens
+          inp.oninput = () => {
+            col[k] = inp.value; store.set("pc-custom-colors", col); applyTheme(); code.textContent = codeOf(col);
+            customCard.querySelector(".scene").style.background = `linear-gradient(135deg, ${col.g1}, ${col.g3} 55%, ${col.g2})`;
+            customCard.querySelectorAll(".mini span").forEach((sp, i) => { sp.style.background = col[["g1", "g2", "g3"][i]]; });
+          };
           pick.append(inp);
         });
-        m.append(row("ph-paint-brush", "Your colors", "Main, second and accent color", pick));
+        m.append(row("ph-paint-brush", "Your gradient", "Pick its main, second and accent color. It washes across all your panels", pick));
         // a theme code to share with friends: PC-main-second-accent
         const codeOf = c => "PC-" + [c.g1, c.g2, c.g3].map(x => x.slice(1).toUpperCase()).join("-");
         const code = h("code", "", codeOf(col));
@@ -382,7 +386,7 @@
         m.append(row("ph-clipboard-text", "Use a theme code", "Got a code from someone? Paste it here", pr));
       }
       m.append(h("h2", "", "Pink Cloud"));
-      m.append(row("ph-circle-half", "Light or dark", "Follow Windows, or always light or dark (Cosmos is always dark)",
+      m.append(row("ph-circle-half", "Light or dark", "Follow Windows, or always light or dark (Cosmos and Grove stay dark, Frutiger Aero stays bright)",
         choice([["auto", "Follow Windows"], ["light", "Light"], ["dark", "Dark"]], prefs.theme(), setTheme)));
       m.append(row("ph-waveform", "Music visualizer", "Bars behind the taskbar that move with what's playing",
         choice([["huge", "Huge"], ["big", "Big"], ["subtle", "Subtle"], ["off", "Off"]], prefs.vis(), v => store.set("pc-vis", v))));
@@ -862,8 +866,7 @@
         toggle(d.closeOthers, on => { d.closeOthers = on; })));
 
       m.append(h("h2", "", "Everything else"));
-      const shortName = JSON.parse(d.look["pc-palette"] || '"pink"');
-      part("look", "ph-palette", "Look", `Your theme (${shortName}), wallpaper, visualizer and auto-hide`);
+      part("look", "ph-palette", "Look", `Your theme (${themeName(JSON.parse(d.look["pc-palette"] || '"custom"'))}), wallpaper, visualizer and auto-hide`);
       const sounds = d.sound?.apps?.map(a => a.name).join(", ");
       part("sound", "ph-speaker-high", "Sound", "Your volume" + (sounds ? `, and ${sounds}` : "") + ". An app gets its volume once it opens its sound");
       part("mood", "ph-microphone-stage", "Lyrics, player and notifications", "Whether they're on, where lyrics sit, and Do Not Disturb");
@@ -939,6 +942,7 @@
     pcname.textContent = info.pc_name;
     show("home");
   })();
+  announceReady();
 </script>
 </body>
 </html>

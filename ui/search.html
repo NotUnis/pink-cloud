@@ -81,8 +81,8 @@
     ["Recycle Bin", () => invoke("launch", { path: "shell:RecycleBinFolder" }), "ph-trash", "recycle bin trash"],
     ["Game overlay", () => invoke("toggle_overlay"), "ph-game-controller", "game overlay"],
     ["Idle screen", () => invoke("show_idle"), "ph-moon-stars", "idle screensaver"],
-    ...["pink", "lavender", "mint", "sunset", "cosmos", "grove", "bubblegum", "wallpaper", "custom"].map(p => [
-      `Theme: ${p[0].toUpperCase() + p.slice(1)}`, () => store.set("pc-palette", p), "ph-palette", "theme color colour " + p]),
+    ...["cosmos", "grove", "bubblegum", "aero", "wallpaper", "custom"].map(p => [
+      `Theme: ${themeName(p)}`, () => store.set("pc-palette", p), "ph-palette", "theme color colour gradient " + p]),
     ["Save as scene", () => saveNewScene(), "ph-magic-wand", "scene save setup layout"],
     ["Start focus", () => startFocus(), "ph-target", "focus concentrate study work pomodoro timer"],
     ["End focus", () => stopFocus(false), "ph-target", "focus stop end"],
@@ -343,6 +343,7 @@
     build();
     loadApps(); loadWeather();
   });
+  announceReady();
 </script>
 </body>
 </html>
